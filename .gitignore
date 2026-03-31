@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.local
+*.log
+.vscode/
+.idea/
+node_modules/
+.kotlin/
+apps/web/.next/
+apps/web/build/
+apps/web/coverage/
+apps/web/node_modules/
+apps/web/out/
+apps/api/.gradle/
+apps/api/build/
+apps/api/out/

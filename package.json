@@ -1,0 +1,13 @@
+{
+  "name": "openforge",
+  "private": true,
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "dev:api": "./scripts/dev-api.sh",
+    "dev:web": "./scripts/dev-web.sh",
+    "dev:all": "./scripts/dev-all.sh",
+    "web:dev": "pnpm --filter web dev",
+    "web:lint": "pnpm --filter web lint",
+    "web:test": "pnpm --filter web test --run"
+  }
+}

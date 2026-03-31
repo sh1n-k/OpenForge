@@ -1,0 +1,167 @@
+package com.openforge.api.strategy.web
+
+import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.PayloadFormat
+import com.openforge.api.strategy.domain.StrategyStatus
+import com.openforge.api.strategy.domain.StrategyType
+import com.openforge.api.strategy.domain.StrategyValidationStatus
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
+import java.time.OffsetDateTime
+import java.util.UUID
+
+data class CreateStrategyRequest(
+    @field:NotBlank
+    val name: String,
+    val description: String? = null,
+    @field:NotNull
+    val strategyType: StrategyType,
+    @field:Valid
+    @field:NotNull
+    val initialPayload: StrategyPayloadRequest,
+)
+
+data class StrategyPayloadRequest(
+    @field:NotNull
+    val payloadFormat: PayloadFormat,
+    @field:NotNull
+    val payload: Map<String, Any?>,
+    val changeSummary: String? = null,
+)
+
+data class UpdateStrategyRequest(
+    val name: String? = null,
+    val description: String? = null,
+    val status: StrategyStatus? = null,
+)
+
+data class ReplaceStrategyUniversesRequest(
+    @field:NotNull
+    val universeIds: List<UUID>,
+)
+
+data class StrategyValidationMessageResponse(
+    val category: String,
+    val message: String,
+)
+
+data class StrategyValidateRequest(
+    @field:NotNull
+    val strategyType: StrategyType,
+    @field:NotNull
+    val payloadFormat: PayloadFormat,
+    @field:NotNull
+    val payload: Map<String, Any?>,
+)
+
+data class StrategyValidateResponse(
+    val valid: Boolean,
+    val normalizedSpec: Map<String, Any?>?,
+    val yamlPreview: String,
+    val errors: List<StrategyValidationMessageResponse>,
+    val warnings: List<StrategyValidationMessageResponse>,
+    val summary: String,
+)
+
+data class StrategySummaryResponse(
+    val id: UUID,
+    val name: String,
+    val description: String?,
+    val strategyType: StrategyType,
+    val status: StrategyStatus,
+    val latestVersionId: UUID?,
+    val latestVersionNumber: Int?,
+    val versionCount: Long,
+    val universeCount: Long,
+    val updatedAt: OffsetDateTime,
+)
+
+data class StrategyVersionResponse(
+    val id: UUID,
+    val versionNumber: Int,
+    val payloadFormat: PayloadFormat,
+    val payload: Map<String, Any?>,
+    val validationStatus: StrategyValidationStatus,
+    val validationErrors: List<StrategyValidationMessageResponse>,
+    val validationWarnings: List<StrategyValidationMessageResponse>,
+    val changeSummary: String?,
+    val createdAt: OffsetDateTime,
+)
+
+data class UniverseReferenceResponse(
+    val id: UUID,
+    val name: String,
+    val description: String?,
+)
+
+data class StrategyDetailResponse(
+    val id: UUID,
+    val name: String,
+    val description: String?,
+    val strategyType: StrategyType,
+    val status: StrategyStatus,
+    val latestVersionId: UUID?,
+    val latestVersionNumber: Int?,
+    val versionCount: Long,
+    val universeCount: Long,
+    val latestValidationStatus: StrategyValidationStatus?,
+    val latestValidationErrors: List<StrategyValidationMessageResponse>,
+    val latestValidationWarnings: List<StrategyValidationMessageResponse>,
+    val latestVersion: StrategyVersionResponse?,
+    val universes: List<UniverseReferenceResponse>,
+    val createdAt: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+)
+
+data class CreateUniverseRequest(
+    @field:NotBlank
+    val name: String,
+    val description: String? = null,
+)
+
+data class UpdateUniverseRequest(
+    val name: String? = null,
+    val description: String? = null,
+)
+
+data class UniverseSymbolInput(
+    @field:NotBlank
+    val symbol: String,
+    val market: MarketType = MarketType.DOMESTIC,
+    @field:NotBlank
+    val displayName: String,
+    val sortOrder: Int = 0,
+)
+
+data class ReplaceUniverseSymbolsRequest(
+    @field:NotNull
+    val symbols: List<@Valid UniverseSymbolInput>,
+)
+
+data class UniverseSummaryResponse(
+    val id: UUID,
+    val name: String,
+    val description: String?,
+    val symbolCount: Long,
+    val strategyCount: Long,
+    val updatedAt: OffsetDateTime,
+)
+
+data class UniverseSymbolResponse(
+    val symbol: String,
+    val market: MarketType,
+    val displayName: String,
+    val sortOrder: Int,
+)
+
+data class UniverseDetailResponse(
+    val id: UUID,
+    val name: String,
+    val description: String?,
+    val symbolCount: Long,
+    val strategyCount: Long,
+    val symbols: List<UniverseSymbolResponse>,
+    val createdAt: OffsetDateTime,
+    val updatedAt: OffsetDateTime,
+)
