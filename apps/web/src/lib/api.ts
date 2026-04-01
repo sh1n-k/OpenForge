@@ -27,7 +27,8 @@ export type OrderLifecycleStatus =
 export type OrderRequestStatus =
   | "requested"
   | "rejected_duplicate"
-  | "rejected_precheck";
+  | "rejected_precheck"
+  | "rejected_risk";
 
 export type StrategyValidationMessage = {
   category: string;
@@ -150,6 +151,16 @@ export type OrderCandidate = {
   mode: OrderMode;
   alreadyRequested: boolean;
   precheck: OrderPrecheck;
+  riskCheck: RiskCheck;
+};
+
+export type RiskCheck = {
+  passed: boolean;
+  reasonCodes: string[];
+  projectedSymbolExposure: number | null;
+  projectedStrategyExposure: number | null;
+  projectedOpenPositions: number;
+  currentDailyRealizedLoss: number;
 };
 
 export type OrderRequest = {
@@ -196,6 +207,50 @@ export type StrategyPosition = {
   netQuantity: number;
   avgEntryPrice: number;
   lastFillAt: string | null;
+};
+
+export type StrategyRiskMode = "paper";
+
+export type StrategyRiskConfig = {
+  mode: StrategyRiskMode;
+  perSymbolMaxNotional: number | null;
+  strategyMaxExposure: number | null;
+  maxOpenPositions: number | null;
+  dailyLossLimit: number | null;
+  strategyKillSwitchEnabled: boolean;
+  updatedAt: string;
+};
+
+export type StrategyRiskEventScope = "strategy" | "global";
+export type StrategyRiskEventType =
+  | "order_blocked"
+  | "strategy_kill_switch_changed"
+  | "daily_loss_limit_tripped";
+
+export type StrategyRiskEvent = {
+  id: string;
+  strategyId: string;
+  orderRequestId: string | null;
+  scope: StrategyRiskEventScope;
+  eventType: StrategyRiskEventType;
+  reasonCode: string;
+  message: string;
+  payload: Record<string, unknown>;
+  occurredAt: string;
+};
+
+export type SystemRisk = {
+  killSwitchEnabled: boolean;
+  updatedAt: string | null;
+};
+
+export type SystemRiskEvent = {
+  id: number;
+  eventType: string;
+  reasonCode: string;
+  message: string;
+  payload: Record<string, unknown>;
+  occurredAt: string;
 };
 
 export type BacktestHeadlineMetrics = {
@@ -390,6 +445,18 @@ export async function loadStrategyOrderCandidates(
   );
 }
 
+export async function loadStrategyRisk(strategyId: string) {
+  return apiFetch<StrategyRiskConfig>(`/api/v1/strategies/${strategyId}/risk`);
+}
+
+export async function loadStrategyRiskEvents(strategyId: string, limit = 50) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<StrategyRiskEvent[]>(
+    `/api/v1/strategies/${strategyId}/risk/events?${params.toString()}`,
+  );
+}
+
 export async function loadStrategyOrderRequests(
   strategyId: string,
   limit = 20,
@@ -423,6 +490,18 @@ export async function loadStrategyFills(strategyId: string, limit = 50) {
 
 export async function loadStrategyPositions(strategyId: string) {
   return apiFetch<StrategyPosition[]>(`/api/v1/strategies/${strategyId}/positions`);
+}
+
+export async function loadSystemRisk() {
+  return apiFetch<SystemRisk>("/api/v1/system/risk");
+}
+
+export async function loadSystemRiskEvents(limit = 20) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<SystemRiskEvent[]>(
+    `/api/v1/system/risk/events?${params.toString()}`,
+  );
 }
 
 export async function loadStrategyVersions(strategyId: string) {
@@ -466,6 +545,29 @@ export async function updateStrategyExecution(
       body: JSON.stringify(input),
     },
   );
+}
+
+export async function updateStrategyRisk(
+  strategyId: string,
+  input: {
+    perSymbolMaxNotional: number | null;
+    strategyMaxExposure: number | null;
+    maxOpenPositions: number | null;
+    dailyLossLimit: number | null;
+    strategyKillSwitchEnabled: boolean;
+  },
+) {
+  return apiFetch<StrategyRiskConfig>(`/api/v1/strategies/${strategyId}/risk`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateSystemRiskKillSwitch(input: { enabled: boolean }) {
+  return apiFetch<SystemRisk>("/api/v1/system/risk/kill-switch", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function addStrategyVersion(

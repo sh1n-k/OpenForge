@@ -35,6 +35,8 @@ describe("StrategyDetailClient", () => {
         signals={signalsFixture}
         orderCandidates={orderCandidatesFixture}
         orderRequests={orderRequestsFixture}
+        riskConfig={riskConfigFixture}
+        riskEvents={riskEventsFixture}
         fills={fillsFixture}
         positions={positionsFixture}
         statusEventsByRequestId={statusEventsByRequestIdFixture}
@@ -45,6 +47,8 @@ describe("StrategyDetailClient", () => {
     expect(screen.getAllByText("paper").length).toBeGreaterThan(0);
     expect(screen.getByText("최근 실행 로그")).toBeInTheDocument();
     expect(screen.getByText("최근 시그널 이력")).toBeInTheDocument();
+    expect(screen.getByText("리스크 설정")).toBeInTheDocument();
+    expect(screen.getByText("최근 리스크 이벤트")).toBeInTheDocument();
     expect(screen.getByText("체결 이력")).toBeInTheDocument();
     expect(screen.getByText("현재 포지션")).toBeInTheDocument();
     expect(screen.getByText(/current partially_filled/)).toBeInTheDocument();
@@ -87,6 +91,8 @@ describe("StrategyDetailClient", () => {
         signals={signalsFixture}
         orderCandidates={orderCandidatesFixture}
         orderRequests={orderRequestsFixture}
+        riskConfig={riskConfigFixture}
+        riskEvents={riskEventsFixture}
         fills={fillsFixture}
         positions={positionsFixture}
         statusEventsByRequestId={statusEventsByRequestIdFixture}
@@ -115,6 +121,48 @@ describe("StrategyDetailClient", () => {
     });
   });
 
+  it("saves strategy risk settings", async () => {
+    const updateRisk = vi
+      .spyOn(apiModule, "updateStrategyRisk")
+      .mockResolvedValue(riskConfigFixture);
+
+    render(
+      <StrategyDetailClient
+        strategy={strategyFixture}
+        versions={versionsFixture}
+        universes={universesFixture}
+        execution={executionFixture}
+        runs={runsFixture}
+        signals={signalsFixture}
+        orderCandidates={orderCandidatesFixture}
+        orderRequests={orderRequestsFixture}
+        riskConfig={riskConfigFixture}
+        riskEvents={riskEventsFixture}
+        fills={fillsFixture}
+        positions={positionsFixture}
+        statusEventsByRequestId={statusEventsByRequestIdFixture}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("종목당 투자 한도"), {
+      target: { value: "1500000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "리스크 저장" }));
+
+    await waitFor(() => {
+      expect(updateRisk).toHaveBeenCalledWith("strategy-1", {
+        perSymbolMaxNotional: 1500000,
+        strategyMaxExposure: 2000000,
+        maxOpenPositions: 5,
+        dailyLossLimit: 100000,
+        strategyKillSwitchEnabled: false,
+      });
+    });
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalled();
+    });
+  });
+
   it("registers a manual fill for an order request", async () => {
     const createOrderFill = vi
       .spyOn(apiModule, "createOrderFill")
@@ -130,6 +178,8 @@ describe("StrategyDetailClient", () => {
         signals={signalsFixture}
         orderCandidates={orderCandidatesFixture}
         orderRequests={orderRequestsFixture}
+        riskConfig={riskConfigFixture}
+        riskEvents={riskEventsFixture}
         fills={fillsFixture}
         positions={positionsFixture}
         statusEventsByRequestId={statusEventsByRequestIdFixture}
@@ -175,9 +225,16 @@ describe("StrategyDetailClient", () => {
               duplicateOrder: true,
               reasonCodes: ["duplicate_order"],
             },
+            riskCheck: {
+              ...orderCandidatesFixture[0].riskCheck,
+              passed: false,
+              reasonCodes: ["global_kill_switch"],
+            },
           },
         ]}
         orderRequests={[]}
+        riskConfig={riskConfigFixture}
+        riskEvents={riskEventsFixture}
         fills={[]}
         positions={[]}
         statusEventsByRequestId={{}}
@@ -315,6 +372,14 @@ const orderCandidatesFixture: apiModule.OrderCandidate[] = [
       priceValid: true,
       reasonCodes: [],
     },
+    riskCheck: {
+      passed: true,
+      reasonCodes: [],
+      projectedSymbolExposure: 246.9,
+      projectedStrategyExposure: 246.9,
+      projectedOpenPositions: 1,
+      currentDailyRealizedLoss: 0,
+    },
   },
 ];
 
@@ -385,5 +450,29 @@ const positionsFixture: apiModule.StrategyPosition[] = [
     netQuantity: 1,
     avgEntryPrice: 123.45,
     lastFillAt: "2026-04-01T09:31:30+09:00",
+  },
+];
+
+const riskConfigFixture: apiModule.StrategyRiskConfig = {
+  mode: "paper",
+  perSymbolMaxNotional: 1000000,
+  strategyMaxExposure: 2000000,
+  maxOpenPositions: 5,
+  dailyLossLimit: 100000,
+  strategyKillSwitchEnabled: false,
+  updatedAt: "2026-04-01T09:00:00+09:00",
+};
+
+const riskEventsFixture: apiModule.StrategyRiskEvent[] = [
+  {
+    id: "risk-event-1",
+    strategyId: "strategy-1",
+    orderRequestId: null,
+    scope: "strategy",
+    eventType: "order_blocked",
+    reasonCode: "per_symbol_max_notional",
+    message: "종목 한도 초과",
+    payload: {},
+    occurredAt: "2026-04-01T09:10:00+09:00",
   },
 ];

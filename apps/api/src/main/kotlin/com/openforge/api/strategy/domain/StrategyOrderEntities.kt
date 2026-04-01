@@ -122,6 +122,9 @@ class StrategyOrderFillEntity(
     @Column(nullable = false, precision = 19, scale = 6)
     var price: BigDecimal,
 
+    @Column(name = "realized_pnl", nullable = false, precision = 19, scale = 6)
+    var realizedPnl: BigDecimal = BigDecimal.ZERO,
+
     @Column(name = "filled_at", nullable = false)
     var filledAt: OffsetDateTime,
 

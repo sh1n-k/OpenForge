@@ -7,9 +7,11 @@ import com.openforge.api.strategy.domain.OrderMode
 import com.openforge.api.strategy.domain.OrderRequestStatus
 import com.openforge.api.strategy.domain.OrderSide
 import com.openforge.api.strategy.domain.PayloadFormat
+import com.openforge.api.strategy.domain.RiskEventScope
 import com.openforge.api.strategy.domain.StrategyExecutionMode
 import com.openforge.api.strategy.domain.StrategyExecutionRunStatus
 import com.openforge.api.strategy.domain.StrategyExecutionTriggerType
+import com.openforge.api.strategy.domain.StrategyRiskEventType
 import com.openforge.api.strategy.domain.StrategySignalType
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyType
@@ -191,6 +193,15 @@ data class OrderPrecheckResponse(
     val reasonCodes: List<String>,
 )
 
+data class OrderRiskCheckResponse(
+    val passed: Boolean,
+    val reasonCodes: List<String>,
+    val projectedSymbolExposure: Double,
+    val projectedStrategyExposure: Double,
+    val projectedOpenPositions: Int,
+    val currentDailyRealizedLoss: Double,
+)
+
 data class OrderCandidateResponse(
     val signalEventId: UUID,
     val executionRunId: UUID,
@@ -203,6 +214,7 @@ data class OrderCandidateResponse(
     val mode: OrderMode,
     val alreadyRequested: Boolean,
     val precheck: OrderPrecheckResponse,
+    val riskCheck: OrderRiskCheckResponse,
 )
 
 data class OrderRequestResponse(
@@ -256,6 +268,56 @@ data class StrategyPositionResponse(
     val netQuantity: Long,
     val avgEntryPrice: Double,
     val lastFillAt: OffsetDateTime?,
+)
+
+data class UpdateStrategyRiskRequest(
+    val perSymbolMaxNotional: Double? = null,
+    val strategyMaxExposure: Double? = null,
+    val maxOpenPositions: Int? = null,
+    val dailyLossLimit: Double? = null,
+    @field:NotNull
+    val strategyKillSwitchEnabled: Boolean,
+)
+
+data class StrategyRiskResponse(
+    val mode: OrderMode,
+    val perSymbolMaxNotional: Double?,
+    val strategyMaxExposure: Double?,
+    val maxOpenPositions: Int?,
+    val dailyLossLimit: Double?,
+    val strategyKillSwitchEnabled: Boolean,
+    val updatedAt: OffsetDateTime,
+)
+
+data class StrategyRiskEventResponse(
+    val id: UUID,
+    val strategyId: UUID,
+    val orderRequestId: UUID?,
+    val scope: RiskEventScope,
+    val eventType: StrategyRiskEventType,
+    val reasonCode: String,
+    val message: String,
+    val payload: Map<String, Any?>,
+    val occurredAt: OffsetDateTime,
+)
+
+data class UpdateGlobalRiskKillSwitchRequest(
+    @field:NotNull
+    val enabled: Boolean,
+)
+
+data class GlobalRiskResponse(
+    val killSwitchEnabled: Boolean,
+    val updatedAt: OffsetDateTime?,
+)
+
+data class GlobalRiskEventResponse(
+    val id: Long,
+    val eventType: String,
+    val reasonCode: String,
+    val message: String,
+    val payload: Map<String, Any?>,
+    val occurredAt: OffsetDateTime,
 )
 
 data class CreateUniverseRequest(

@@ -46,6 +46,7 @@ enum class OrderRequestStatus(@get:JsonValue val value: String) {
     PENDING("pending"),
     REJECTED_DUPLICATE("rejected_duplicate"),
     REJECTED_PRECHECK("rejected_precheck"),
+    REJECTED_RISK("rejected_risk"),
     ;
 
     companion object {
@@ -83,5 +84,32 @@ enum class OrderFillSource(@get:JsonValue val value: String) {
         @JsonCreator
         fun fromValue(value: String): OrderFillSource = entries.firstOrNull { it.value == value }
             ?: throw IllegalArgumentException("Unsupported orderFillSource: $value")
+    }
+}
+
+enum class RiskEventScope(@get:JsonValue val value: String) {
+    STRATEGY("strategy"),
+    GLOBAL("global"),
+    ;
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromValue(value: String): RiskEventScope = entries.firstOrNull { it.value == value }
+            ?: throw IllegalArgumentException("Unsupported riskEventScope: $value")
+    }
+}
+
+enum class StrategyRiskEventType(@get:JsonValue val value: String) {
+    ORDER_BLOCKED("order_blocked"),
+    STRATEGY_KILL_SWITCH_CHANGED("strategy_kill_switch_changed"),
+    DAILY_LOSS_LIMIT_TRIPPED("daily_loss_limit_tripped"),
+    ;
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromValue(value: String): StrategyRiskEventType = entries.firstOrNull { it.value == value }
+            ?: throw IllegalArgumentException("Unsupported strategyRiskEventType: $value")
     }
 }

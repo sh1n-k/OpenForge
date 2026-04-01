@@ -10,12 +10,15 @@ import {
   createOrderRequest,
   replaceStrategyUniverses,
   updateStrategyExecution,
+  updateStrategyRisk,
   type StrategyDetail,
   type StrategyExecutionResponse,
   type OrderCandidate,
   type OrderFill,
   type OrderRequest,
   type OrderStatusEvent,
+  type StrategyRiskConfig,
+  type StrategyRiskEvent,
   type StrategyExecutionRun,
   type StrategySignalEvent,
   type StrategyPosition,
@@ -32,6 +35,8 @@ type StrategyDetailClientProps = {
   signals: StrategySignalEvent[];
   orderCandidates: OrderCandidate[];
   orderRequests: OrderRequest[];
+  riskConfig: StrategyRiskConfig;
+  riskEvents: StrategyRiskEvent[];
   fills: OrderFill[];
   positions: StrategyPosition[];
   statusEventsByRequestId: Record<string, OrderStatusEvent[]>;
@@ -46,6 +51,8 @@ export function StrategyDetailClient({
   signals,
   orderCandidates,
   orderRequests,
+  riskConfig,
+  riskEvents,
   fills,
   positions,
   statusEventsByRequestId,
@@ -58,8 +65,16 @@ export function StrategyDetailClient({
   const [scheduleTime, setScheduleTime] = useState(execution.scheduleTime);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingRisk, setIsSavingRisk] = useState(false);
   const [pendingOrderSignalId, setPendingOrderSignalId] = useState<string | null>(null);
   const [pendingFillRequestId, setPendingFillRequestId] = useState<string | null>(null);
+  const [riskDraft, setRiskDraft] = useState({
+    perSymbolMaxNotional: stringifyNullable(riskConfig.perSymbolMaxNotional),
+    strategyMaxExposure: stringifyNullable(riskConfig.strategyMaxExposure),
+    maxOpenPositions: stringifyNullable(riskConfig.maxOpenPositions),
+    dailyLossLimit: stringifyNullable(riskConfig.dailyLossLimit),
+    strategyKillSwitchEnabled: riskConfig.strategyKillSwitchEnabled,
+  });
   const [fillDrafts, setFillDrafts] = useState<
     Record<string, { quantity: string; price: string }>
   >({});
@@ -72,6 +87,22 @@ export function StrategyDetailClient({
     setEnabled(execution.enabled);
     setScheduleTime(execution.scheduleTime);
   }, [execution.enabled, execution.scheduleTime]);
+
+  useEffect(() => {
+    setRiskDraft({
+      perSymbolMaxNotional: stringifyNullable(riskConfig.perSymbolMaxNotional),
+      strategyMaxExposure: stringifyNullable(riskConfig.strategyMaxExposure),
+      maxOpenPositions: stringifyNullable(riskConfig.maxOpenPositions),
+      dailyLossLimit: stringifyNullable(riskConfig.dailyLossLimit),
+      strategyKillSwitchEnabled: riskConfig.strategyKillSwitchEnabled,
+    });
+  }, [
+    riskConfig.dailyLossLimit,
+    riskConfig.maxOpenPositions,
+    riskConfig.perSymbolMaxNotional,
+    riskConfig.strategyKillSwitchEnabled,
+    riskConfig.strategyMaxExposure,
+  ]);
 
   async function handleExecutionSave() {
     try {
@@ -104,6 +135,27 @@ export function StrategyDetailClient({
           ? universeError.message
           : "유니버스 연결 저장에 실패했습니다.",
       );
+    }
+  }
+
+  async function handleSaveRisk() {
+    try {
+      setError(null);
+      setIsSavingRisk(true);
+      await updateStrategyRisk(strategy.id, {
+        perSymbolMaxNotional: parseNullableNumber(riskDraft.perSymbolMaxNotional),
+        strategyMaxExposure: parseNullableNumber(riskDraft.strategyMaxExposure),
+        maxOpenPositions: parseNullableInteger(riskDraft.maxOpenPositions),
+        dailyLossLimit: parseNullableNumber(riskDraft.dailyLossLimit),
+        strategyKillSwitchEnabled: riskDraft.strategyKillSwitchEnabled,
+      });
+      startTransition(() => router.refresh());
+    } catch (riskError) {
+      setError(
+        riskError instanceof Error ? riskError.message : "리스크 설정 저장에 실패했습니다.",
+      );
+    } finally {
+      setIsSavingRisk(false);
     }
   }
 
@@ -378,6 +430,163 @@ export function StrategyDetailClient({
         </section>
       </section>
 
+      <section className="grid gap-6 md:grid-cols-2">
+        <section className="rounded-[1.75rem] border border-amber-200 bg-amber-50 p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+                risk
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+                리스크 설정
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                null 값은 비활성입니다. 전략별 킬 스위치만 바로 전환할 수 있습니다.
+              </p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
+              {riskConfig.mode}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-4">
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span>종목당 투자 한도</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={riskDraft.perSymbolMaxNotional}
+                onChange={(event) =>
+                  setRiskDraft((current) => ({
+                    ...current,
+                    perSymbolMaxNotional: event.target.value,
+                  }))
+                }
+                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
+              />
+            </label>
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span>전략당 최대 노출</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={riskDraft.strategyMaxExposure}
+                onChange={(event) =>
+                  setRiskDraft((current) => ({
+                    ...current,
+                    strategyMaxExposure: event.target.value,
+                  }))
+                }
+                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
+              />
+            </label>
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span>동시 보유 수 제한</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={riskDraft.maxOpenPositions}
+                onChange={(event) =>
+                  setRiskDraft((current) => ({
+                    ...current,
+                    maxOpenPositions: event.target.value,
+                  }))
+                }
+                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
+              />
+            </label>
+            <label className="grid gap-2 text-sm text-slate-700">
+              <span>일일 손실 한도</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={riskDraft.dailyLossLimit}
+                onChange={(event) =>
+                  setRiskDraft((current) => ({
+                    ...current,
+                    dailyLossLimit: event.target.value,
+                  }))
+                }
+                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
+              />
+            </label>
+            <label className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
+              <input
+                type="checkbox"
+                checked={riskDraft.strategyKillSwitchEnabled}
+                onChange={(event) =>
+                  setRiskDraft((current) => ({
+                    ...current,
+                    strategyKillSwitchEnabled: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              <div>
+                <p className="font-semibold text-slate-900">전략 킬 스위치</p>
+                <p className="text-sm text-slate-500">
+                  {riskDraft.strategyKillSwitchEnabled ? "주문 차단 중" : "주문 허용"}
+                </p>
+              </div>
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveRisk}
+                disabled={isSavingRisk}
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingRisk ? "저장 중..." : "리스크 저장"}
+              </button>
+              <span className="text-sm text-slate-600">
+                updated {formatDateTime(riskConfig.updatedAt) ?? "unknown"}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold text-slate-950">최근 리스크 이벤트</h2>
+            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              risk events
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {riskEvents.length === 0 ? (
+              <p className="text-sm text-slate-500">최근 리스크 이벤트가 없습니다.</p>
+            ) : (
+              riskEvents.map((event) => (
+                <article
+                  key={event.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {event.eventType} / {event.reasonCode}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {event.scope}
+                        {event.orderRequestId ? ` / order ${shortId(event.orderRequestId)}` : ""}
+                      </p>
+                    </div>
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {formatDateTime(event.occurredAt)}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-600">{event.message}</p>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </section>
+
       <section className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between gap-4">
@@ -471,6 +680,7 @@ export function StrategyDetailClient({
                 const canCreate =
                   candidate.mode === "paper" &&
                   candidate.precheck.passed &&
+                  candidate.riskCheck.passed &&
                   !candidate.alreadyRequested;
                 return (
                   <article
@@ -496,14 +706,44 @@ export function StrategyDetailClient({
                       <PrecheckRow label="duplicateOrder" value={candidate.precheck.duplicateOrder} />
                       <PrecheckRow label="quantityValid" value={candidate.precheck.quantityValid} />
                       <PrecheckRow label="priceValid" value={candidate.precheck.priceValid} />
+                      <PrecheckRow label="riskPassed" value={candidate.riskCheck.passed} />
                       <div>
                         <dt className="font-semibold text-slate-900">이미 요청됨</dt>
                         <dd>{candidate.alreadyRequested ? "yes" : "no"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-900">riskCheck</dt>
+                        <dd>
+                          {candidate.riskCheck.reasonCodes.length > 0
+                            ? candidate.riskCheck.reasonCodes.join(", ")
+                            : "ok"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-900">projectedSymbolExposure</dt>
+                        <dd>{formatNullableNumber(candidate.riskCheck.projectedSymbolExposure)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-900">projectedStrategyExposure</dt>
+                        <dd>{formatNullableNumber(candidate.riskCheck.projectedStrategyExposure)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-900">projectedOpenPositions</dt>
+                        <dd>{candidate.riskCheck.projectedOpenPositions}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-900">currentDailyRealizedLoss</dt>
+                        <dd>{candidate.riskCheck.currentDailyRealizedLoss}</dd>
                       </div>
                     </dl>
                     {candidate.precheck.reasonCodes.length > 0 ? (
                       <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
                         {candidate.precheck.reasonCodes.join(", ")}
+                      </p>
+                    ) : null}
+                    {!candidate.riskCheck.passed ? (
+                      <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        {candidate.riskCheck.reasonCodes.join(", ")}
                       </p>
                     ) : null}
                     <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -908,4 +1148,30 @@ function formatDateTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function stringifyNullable(value: number | null) {
+  return value === null ? "" : String(value);
+}
+
+function parseNullableNumber(value: string) {
+  if (value.trim() === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseNullableInteger(value: string) {
+  if (value.trim() === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function formatNullableNumber(value: number | null) {
+  return value === null ? "null" : value.toLocaleString("ko-KR");
 }

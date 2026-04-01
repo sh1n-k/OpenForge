@@ -8,6 +8,8 @@ import {
   loadStrategyExecution,
   loadStrategyExecutionRuns,
   loadStrategyPositions,
+  loadStrategyRisk,
+  loadStrategyRiskEvents,
   loadStrategySignals,
   loadStrategyVersions,
   loadUniverses,
@@ -32,6 +34,8 @@ export default async function StrategyDetailPage({
     signals,
     orderCandidates,
     orderRequests,
+    riskConfig,
+    riskEvents,
   ] = await Promise.all([
     loadStrategy(strategyId),
     loadStrategyVersions(strategyId),
@@ -41,6 +45,8 @@ export default async function StrategyDetailPage({
     loadStrategySignals(strategyId),
     loadStrategyOrderCandidates(strategyId),
     loadStrategyOrderRequests(strategyId),
+    loadStrategyRisk(strategyId),
+    loadStrategyRiskEvents(strategyId),
   ]);
   const [fills, positions] = await Promise.all([
     loadStrategyFills(strategyId),
@@ -65,6 +71,8 @@ export default async function StrategyDetailPage({
       signals={signals}
       orderCandidates={orderCandidates}
       orderRequests={orderRequests}
+      riskConfig={riskConfig}
+      riskEvents={riskEvents}
       fills={fills}
       positions={positions}
       statusEventsByRequestId={statusEventsByRequestId}

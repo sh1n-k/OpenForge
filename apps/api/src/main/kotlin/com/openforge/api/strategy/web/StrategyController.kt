@@ -3,6 +3,7 @@ package com.openforge.api.strategy.web
 import com.openforge.api.strategy.application.OrderService
 import com.openforge.api.strategy.application.OrderTrackingService
 import com.openforge.api.strategy.application.PaperExecutionService
+import com.openforge.api.strategy.application.RiskControlService
 import com.openforge.api.strategy.application.StrategyService
 import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -23,6 +24,7 @@ class StrategyController(
     private val paperExecutionService: PaperExecutionService,
     private val orderService: OrderService,
     private val orderTrackingService: OrderTrackingService,
+    private val riskControlService: RiskControlService,
 ) {
 
     @PostMapping("/validate")
@@ -108,6 +110,23 @@ class StrategyController(
     fun positions(
         @PathVariable strategyId: UUID,
     ): List<StrategyPositionResponse> = orderTrackingService.listPositions(strategyId)
+
+    @GetMapping("/{strategyId}/risk")
+    fun risk(
+        @PathVariable strategyId: UUID,
+    ): StrategyRiskResponse = riskControlService.getRisk(strategyId)
+
+    @PutMapping("/{strategyId}/risk")
+    fun updateRisk(
+        @PathVariable strategyId: UUID,
+        @Valid @RequestBody request: UpdateStrategyRiskRequest,
+    ): StrategyRiskResponse = riskControlService.updateRisk(strategyId, request)
+
+    @GetMapping("/{strategyId}/risk/events")
+    fun riskEvents(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") limit: Int,
+    ): List<StrategyRiskEventResponse> = riskControlService.listRiskEvents(strategyId, limit)
 
     @PatchMapping("/{strategyId}")
     fun update(

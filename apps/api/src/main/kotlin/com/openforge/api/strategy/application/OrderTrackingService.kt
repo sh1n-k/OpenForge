@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -37,6 +38,22 @@ class OrderTrackingService(
     private val orderFillRepository: StrategyOrderFillRepository,
     private val signalEventRepository: StrategySignalEventRepository,
 ) {
+
+    data class PositionProjection(
+        val symbol: String,
+        val netQuantity: Long,
+        val avgEntryPrice: BigDecimal,
+        val lastFillAt: OffsetDateTime?,
+    )
+
+    data class OpenOrderProjection(
+        val orderRequestId: UUID,
+        val symbol: String,
+        val side: OrderSide,
+        val remainingQuantity: Long,
+        val price: BigDecimal,
+        val currentStatus: OrderLifecycleStatus,
+    )
 
     fun listOrderStatusEvents(strategyId: UUID, orderRequestId: UUID, limit: Int): List<OrderStatusEventResponse> {
         getStrategy(strategyId)
@@ -58,6 +75,53 @@ class OrderTrackingService(
     fun listPositions(strategyId: UUID): List<StrategyPositionResponse> {
         getStrategy(strategyId)
         return projectPositions(strategyId)
+    }
+
+    fun currentPositionProjections(strategyId: UUID): List<PositionProjection> = projectPositionState(strategyId)
+        .values
+        .filter { it.netQuantity > 0L }
+        .sortedBy { it.symbol }
+        .map {
+            PositionProjection(
+                symbol = it.symbol,
+                netQuantity = it.netQuantity,
+                avgEntryPrice = it.avgEntryPrice,
+                lastFillAt = it.lastFillAt,
+            )
+        }
+
+    fun openBuyOrderProjections(strategyId: UUID): List<OpenOrderProjection> = orderRequestRepository.findAllByStrategyId(strategyId)
+        .map { orderRequest ->
+            val filledQuantity = orderFillRepository.findAllByOrderRequestIdOrderByFilledAtAsc(orderRequest.id).sumOf { it.quantity }
+            val currentStatus = currentStatus(orderRequest)
+            OpenOrderProjection(
+                orderRequestId = orderRequest.id,
+                symbol = symbolFor(orderRequest),
+                side = orderRequest.side,
+                remainingQuantity = (orderRequest.quantity - filledQuantity).coerceAtLeast(0),
+                price = orderRequest.price,
+                currentStatus = currentStatus,
+            )
+        }
+        .filter {
+            it.side == OrderSide.BUY &&
+                it.remainingQuantity > 0 &&
+                it.currentStatus in setOf(
+                    OrderLifecycleStatus.REQUESTED,
+                    OrderLifecycleStatus.ACCEPTED,
+                    OrderLifecycleStatus.PARTIALLY_FILLED,
+                )
+        }
+
+    fun currentDailyRealizedLoss(strategyId: UUID, tradingDate: LocalDate): BigDecimal {
+        val realized = orderFillRepository.findAllByStrategyIdOrderByFilledAtAsc(strategyId)
+            .filter { it.filledAt.toLocalDate() == tradingDate }
+            .sumOf { it.realizedPnl }
+        return if (realized < BigDecimal.ZERO) {
+            realized.abs().scaled()
+        } else {
+            BigDecimal.ZERO.scaled()
+        }
     }
 
     fun createFill(
@@ -82,10 +146,22 @@ class OrderTrackingService(
         }
 
         if (orderRequest.side == OrderSide.SELL) {
-            val availableQuantity = projectPositionState(strategyId)[symbol]?.netQuantity ?: 0L
+            val availableState = projectPositionState(strategyId)[symbol]
+            val availableQuantity = availableState?.netQuantity ?: 0L
             if (availableQuantity < request.quantity) {
                 throw ResponseStatusException(HttpStatus.CONFLICT, "Sell fill exceeds current position quantity")
             }
+        }
+
+        val positionBeforeFill = projectPositionState(strategyId)[symbol]
+        val realizedPnl = if (orderRequest.side == OrderSide.SELL) {
+            val averageEntryPrice = positionBeforeFill?.avgEntryPrice ?: BigDecimal.ZERO.scaled()
+            request.price.toBigDecimal().scaled()
+                .subtract(averageEntryPrice)
+                .multiply(BigDecimal.valueOf(request.quantity))
+                .scaled()
+        } else {
+            BigDecimal.ZERO.scaled()
         }
 
         val fillEntity = orderFillRepository.save(
@@ -97,6 +173,7 @@ class OrderTrackingService(
                 side = orderRequest.side,
                 quantity = request.quantity,
                 price = request.price.toBigDecimal().scaled(),
+                realizedPnl = realizedPnl,
                 filledAt = request.filledAt,
                 source = OrderFillSource.PAPER_MANUAL,
                 payload = mapOf("source" to OrderFillSource.PAPER_MANUAL.value),
@@ -193,6 +270,20 @@ class OrderTrackingService(
         )
     }
 
+    fun appendRejectedRisk(orderRequest: StrategyOrderRequestEntity) {
+        appendStatusEvent(
+            orderRequestId = orderRequest.id,
+            status = OrderLifecycleStatus.REJECTED,
+            reason = orderRequest.failureReason,
+            occurredAt = orderRequest.requestedAt,
+            payload = mapOf(
+                "mode" to orderRequest.mode.value,
+                "side" to orderRequest.side.value,
+                "reason" to orderRequest.failureReason,
+            ),
+        )
+    }
+
     private fun getStrategy(strategyId: UUID) = strategyRepository.findByIdAndIsArchivedFalse(strategyId)
         ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
 
@@ -227,6 +318,7 @@ class OrderTrackingService(
 
                 OrderRequestStatus.REJECTED_DUPLICATE,
                 OrderRequestStatus.REJECTED_PRECHECK,
+                OrderRequestStatus.REJECTED_RISK,
                 -> OrderLifecycleStatus.REJECTED
             }
 

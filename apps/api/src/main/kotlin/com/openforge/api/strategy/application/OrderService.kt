@@ -40,6 +40,7 @@ class OrderService(
     private val executionRunRepository: StrategyExecutionRunRepository,
     private val orderRequestRepository: StrategyOrderRequestRepository,
     private val orderPrecheckService: OrderPrecheckService,
+    private val riskControlService: RiskControlService,
     private val paperOrderService: PaperOrderService,
     private val orderTrackingService: OrderTrackingService,
     private val marketTimeProvider: MarketTimeProvider,
@@ -76,6 +77,15 @@ class OrderService(
                 referenceTime = referenceTime,
                 alreadyRequested = alreadyRequested,
             )
+            val riskCheck = riskControlService.evaluateOrder(
+                strategy = strategy,
+                symbol = signal.symbol,
+                side = side,
+                quantity = quantity,
+                price = price ?: BigDecimal.ZERO,
+                mode = mode,
+                referenceTime = referenceTime,
+            ).response
 
             OrderCandidateResponse(
                 signalEventId = signal.id,
@@ -89,6 +99,7 @@ class OrderService(
                 mode = mode,
                 alreadyRequested = alreadyRequested,
                 precheck = precheck,
+                riskCheck = riskCheck,
             )
         }
     }
@@ -158,16 +169,39 @@ class OrderService(
                     requestedAt = requestedAt.toOffsetDateTime(),
                 )
             } else {
-                paperOrderService.savePending(
+                val riskCheck = riskControlService.evaluateOrder(
                     strategy = strategy,
-                    signal = signal,
+                    symbol = signal.symbol,
                     side = side,
-                    mode = request.mode,
                     quantity = quantity,
                     price = price!!,
-                    precheck = precheck,
-                    requestedAt = requestedAt.toOffsetDateTime(),
+                    mode = request.mode,
+                    referenceTime = requestedAt,
                 )
+                if (!riskCheck.response.passed) {
+                    paperOrderService.saveRejectedRisk(
+                        strategy = strategy,
+                        signal = signal,
+                        side = side,
+                        mode = request.mode,
+                        quantity = quantity,
+                        price = price,
+                        precheck = precheck,
+                        riskCheck = riskCheck,
+                        requestedAt = requestedAt.toOffsetDateTime(),
+                    )
+                } else {
+                    paperOrderService.savePending(
+                        strategy = strategy,
+                        signal = signal,
+                        side = side,
+                        mode = request.mode,
+                        quantity = quantity,
+                        price = price,
+                        precheck = precheck,
+                        requestedAt = requestedAt.toOffsetDateTime(),
+                    )
+                }
             }.let(::toOrderRequestResponse)
         } catch (_: DataIntegrityViolationException) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "Duplicate order request already exists for this signal")
@@ -280,6 +314,7 @@ class MarketTimeProvider {
 @Service
 class PaperOrderService(
     private val orderRequestRepository: StrategyOrderRequestRepository,
+    private val riskControlService: RiskControlService,
     private val orderTrackingService: OrderTrackingService,
 ) {
     fun savePending(
@@ -343,6 +378,45 @@ class PaperOrderService(
         ),
         )
         orderTrackingService.appendRejectedPrecheck(saved)
+        return saved
+    }
+
+    fun saveRejectedRisk(
+        strategy: StrategyEntity,
+        signal: StrategySignalEventEntity,
+        side: OrderSide,
+        mode: OrderMode,
+        quantity: Long,
+        price: BigDecimal,
+        precheck: OrderPrecheckResponse,
+        riskCheck: RiskEvaluationResult,
+        requestedAt: OffsetDateTime,
+    ): StrategyOrderRequestEntity {
+        val saved = orderRequestRepository.save(
+            StrategyOrderRequestEntity(
+                strategyId = strategy.id,
+                strategyVersionId = signal.strategyVersionId,
+                signalEventId = signal.id,
+                executionRunId = signal.runId,
+                mode = mode,
+                side = side,
+                orderType = OrderType.LIMIT,
+                quantity = quantity,
+                price = price,
+                status = OrderRequestStatus.REJECTED_RISK,
+                precheckPassed = precheck.passed,
+                precheckSummary = precheck.toSummaryMap(),
+                failureReason = riskCheck.response.reasonCodes.joinToString(","),
+                requestedAt = requestedAt,
+            ),
+        )
+        orderTrackingService.appendRejectedRisk(saved)
+        riskControlService.recordBlockedOrder(
+            strategyId = strategy.id,
+            orderRequestId = saved.id,
+            evaluation = riskCheck,
+            occurredAt = requestedAt,
+        )
         return saved
     }
 
