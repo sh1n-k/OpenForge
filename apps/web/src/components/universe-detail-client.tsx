@@ -52,65 +52,64 @@ export function UniverseDetailClient({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 md:px-10">
+    <main className="page-shell docs-page-shell">
       <UniverseDetailView universe={universe} />
 
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="summary-grid summary-grid-columns-2">
         <form
           action={handleUpdate}
-          className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]"
+          id="universe-basic-info"
+          className="doc-panel"
         >
-          <h2 className="text-2xl font-semibold text-slate-950">Basic Info</h2>
+          <h2 className="section-title">Basic Info</h2>
           <div className="mt-4 grid gap-3">
             <input
               name="name"
               defaultValue={universe.name}
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
             <input
               name="description"
               defaultValue={universe.description ?? ""}
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
             <button
               type="submit"
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+              className="button-primary"
             >
               저장
             </button>
           </div>
         </form>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-          <h2 className="text-2xl font-semibold text-slate-950">Actions</h2>
+        <section className="doc-panel">
+          <h2 className="section-title">Actions</h2>
+          <p className="section-copy">보존이 필요한 정보는 먼저 다른 유니버스로 옮긴 뒤 보관 처리합니다.</p>
           <button
             type="button"
             onClick={async () => {
               await archiveUniverse(universe.id);
               startTransition(() => router.push("/universes"));
             }}
-            className="mt-4 rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600"
+            className="button-danger mt-4"
           >
             Archive
           </button>
         </section>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-        <h2 className="text-2xl font-semibold text-slate-950">Replace Symbols</h2>
-        <p className="mt-2 text-sm text-slate-500">
+      <section className="doc-panel doc-panel-code">
+        <h2 className="section-title">Replace Symbols</h2>
+        <p className="section-copy">
           한 줄에 `symbol,displayName` 형식으로 입력합니다.
         </p>
         <textarea
           value={symbolsText}
           onChange={(event) => setSymbolsText(event.target.value)}
           rows={12}
-          className="mt-4 w-full rounded-3xl border border-slate-200 px-4 py-4 font-mono text-sm"
         />
         <button
           type="button"
           onClick={handleReplaceSymbols}
-          className="mt-4 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+          className="button-primary mt-4"
         >
           종목 리스트 저장
         </button>
@@ -118,4 +117,3 @@ export function UniverseDetailClient({
     </main>
   );
 }
-

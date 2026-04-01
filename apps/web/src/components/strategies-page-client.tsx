@@ -210,84 +210,93 @@ export function StrategiesPageClient({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 md:px-10">
-      <section className="rounded-[1.75rem] bg-slate-950 p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.3)]">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">
-              Stage 2
+    <main className="page-shell page-shell-wide docs-page-shell">
+      <section
+        id="strategies-summary"
+        className="doc-panel"
+      >
+        <div className="page-intro-row">
+          <div className="page-intro">
+            <p className="page-eyebrow">Strategies</p>
+            <h1 className="page-title">Strategy Registry</h1>
+            <p className="page-description">
+              전략 등록, 전역 리스크, 브로커 연결 상태를 한 화면에서 관리합니다.
             </p>
-            <h1 className="mt-2 text-4xl font-semibold">Strategy Registry</h1>
           </div>
+          <div className="page-actions">
+            <span className="status-chip status-chip-info">
+              {strategies.length} strategies
+            </span>
+          </div>
+        </div>
+        <div className="page-actions">
           <Link
             href="/universes"
-            className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:border-white hover:bg-white/10"
+            className="button-secondary"
           >
             Universes
           </Link>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-        <div className="rounded-[1.75rem] border border-amber-200 bg-amber-50 p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+      <section
+        id="strategies-risk"
+        className="summary-grid summary-grid-columns-2"
+      >
+        <div className="doc-panel doc-panel-warn">
+          <div className="page-intro-row">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
-                Global Risk
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                전역 킬 스위치
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="page-eyebrow">Global Risk</p>
+              <h2 className="section-title">전역 킬 스위치</h2>
+              <p className="section-copy">
                 {killSwitchEnabled
                   ? "모든 새 주문 요청을 차단합니다."
                   : "전역 주문 차단이 비활성 상태입니다."}
               </p>
             </div>
-            <label className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
+            <label className="list-card flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={killSwitchEnabled}
                 onChange={(event) => setKillSwitchEnabled(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300"
               />
               <span className="text-sm font-semibold text-slate-900">
                 킬 스위치
               </span>
             </label>
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="page-actions">
             <button
               type="button"
               onClick={handleSaveSystemRisk}
               disabled={isSavingRisk}
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="button-primary"
             >
               {isSavingRisk ? "저장 중..." : "전역 설정 저장"}
             </button>
-            <span className="text-sm text-slate-600">
+            <span className="section-copy">
               updated {formatDateTime(systemRisk.updatedAt) ?? "unknown"}
             </span>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="stack-list">
             {systemRiskEvents.length === 0 ? (
-              <p className="text-sm text-slate-600">
+              <p className="section-copy">
                 최근 전역 리스크 이벤트가 없습니다.
               </p>
             ) : (
               systemRiskEvents.map((event) => (
                 <article
                   key={event.id}
-                  className="rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  className="list-card"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-slate-900">
                         {event.eventType} / {event.reasonCode}
                       </p>
-                      <p className="text-sm text-slate-600">{event.message}</p>
+                      <p className="section-copy">{event.message}</p>
                     </div>
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    <span className="metric-card-label">
                       {formatDateTime(event.occurredAt)}
                     </span>
                   </div>
@@ -297,16 +306,15 @@ export function StrategiesPageClient({
           </div>
         </div>
 
-        <div className="rounded-[1.75rem] border border-sky-200 bg-sky-50 p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <div
+          id="strategies-broker"
+          className="doc-panel doc-panel-info"
+        >
+          <div className="page-intro-row">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
-                Broker Connectivity
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                브로커 연결 설정
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="page-eyebrow">Broker Connectivity</p>
+              <h2 className="section-title">브로커 연결 설정</h2>
+              <p className="section-copy">
                 현재 시스템 모드:{" "}
                 <span className="font-semibold text-slate-900">
                   {systemBroker.currentSystemMode}
@@ -323,9 +331,9 @@ export function StrategiesPageClient({
                   key={mode}
                   type="button"
                   onClick={() => setSelectedBrokerMode(mode)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  className={`button-ghost ${
                     selectedBrokerMode === mode
-                      ? "bg-slate-950 text-white"
+                      ? "bg-[#2563eb] text-white"
                       : "text-slate-600"
                   }`}
                 >
@@ -335,12 +343,12 @@ export function StrategiesPageClient({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-sky-200 bg-white px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+          <div className="summary-grid summary-grid-columns-2">
+            <div className="list-card">
+              <p className="metric-card-label">
                 Saved
               </p>
-              <div className="mt-3 grid gap-2 text-sm text-slate-700">
+              <div className="stack-list">
                 <p>설정 상태: {activeBroker.isConfigured ? "완료" : "미설정"}</p>
                 <p>활성화: {activeBroker.enabled ? "예" : "아니오"}</p>
                 <p>앱키: {activeBroker.maskedAppKey ?? "없음"}</p>
@@ -355,14 +363,14 @@ export function StrategiesPageClient({
                       }`
                     : "없음"}
                 </p>
-                <p className="text-slate-500">
+                <p className="section-copy">
                   {activeBroker.lastConnectionTestMessage ??
                     "연결 테스트 결과가 없습니다."}
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-3 rounded-2xl border border-sky-200 bg-white px-4 py-4">
+            <div className="stack-list doc-panel">
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 앱키
                 <input
@@ -373,7 +381,6 @@ export function StrategiesPageClient({
                       ? "비워두면 기존 값 유지"
                       : "앱키 입력"
                   }
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
                 />
               </label>
               <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -387,7 +394,6 @@ export function StrategiesPageClient({
                       ? "비워두면 기존 값 유지"
                       : "앱시크릿 입력"
                   }
-                  className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
                 />
               </label>
               <div className="grid gap-3 md:grid-cols-2">
@@ -401,7 +407,6 @@ export function StrategiesPageClient({
                         ? "비워두면 기존 값 유지"
                         : "12345678"
                     }
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
                   />
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -412,7 +417,6 @@ export function StrategiesPageClient({
                     placeholder={
                       activeBroker.isConfigured ? "비워두면 기존 값 유지" : "01"
                     }
-                    className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
                   />
                 </label>
               </div>
@@ -434,7 +438,7 @@ export function StrategiesPageClient({
                   type="button"
                   onClick={handleSaveBrokerConfig}
                   disabled={isSavingBroker}
-                  className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="button-primary"
                 >
                   {isSavingBroker ? "저장 중..." : "브로커 설정 저장"}
                 </button>
@@ -442,7 +446,7 @@ export function StrategiesPageClient({
                   type="button"
                   onClick={handleTestBrokerConnection}
                   disabled={isTestingBroker || !activeBroker.isConfigured}
-                  className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="button-secondary"
                 >
                   {isTestingBroker ? "테스트 중..." : "연결 테스트"}
                 </button>
@@ -479,8 +483,11 @@ export function StrategiesPageClient({
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-        <h2 className="text-2xl font-semibold text-slate-950">
+      <section
+        id="strategies-create"
+        className="doc-panel doc-panel-code"
+      >
+        <h2 className="section-title">
           Create Strategy
         </h2>
         <form
@@ -528,7 +535,7 @@ export function StrategiesPageClient({
           <div>
             <button
               type="submit"
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+              className="button-primary"
             >
               전략 생성
             </button>
@@ -539,8 +546,8 @@ export function StrategiesPageClient({
       <StrategyListView strategies={strategies} />
 
       {strategies.length > 0 ? (
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-          <h2 className="text-2xl font-semibold text-slate-950">
+        <section className="doc-panel">
+          <h2 className="section-title">
             Quick Actions
           </h2>
           <div className="mt-4 grid gap-3">
@@ -562,14 +569,14 @@ export function StrategiesPageClient({
                   <button
                     type="button"
                     onClick={() => handleClone(strategy.id)}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+                    className="button-secondary"
                   >
                     Clone
                   </button>
                   <button
                     type="button"
                     onClick={() => handleArchive(strategy.id)}
-                    className="rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600"
+                    className="button-danger"
                   >
                     Archive
                   </button>
