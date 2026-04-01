@@ -104,6 +104,48 @@ Inter 14px/400 for nav, 16px/400 for content lists text. 40px (sidebar nav), 48p
 #18181B fill, #FFFFFF, Inter 12px/400 text, 6px border radius, 4px offset, 12px blur, #000000 at 15% shadow. `4px/10px` padding, 5px CSS triangle arrow, 280px max width.
 ---
 
+## Product-Fit Exceptions
+
+DocuForge는 기본적으로 문서·레퍼런스 사이트를 위한 시스템이다. 다만 운영 콘솔, 편집기, 백테스트 실행기처럼 **읽기보다 작업이 우선인 화면**에는 아래 예외를 적용한다.
+
+### Screen Modes
+
+- **Documentation / Registry mode**: 소개 화면, 목록 화면, 상세 읽기 화면. 기본 DocuForge 규칙을 그대로 사용한다.
+- **Workbench mode**: 전략 편집기, 백테스트 실행기, 주문 관리, 실시간 모니터링. 작업 밀도와 조작 속도를 우선한다.
+
+### Workbench Exceptions
+
+1. **Sidebar is not mandatory on desktop** for workbench screens.
+   - 데스크톱에서도 좌측 사이드바를 접거나 축소할 수 있다.
+   - 화면 폭이 생산성에 직접 연결되는 편집기·테이블·차트·폼 화면에서는 고정 280px 사이드바보다 작업 영역 확보를 우선한다.
+
+2. **Search may become a command palette** on workbench screens.
+   - `⌘K` / `Ctrl+K`는 단순 탐색 필터가 아니라 빠른 이동·실행·열기 액션을 제공하는 명령 팔레트로 대체할 수 있다.
+
+3. **Prose max-width does not apply to work surfaces.**
+   - `768px` 최대 폭은 설명문, 문서 본문, 가이드 텍스트에만 적용한다.
+   - 폼, 편집기, 표, 로그, 차트, YAML/코드, 대시보드 패널은 필요 시 전체 콘텐츠 폭을 사용한다.
+
+4. **Primary action and live status outrank introductory copy** on workbench screens.
+   - 첫 화면은 문서형 설명보다 저장, 실행, 중지, 테스트, 실패 상태 같은 핵심 행동과 운영 상태를 우선 노출한다.
+   - 설명 텍스트는 더 짧게 줄이고, 상태 요약과 위험 신호를 첫 fold 안에 배치한다.
+
+5. **Dense operational layouts are allowed.**
+   - 워크벤치 화면에서는 카드 간 여백과 섹션 간격을 기본 문서 화면보다 더 촘촘하게 줄일 수 있다.
+   - 단, 입력 높이, 코드 가독성, 상태 대비는 유지한다.
+
+6. **Sticky support panels are allowed.**
+   - 검증 결과, 실행 상태, 커버리지, 리스크 요약처럼 작업 중 계속 봐야 하는 패널은 우측 또는 하단의 sticky 보조 패널로 둘 수 있다.
+
+7. **Operational severity may override calm visual tone.**
+   - 오류, 주문 차단, 커버리지 부족, 인증 실패 같은 운영 위험은 문서형 절제보다 즉시 인지성이 우선이다.
+   - 경고/오류 색과 상태 배지를 더 직접적으로 사용해도 된다.
+
+### Decision Rule
+
+- 문서형 일관성과 작업 효율이 충돌하면, **운영 목적과 오류 예방을 우선**한다.
+- 시각 원칙은 제품을 돕기 위한 것이며, 사용자가 더 느려지거나 더 헷갈리면 예외를 적용한다.
+
 ## Do's and Don'ts
 
 1. **Do** use Fira Code for all code examples, inline code, and method badges.
