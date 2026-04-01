@@ -216,47 +216,87 @@ export function StrategyDetailClient({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 md:px-10">
-      <section className="rounded-[1.75rem] bg-slate-950 p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.3)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">
-              Strategy Detail
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold">{strategy.name}</h1>
-            <p className="mt-2 text-sm text-slate-300">
-              {strategy.strategyType} / {strategy.status} / latest v
-              {strategy.latestVersionNumber ?? 0}
-            </p>
+    <main className="page-shell workbench-page-shell">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <section
+          id="strategy-overview"
+          className="doc-panel"
+        >
+          <div className="page-intro-row">
+            <div className="page-intro">
+              <p className="page-eyebrow">Strategy Detail</p>
+              <h1 className="page-title">{strategy.name}</h1>
+              <p className="page-description">
+                {strategy.strategyType} / {strategy.status} / latest v
+                {strategy.latestVersionNumber ?? 0}
+              </p>
+            </div>
+            <span className="status-chip status-chip-info">
+              latest validation {strategy.latestValidationStatus ?? "unknown"}
+            </span>
           </div>
-          <div className="flex gap-3">
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="metric-card">
+              <p className="metric-card-label">Versions</p>
+              <p className="metric-card-value">{strategy.versionCount}</p>
+            </div>
+            <div className="metric-card">
+              <p className="metric-card-label">Universes</p>
+              <p className="metric-card-value">{strategy.universeCount}</p>
+            </div>
+            <div className="metric-card">
+              <p className="metric-card-label">Status</p>
+              <p className="metric-card-value">{strategy.status}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-3">
             <Link
               href={`/strategies/${strategy.id}/backtest`}
-              className="rounded-full border border-white/20 px-5 py-2 text-sm font-medium text-white"
+              className="button-secondary"
             >
               Backtest
             </Link>
             <Link
               href={`/strategies/${strategy.id}/edit`}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-950"
+              className="button-primary"
             >
               편집기 열기
             </Link>
           </div>
-        </div>
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-          latest validation: {strategy.latestValidationStatus ?? "unknown"}
-        </div>
+        </section>
+
+        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
+          <h2 className="section-title">Quick Actions</h2>
+          <p className="section-copy">
+            실행 상태와 최근 검증 결과를 먼저 확인한 뒤 편집 또는 백테스트로 이동합니다.
+          </p>
+          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+            <div>
+              <dt className="font-semibold text-slate-900">Latest Validation</dt>
+              <dd>{strategy.latestValidationStatus ?? "unknown"}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Execution Mode</dt>
+              <dd>{execution.mode}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Next Run</dt>
+              <dd>{formatDateTime(execution.nextRunAt) ?? "대기 중"}</dd>
+            </div>
+          </dl>
+        </aside>
       </section>
 
       {error ? (
-        <section className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <section className="doc-panel doc-panel-error">
           {error}
         </section>
       ) : null}
 
       <section className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <h2 className="text-2xl font-semibold text-slate-950">Overview</h2>
           <dl className="mt-4 grid gap-3 text-sm text-slate-600">
             <div>
@@ -277,7 +317,7 @@ export function StrategyDetailClient({
             </div>
           </dl>
           {strategy.latestValidationErrors.length > 0 ? (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            <div className="doc-panel doc-panel-error mt-4 p-4 text-sm text-rose-700">
               {strategy.latestValidationErrors.map((item, index) => (
                 <p key={`${item.category}-${index}`}>
                   [{item.category}] {item.message}
@@ -286,7 +326,7 @@ export function StrategyDetailClient({
             </div>
           ) : null}
           {strategy.latestValidationWarnings.length > 0 ? (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+            <div className="doc-panel doc-panel-warn mt-4 p-4 text-sm text-amber-700">
               {strategy.latestValidationWarnings.map((item, index) => (
                 <p key={`${item.category}-${index}`}>
                   [{item.category}] {item.message}
@@ -296,7 +336,10 @@ export function StrategyDetailClient({
           ) : null}
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section
+          id="strategy-execution"
+          className="doc-panel"
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-500">
@@ -401,7 +444,7 @@ export function StrategyDetailClient({
                 type="button"
                 onClick={handleExecutionSave}
                 disabled={isSaving}
-                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="button-primary"
               >
                 {isSaving ? "저장 중..." : "자동 실행 저장"}
               </button>
@@ -411,7 +454,7 @@ export function StrategyDetailClient({
                   await cloneStrategy(strategy.id);
                   startTransition(() => router.push("/strategies"));
                 }}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+                className="button-secondary"
               >
                 Clone
               </button>
@@ -421,7 +464,7 @@ export function StrategyDetailClient({
                   await archiveStrategy(strategy.id);
                   startTransition(() => router.push("/strategies"));
                 }}
-                className="rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600"
+                className="button-danger"
               >
                 Archive
               </button>
@@ -431,7 +474,10 @@ export function StrategyDetailClient({
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-[1.75rem] border border-amber-200 bg-amber-50 p-6 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
+        <section
+          id="strategy-risk"
+          className="doc-panel doc-panel-warn"
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
@@ -538,7 +584,7 @@ export function StrategyDetailClient({
                 type="button"
                 onClick={handleSaveRisk}
                 disabled={isSavingRisk}
-                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="button-primary"
               >
                 {isSavingRisk ? "저장 중..." : "리스크 저장"}
               </button>
@@ -549,7 +595,7 @@ export function StrategyDetailClient({
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">최근 리스크 이벤트</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
@@ -588,12 +634,15 @@ export function StrategyDetailClient({
       </section>
 
       <section className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section
+          id="strategy-versions"
+          className="doc-panel"
+        >
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">Versions</h2>
             <Link
               href={`/strategies/${strategy.id}/edit`}
-              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+              className="button-secondary"
             >
               새 버전 만들기
             </Link>
@@ -625,7 +674,7 @@ export function StrategyDetailClient({
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <h2 className="text-2xl font-semibold text-slate-950">Linked Universes</h2>
           <div className="mt-4 grid gap-3">
             {universes.length === 0 ? (
@@ -657,7 +706,7 @@ export function StrategyDetailClient({
           <button
             type="button"
             onClick={handleReplaceUniverses}
-            className="mt-4 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
+            className="button-primary mt-4"
           >
             유니버스 연결 저장
           </button>
@@ -665,7 +714,10 @@ export function StrategyDetailClient({
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section
+          id="strategy-orders"
+          className="doc-panel"
+        >
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">주문 후보</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
@@ -751,7 +803,7 @@ export function StrategyDetailClient({
                         type="button"
                         disabled={!canCreate || pendingOrderSignalId === candidate.signalEventId}
                         onClick={async () => handleCreateOrder(candidate.signalEventId)}
-                        className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        className="button-primary"
                       >
                         {pendingOrderSignalId === candidate.signalEventId
                           ? "생성 중..."
@@ -768,7 +820,7 @@ export function StrategyDetailClient({
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">주문 요청 이력</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
@@ -916,7 +968,7 @@ export function StrategyDetailClient({
                           pendingFillRequestId === request.id ||
                           request.remainingQuantity <= 0
                         }
-                        className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        className="button-primary"
                       >
                         {pendingFillRequestId === request.id
                           ? "등록 중..."
@@ -937,7 +989,7 @@ export function StrategyDetailClient({
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">체결 이력</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
@@ -975,7 +1027,7 @@ export function StrategyDetailClient({
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">현재 포지션</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
@@ -1010,7 +1062,10 @@ export function StrategyDetailClient({
       </section>
 
       <section className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section
+          id="strategy-activity"
+          className="doc-panel"
+        >
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">최근 실행 로그</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
@@ -1071,7 +1126,7 @@ export function StrategyDetailClient({
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+        <section className="doc-panel">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">최근 시그널 이력</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">

@@ -123,43 +123,64 @@ export function StrategyEditorClient({
   const canSave = validation?.valid === true && !isValidating && !isSaving;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10 md:px-10">
-      <section className="rounded-[1.75rem] bg-slate-950 p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.3)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">
-              Stage 3
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold">
-              {strategy.name} Editor
-            </h1>
-            <p className="mt-2 text-sm text-slate-300">
-              {strategy.strategyType} / latest validation{" "}
-              {strategy.latestValidationStatus ?? "unknown"}
-            </p>
+    <main className="page-shell workbench-page-shell">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <section
+          id="editor-summary"
+          className="doc-panel"
+        >
+          <div className="page-intro-row">
+            <div className="page-intro">
+              <p className="page-eyebrow">Strategy Editor</p>
+              <h1 className="page-title">
+                {strategy.name} Editor
+              </h1>
+              <p className="page-description">
+                {strategy.strategyType} / latest validation{" "}
+                {strategy.latestValidationStatus ?? "unknown"}
+              </p>
+            </div>
+            <div className="page-actions">
+              <Link
+                href={`/strategies/${strategy.id}`}
+                className="button-secondary"
+              >
+                Detail
+              </Link>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!canSave}
+                className="button-primary"
+              >
+                {isSaving ? "저장 중..." : "새 버전 저장"}
+              </button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={`/strategies/${strategy.id}`}
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:border-white hover:bg-white/10"
-            >
-              Detail
-            </Link>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!canSave}
-              className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSaving ? "저장 중..." : "새 버전 저장"}
-            </button>
-          </div>
-        </div>
-        {strategy.latestValidationStatus === "invalid_legacy_draft" ? (
-          <p className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-            이전 단계의 legacy payload가 감지되었습니다. 편집 후 새 버전으로 저장하면 최신 규약으로 승격됩니다.
-          </p>
-        ) : null}
+          {strategy.latestValidationStatus === "invalid_legacy_draft" ? (
+            <p className="doc-panel doc-panel-warn mt-4 p-4 text-sm text-amber-700">
+              이전 단계의 legacy payload가 감지되었습니다. 편집 후 새 버전으로 저장하면 최신 규약으로 승격됩니다.
+            </p>
+          ) : null}
+        </section>
+
+        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
+          <h2 className="section-title">Workbench Status</h2>
+          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+            <div>
+              <dt className="font-semibold text-slate-900">Validation</dt>
+              <dd>{validation?.summary ?? validationError ?? "검증 대기 중"}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Version</dt>
+              <dd>v{strategy.latestVersionNumber ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Type</dt>
+              <dd>{strategy.strategyType}</dd>
+            </div>
+          </dl>
+        </aside>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -176,8 +197,11 @@ export function StrategyEditorClient({
             />
           )}
 
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-            <h2 className="text-2xl font-semibold text-slate-950">
+          <section
+            id="editor-note"
+            className="doc-panel"
+          >
+            <h2 className="section-title">
               Version Note
             </h2>
             <input
@@ -267,8 +291,11 @@ function BuilderEditor({
 
   return (
     <>
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-        <h2 className="text-2xl font-semibold text-slate-950">Metadata</h2>
+      <section
+        id="editor-builder"
+        className="doc-panel"
+      >
+        <h2 className="section-title">Metadata</h2>
         <div className="mt-4 grid gap-3">
           <input
             value={state.metadata.name}
@@ -313,9 +340,9 @@ function BuilderEditor({
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+      <section className="doc-panel">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-semibold text-slate-950">Indicators</h2>
+          <h2 className="section-title">Indicators</h2>
           <select
             defaultValue=""
             onChange={(event) => {
@@ -370,8 +397,8 @@ function BuilderEditor({
         onChange={(nextGroup) => updateGroup("exit", nextGroup)}
       />
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-        <h2 className="text-2xl font-semibold text-slate-950">Risk</h2>
+      <section className="doc-panel">
+        <h2 className="section-title">Risk</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <RiskCard
             title="Stop Loss"
@@ -402,13 +429,16 @@ function CodeEditor({
   onChange: (source: string) => void;
 }) {
   return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-      <h2 className="text-2xl font-semibold text-slate-950">OpenForge YAML DSL</h2>
+    <section
+      id="editor-builder"
+      className="doc-panel doc-panel-code"
+    >
+      <h2 className="section-title">OpenForge YAML DSL</h2>
       <textarea
         value={source}
         onChange={(event) => onChange(event.target.value)}
         rows={28}
-        className="mt-4 w-full rounded-3xl border border-slate-200 px-4 py-4 font-mono text-sm text-slate-800"
+        className="mt-4 font-mono text-sm"
       />
     </section>
   );
@@ -424,10 +454,13 @@ function ValidationPanel({
   isValidating: boolean;
 }) {
   return (
-    <aside className="flex flex-col gap-6">
-      <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-        <h2 className="text-2xl font-semibold text-slate-950">Validation</h2>
-        <p className="mt-3 text-sm text-slate-500">
+    <aside className="flex flex-col gap-6 lg:sticky lg:top-8 lg:self-start">
+      <section
+        id="editor-validation"
+        className="doc-panel"
+      >
+        <h2 className="section-title">Validation</h2>
+        <p className="section-copy">
           {isValidating
             ? "검증 중..."
             : validation
@@ -438,7 +471,7 @@ function ValidationPanel({
           <p className="mt-3 text-sm text-rose-600">{validationError}</p>
         ) : null}
         {validation?.errors.length ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+          <div className="doc-panel doc-panel-error mt-4 p-4">
             <p className="text-sm font-semibold text-rose-700">Errors</p>
             <ul className="mt-2 grid gap-2 text-sm text-rose-700">
               {validation.errors.map((error, index) => (
@@ -450,7 +483,7 @@ function ValidationPanel({
           </div>
         ) : null}
         {validation?.warnings.length ? (
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="doc-panel doc-panel-warn mt-4 p-4">
             <p className="text-sm font-semibold text-amber-700">Warnings</p>
             <ul className="mt-2 grid gap-2 text-sm text-amber-700">
               {validation.warnings.map((warning, index) => (
@@ -463,9 +496,9 @@ function ValidationPanel({
         ) : null}
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.15)]">
-        <h2 className="text-2xl font-semibold">YAML Preview</h2>
-        <pre className="mt-4 overflow-x-auto rounded-3xl bg-black/20 p-4 text-xs leading-6 text-slate-100">
+      <section className="doc-panel doc-panel-code">
+        <h2 className="section-title">YAML Preview</h2>
+        <pre className="code-block mt-4">
           {validation?.yamlPreview || "# validation preview"}
         </pre>
       </section>
@@ -485,7 +518,7 @@ function IndicatorCard({
   const definition = getIndicatorDefinition(indicator.indicatorId);
 
   return (
-    <article className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+    <article className="list-card">
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_0.8fr_auto]">
         <select
           value={indicator.indicatorId}
@@ -536,7 +569,7 @@ function IndicatorCard({
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600"
+          className="button-danger"
         >
           Remove
         </button>
@@ -597,9 +630,9 @@ function ConditionGroupEditor({
   }
 
   return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+    <section className="doc-panel">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-2xl font-semibold text-slate-950">{title}</h2>
+        <h2 className="section-title">{title}</h2>
         <div className="flex items-center gap-3">
           <select
             value={group.logic}
@@ -622,7 +655,7 @@ function ConditionGroupEditor({
                 conditions: [...group.conditions, createEmptyCondition()],
               })
             }
-            className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+            className="button-primary"
           >
             Condition 추가
           </button>
@@ -661,7 +694,7 @@ function ConditionCard({
   onRemove: () => void;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+    <article className="list-card">
       <div className="grid gap-3">
         <OperandEditor
           label="Left"
@@ -697,7 +730,7 @@ function ConditionCard({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-full border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600"
+            className="button-danger"
           >
             Remove
           </button>
@@ -867,7 +900,7 @@ function RiskCard({
   onChange: (value: { enabled: boolean; percent: number }) => void;
 }) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+    <article className="list-card">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold text-slate-900">{title}</h3>
         <label className="flex items-center gap-2 text-sm text-slate-600">

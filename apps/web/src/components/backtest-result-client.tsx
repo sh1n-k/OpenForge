@@ -48,48 +48,65 @@ export function BacktestResultClient({
   const profitFactor = numberValue(summary.profitFactor);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10 md:px-10">
-      <section className="rounded-[1.75rem] bg-slate-950 p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.3)]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-200">
-              Backtest Result
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold">{run.runId}</h1>
-            <p className="mt-2 text-sm text-slate-300">
-              {run.status} / symbols {run.symbols.join(", ")}
-            </p>
+    <main className="page-shell workbench-page-shell">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <section
+          id="run-summary"
+          className="doc-panel"
+        >
+          <div className="page-intro-row">
+            <div className="page-intro">
+              <p className="page-eyebrow">Backtest Result</p>
+              <h1 className="page-title">{run.runId}</h1>
+              <p className="page-description">
+                {run.status} / symbols {run.symbols.join(", ")}
+              </p>
+            </div>
+            <div className="page-actions">
+              <span className="status-chip status-chip-info">{run.status}</span>
+            </div>
           </div>
-          <div className="flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             <Link
               href={`/strategies/${run.strategyId}`}
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white"
+              className="button-secondary"
             >
               Strategy
             </Link>
             <Link
               href={`/strategies/${run.strategyId}/backtest`}
-              className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950"
+              className="button-primary"
             >
               새 실행
             </Link>
           </div>
-        </div>
+        </section>
+
+        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
+          <h2 className="section-title">Run Status</h2>
+          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+            <div>
+              <dt className="font-semibold text-slate-900">Status</dt>
+              <dd>{run.status}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Strategy</dt>
+              <dd>{run.strategyId}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-slate-900">Symbols</dt>
+              <dd>{run.symbols.length}</dd>
+            </div>
+          </dl>
+        </aside>
       </section>
 
-      {error ? (
-        <section className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </section>
-      ) : null}
-
+      {error ? <section className="doc-panel doc-panel-error">{error}</section> : null}
       {run.errorMessage ? (
-        <section className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {run.errorMessage}
-        </section>
+        <section className="doc-panel doc-panel-error">{run.errorMessage}</section>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <section className="summary-grid summary-grid-columns-3">
         <MetricCard label="총 수익률" value={`${(totalReturnRate * 100).toFixed(2)}%`} />
         <MetricCard label="MDD" value={`${(maxDrawdownRate * 100).toFixed(2)}%`} />
         <MetricCard label="승률" value={`${(winRate * 100).toFixed(2)}%`} />
@@ -99,10 +116,13 @@ export function BacktestResultClient({
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="grid gap-6">
+        <section
+          id="run-charts"
+          className="grid gap-6"
+        >
           <ChartCard
             title="Equity Curve"
-            color="#0f766e"
+            color="#2563eb"
             data={run.equityCurve.map((point) => ({
               label: point.tradingDate,
               value: point.equity,
@@ -110,7 +130,7 @@ export function BacktestResultClient({
           />
           <ChartCard
             title="Drawdown"
-            color="#b91c1c"
+            color="#dc2626"
             data={run.equityCurve.map((point) => ({
               label: point.tradingDate,
               value: point.drawdown,
@@ -119,55 +139,54 @@ export function BacktestResultClient({
         </section>
 
         <section className="grid gap-6">
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-            <h2 className="text-2xl font-semibold text-slate-950">Run Config</h2>
+          <section
+            id="run-config"
+            className="doc-panel"
+          >
+            <h2 className="section-title">Run Config</h2>
             <dl className="mt-4 grid gap-3 text-sm text-slate-600">
               {Object.entries(run.config).map(([key, value]) => (
                 <div key={key}>
-                  <dt className="font-semibold text-slate-900">{key}</dt>
+                  <dt className="doc-nav-title">{key}</dt>
                   <dd>{String(value)}</dd>
                 </div>
               ))}
             </dl>
           </section>
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-            <h2 className="text-2xl font-semibold text-slate-950">Trades</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-sm text-slate-700">
-                <thead className="text-xs uppercase tracking-[0.16em] text-slate-400">
+
+          <section
+            id="run-trades"
+            className="doc-panel"
+          >
+            <h2 className="section-title">Trades</h2>
+            <div className="table-shell mt-4">
+              <table className="doc-table">
+                <thead>
                   <tr>
-                    <th className="pb-3">Symbol</th>
-                    <th className="pb-3">Entry</th>
-                    <th className="pb-3">Exit</th>
-                    <th className="pb-3">PnL</th>
-                    <th className="pb-3">Reason</th>
+                    <th>Symbol</th>
+                    <th>Entry</th>
+                    <th>Exit</th>
+                    <th>PnL</th>
+                    <th>Reason</th>
                   </tr>
                 </thead>
                 <tbody>
                   {run.trades.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={5}
-                        className="py-4 text-slate-500"
-                      >
-                        아직 거래가 없습니다.
-                      </td>
+                      <td colSpan={5}>아직 거래가 없습니다.</td>
                     </tr>
                   ) : (
                     run.trades.map((trade) => (
-                      <tr
-                        key={`${trade.symbol}-${trade.entryDate}-${trade.exitDate}`}
-                        className="border-t border-slate-100"
-                      >
-                        <td className="py-3">{trade.symbol}</td>
-                        <td className="py-3">
+                      <tr key={`${trade.symbol}-${trade.entryDate}-${trade.exitDate}`}>
+                        <td>{trade.symbol}</td>
+                        <td>
                           {trade.entryDate} / {trade.entryPrice.toFixed(2)}
                         </td>
-                        <td className="py-3">
+                        <td>
                           {trade.exitDate} / {trade.exitPrice.toFixed(2)}
                         </td>
-                        <td className="py-3">{trade.netPnl.toFixed(2)}</td>
-                        <td className="py-3">{trade.exitReason}</td>
+                        <td>{trade.netPnl.toFixed(2)}</td>
+                        <td>{trade.exitReason}</td>
                       </tr>
                     ))
                   )}
@@ -189,11 +208,9 @@ function MetricCard({
   value: string;
 }) {
   return (
-    <article className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-        {label}
-      </p>
-      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
+    <article className="metric-card">
+      <p className="metric-card-label">{label}</p>
+      <p className="metric-card-value">{value}</p>
     </article>
   );
 }
@@ -208,10 +225,10 @@ function ChartCard({
   data: Array<{ label: string; value: number }>;
 }) {
   return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
-      <h2 className="text-2xl font-semibold text-slate-950">{title}</h2>
+    <section className="doc-panel">
+      <h2 className="section-title">{title}</h2>
       {data.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">표시할 데이터가 없습니다.</p>
+        <p className="section-copy">표시할 데이터가 없습니다.</p>
       ) : (
         <div className="mt-4">
           <svg
