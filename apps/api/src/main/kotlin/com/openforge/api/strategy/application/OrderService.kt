@@ -41,6 +41,7 @@ class OrderService(
     private val orderRequestRepository: StrategyOrderRequestRepository,
     private val orderPrecheckService: OrderPrecheckService,
     private val paperOrderService: PaperOrderService,
+    private val orderTrackingService: OrderTrackingService,
     private val marketTimeProvider: MarketTimeProvider,
 ) {
 
@@ -97,7 +98,12 @@ class OrderService(
         return orderRequestRepository.findAllByStrategyIdOrderByRequestedAtDesc(
             strategyId,
             PageRequest.of(0, normalizeLimit(limit, 20)),
-        ).map(::toOrderRequestResponse)
+        ).map { entity ->
+            val symbol = signalEventRepository.findById(entity.signalEventId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
+            }.symbol
+            orderTrackingService.toOrderRequestResponse(entity, symbol)
+        }
     }
 
     fun createOrderRequest(strategyId: UUID, request: CreateOrderRequest): OrderRequestResponse {
@@ -185,18 +191,11 @@ class OrderService(
         }
     }
 
-    private fun toOrderRequestResponse(entity: StrategyOrderRequestEntity): OrderRequestResponse = OrderRequestResponse(
-        id = entity.id,
-        signalEventId = entity.signalEventId,
-        symbol = signalEventRepository.findById(entity.signalEventId).orElseThrow().symbol,
-        side = entity.side,
-        quantity = entity.quantity,
-        price = entity.price.toDouble(),
-        mode = entity.mode,
-        status = entity.status,
-        precheckPassed = entity.precheckPassed,
-        failureReason = entity.failureReason,
-        requestedAt = entity.requestedAt,
+    private fun toOrderRequestResponse(entity: StrategyOrderRequestEntity): OrderRequestResponse = orderTrackingService.toOrderRequestResponse(
+        entity,
+        signalEventRepository.findById(entity.signalEventId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
+        }.symbol,
     )
 
     private fun candidateKey(signalEventId: UUID, side: OrderSide, mode: OrderMode): String =
@@ -281,6 +280,7 @@ class MarketTimeProvider {
 @Service
 class PaperOrderService(
     private val orderRequestRepository: StrategyOrderRequestRepository,
+    private val orderTrackingService: OrderTrackingService,
 ) {
     fun savePending(
         strategy: StrategyEntity,
@@ -291,8 +291,9 @@ class PaperOrderService(
         price: BigDecimal,
         precheck: OrderPrecheckResponse,
         requestedAt: OffsetDateTime,
-    ): StrategyOrderRequestEntity = orderRequestRepository.save(
-        StrategyOrderRequestEntity(
+    ): StrategyOrderRequestEntity {
+        val saved = orderRequestRepository.save(
+            StrategyOrderRequestEntity(
             strategyId = strategy.id,
             strategyVersionId = signal.strategyVersionId,
             signalEventId = signal.id,
@@ -302,13 +303,16 @@ class PaperOrderService(
             orderType = OrderType.LIMIT,
             quantity = quantity,
             price = price,
-            status = OrderRequestStatus.PENDING,
+            status = OrderRequestStatus.REQUESTED,
             precheckPassed = true,
             precheckSummary = precheck.toSummaryMap(),
             failureReason = null,
             requestedAt = requestedAt,
         ),
-    )
+        )
+        orderTrackingService.appendRequested(saved)
+        return saved
+    }
 
     fun saveRejectedPrecheck(
         strategy: StrategyEntity,
@@ -319,8 +323,9 @@ class PaperOrderService(
         price: BigDecimal,
         precheck: OrderPrecheckResponse,
         requestedAt: OffsetDateTime,
-    ): StrategyOrderRequestEntity = orderRequestRepository.save(
-        StrategyOrderRequestEntity(
+    ): StrategyOrderRequestEntity {
+        val saved = orderRequestRepository.save(
+            StrategyOrderRequestEntity(
             strategyId = strategy.id,
             strategyVersionId = signal.strategyVersionId,
             signalEventId = signal.id,
@@ -336,7 +341,10 @@ class PaperOrderService(
             failureReason = precheck.reasonCodes.joinToString(","),
             requestedAt = requestedAt,
         ),
-    )
+        )
+        orderTrackingService.appendRejectedPrecheck(saved)
+        return saved
+    }
 
     private fun OrderPrecheckResponse.toSummaryMap(): Map<String, Any?> = linkedMapOf(
         "passed" to passed,

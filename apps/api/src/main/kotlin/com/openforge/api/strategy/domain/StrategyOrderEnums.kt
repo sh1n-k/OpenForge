@@ -42,6 +42,7 @@ enum class OrderType(@get:JsonValue val value: String) {
 }
 
 enum class OrderRequestStatus(@get:JsonValue val value: String) {
+    REQUESTED("requested"),
     PENDING("pending"),
     REJECTED_DUPLICATE("rejected_duplicate"),
     REJECTED_PRECHECK("rejected_precheck"),
@@ -52,5 +53,35 @@ enum class OrderRequestStatus(@get:JsonValue val value: String) {
         @JsonCreator
         fun fromValue(value: String): OrderRequestStatus = entries.firstOrNull { it.value == value }
             ?: throw IllegalArgumentException("Unsupported orderRequestStatus: $value")
+    }
+}
+
+enum class OrderLifecycleStatus(@get:JsonValue val value: String) {
+    REQUESTED("requested"),
+    ACCEPTED("accepted"),
+    PARTIALLY_FILLED("partially_filled"),
+    FILLED("filled"),
+    CANCELLED("cancelled"),
+    REJECTED("rejected"),
+    ;
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromValue(value: String): OrderLifecycleStatus = entries.firstOrNull { it.value == value }
+            ?: throw IllegalArgumentException("Unsupported orderLifecycleStatus: $value")
+    }
+}
+
+enum class OrderFillSource(@get:JsonValue val value: String) {
+    PAPER_MANUAL("paper_manual"),
+    LIVE_SYNC_RESERVED("live_sync_reserved"),
+    ;
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromValue(value: String): OrderFillSource = entries.firstOrNull { it.value == value }
+            ?: throw IllegalArgumentException("Unsupported orderFillSource: $value")
     }
 }

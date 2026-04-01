@@ -6,15 +6,19 @@ import { startTransition, useEffect, useState } from "react";
 import {
   archiveStrategy,
   cloneStrategy,
+  createOrderFill,
   createOrderRequest,
   replaceStrategyUniverses,
   updateStrategyExecution,
   type StrategyDetail,
   type StrategyExecutionResponse,
   type OrderCandidate,
+  type OrderFill,
   type OrderRequest,
+  type OrderStatusEvent,
   type StrategyExecutionRun,
   type StrategySignalEvent,
+  type StrategyPosition,
   type StrategyVersion,
   type UniverseSummary,
 } from "@/lib/api";
@@ -28,6 +32,9 @@ type StrategyDetailClientProps = {
   signals: StrategySignalEvent[];
   orderCandidates: OrderCandidate[];
   orderRequests: OrderRequest[];
+  fills: OrderFill[];
+  positions: StrategyPosition[];
+  statusEventsByRequestId: Record<string, OrderStatusEvent[]>;
 };
 
 export function StrategyDetailClient({
@@ -39,6 +46,9 @@ export function StrategyDetailClient({
   signals,
   orderCandidates,
   orderRequests,
+  fills,
+  positions,
+  statusEventsByRequestId,
 }: StrategyDetailClientProps) {
   const router = useRouter();
   const [selectedUniverseIds, setSelectedUniverseIds] = useState<string[]>(
@@ -49,6 +59,10 @@ export function StrategyDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingOrderSignalId, setPendingOrderSignalId] = useState<string | null>(null);
+  const [pendingFillRequestId, setPendingFillRequestId] = useState<string | null>(null);
+  const [fillDrafts, setFillDrafts] = useState<
+    Record<string, { quantity: string; price: string }>
+  >({});
 
   useEffect(() => {
     setSelectedUniverseIds(strategy.universes.map((universe) => universe.id));
@@ -110,6 +124,42 @@ export function StrategyDetailClient({
       );
     } finally {
       setPendingOrderSignalId(null);
+    }
+  }
+
+  async function handleCreateFill(orderRequestId: string) {
+    const draft = fillDrafts[orderRequestId] ?? {
+      quantity: "1",
+      price: "0",
+    };
+    const quantity = Number(draft.quantity);
+    const price = Number(draft.price);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setError("체결 수량은 0보다 커야 합니다.");
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      setError("체결 가격은 0보다 커야 합니다.");
+      return;
+    }
+
+    try {
+      setError(null);
+      setPendingFillRequestId(orderRequestId);
+      await createOrderFill(strategy.id, orderRequestId, {
+        quantity,
+        price,
+        filledAt: new Date().toISOString(),
+      });
+      startTransition(() => router.refresh());
+    } catch (fillError) {
+      setError(
+        fillError instanceof Error ? fillError.message : "체결 등록에 실패했습니다.",
+      );
+    } finally {
+      setPendingFillRequestId(null);
     }
   }
 
@@ -500,7 +550,9 @@ export function StrategyDetailClient({
                         {request.symbol} / {request.side}
                       </p>
                       <p className="text-sm text-slate-500">
-                        {request.mode} / qty {request.quantity} / price {request.price}
+                        {request.mode} / current {request.currentStatus} / filled{" "}
+                        {request.filledQuantity} / {request.quantity} / remaining{" "}
+                        {request.remainingQuantity}
                       </p>
                     </div>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -522,6 +574,194 @@ export function StrategyDetailClient({
                       {request.failureReason}
                     </p>
                   ) : null}
+                  <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-semibold text-slate-900">주문 상태 이력</h3>
+                      <span className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        {statusEventsByRequestId[request.id]?.length ?? 0} events
+                      </span>
+                    </div>
+                    {statusEventsByRequestId[request.id]?.length ? (
+                      <div className="mt-3 grid gap-2">
+                        {statusEventsByRequestId[request.id].map((event) => (
+                          <article
+                            key={event.id}
+                            className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-600"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <strong className="text-slate-900">{event.status}</strong>
+                              <span className="text-xs text-slate-400">
+                                {formatDateTime(event.occurredAt)}
+                              </span>
+                            </div>
+                            <p className="mt-1">
+                              {event.reason ?? "reason 없음"}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-slate-500">
+                        상태 이력이 아직 없습니다.
+                      </p>
+                    )}
+                  </section>
+
+                  <form
+                    className="mt-4 grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                    onSubmit={async (event) => {
+                      event.preventDefault();
+                      await handleCreateFill(request.id);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-semibold text-slate-900">수동 체결 등록</h3>
+                      <span className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        paper manual
+                      </span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="grid gap-2 text-sm text-slate-600">
+                        <span>체결 수량</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={
+                            fillDrafts[request.id]?.quantity ??
+                            String(Math.max(request.remainingQuantity, 1))
+                          }
+                          onChange={(event) =>
+                            setFillDrafts((current) => ({
+                              ...current,
+                              [request.id]: {
+                                quantity: event.target.value,
+                                price:
+                                  current[request.id]?.price ??
+                                  String(request.price),
+                              },
+                            }))
+                          }
+                          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm text-slate-600">
+                        <span>체결 가격</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            fillDrafts[request.id]?.price ?? String(request.price)
+                          }
+                          onChange={(event) =>
+                            setFillDrafts((current) => ({
+                              ...current,
+                              [request.id]: {
+                                quantity:
+                                  current[request.id]?.quantity ??
+                                  String(Math.max(request.remainingQuantity, 1)),
+                                price: event.target.value,
+                              },
+                            }))
+                          }
+                          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="submit"
+                        disabled={
+                          pendingFillRequestId === request.id ||
+                          request.remainingQuantity <= 0
+                        }
+                        className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {pendingFillRequestId === request.id
+                          ? "등록 중..."
+                          : request.remainingQuantity <= 0
+                            ? "체결 완료"
+                            : "체결 등록"}
+                      </button>
+                      <p className="text-xs text-slate-500">
+                        filledAt는 현재 시각으로 자동 저장됩니다.
+                      </p>
+                    </div>
+                  </form>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </section>
+
+      <section className="grid gap-6 md:grid-cols-2">
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold text-slate-950">체결 이력</h2>
+            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              fills
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {fills.length === 0 ? (
+              <p className="text-sm text-slate-500">체결 이력이 아직 없습니다.</p>
+            ) : (
+              fills.map((fill) => (
+                <article
+                  key={fill.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {fill.symbol} / {fill.side}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        qty {fill.quantity} / price {fill.price} / {fill.source}
+                      </p>
+                    </div>
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {formatDateTime(fill.filledAt)}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-600">
+                    order {shortId(fill.orderRequestId)}
+                  </p>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold text-slate-950">현재 포지션</h2>
+            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              positions
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {positions.length === 0 ? (
+              <p className="text-sm text-slate-500">현재 포지션이 없습니다.</p>
+            ) : (
+              positions.map((position) => (
+                <article
+                  key={position.symbol}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{position.symbol}</p>
+                      <p className="text-sm text-slate-500">
+                        net {position.netQuantity} / avg {position.avgEntryPrice}
+                      </p>
+                    </div>
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                      {formatDateTime(position.lastFillAt)}
+                    </span>
+                  </div>
                 </article>
               ))
             )}

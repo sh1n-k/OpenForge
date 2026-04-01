@@ -1,6 +1,7 @@
 package com.openforge.api.strategy.web
 
 import com.openforge.api.strategy.application.OrderService
+import com.openforge.api.strategy.application.OrderTrackingService
 import com.openforge.api.strategy.application.PaperExecutionService
 import com.openforge.api.strategy.application.StrategyService
 import jakarta.validation.Valid
@@ -21,6 +22,7 @@ class StrategyController(
     private val strategyService: StrategyService,
     private val paperExecutionService: PaperExecutionService,
     private val orderService: OrderService,
+    private val orderTrackingService: OrderTrackingService,
 ) {
 
     @PostMapping("/validate")
@@ -81,6 +83,31 @@ class StrategyController(
         @PathVariable strategyId: UUID,
         @Valid @RequestBody request: CreateOrderRequest,
     ): OrderRequestResponse = orderService.createOrderRequest(strategyId, request)
+
+    @GetMapping("/{strategyId}/orders/requests/{orderRequestId}/status-events")
+    fun orderStatusEvents(
+        @PathVariable strategyId: UUID,
+        @PathVariable orderRequestId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") limit: Int,
+    ): List<OrderStatusEventResponse> = orderTrackingService.listOrderStatusEvents(strategyId, orderRequestId, limit)
+
+    @PostMapping("/{strategyId}/orders/requests/{orderRequestId}/fills")
+    fun createOrderFill(
+        @PathVariable strategyId: UUID,
+        @PathVariable orderRequestId: UUID,
+        @Valid @RequestBody request: CreateOrderFillRequest,
+    ): OrderFillResponse = orderTrackingService.createFill(strategyId, orderRequestId, request)
+
+    @GetMapping("/{strategyId}/fills")
+    fun fills(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") limit: Int,
+    ): List<OrderFillResponse> = orderTrackingService.listFills(strategyId, limit)
+
+    @GetMapping("/{strategyId}/positions")
+    fun positions(
+        @PathVariable strategyId: UUID,
+    ): List<StrategyPositionResponse> = orderTrackingService.listPositions(strategyId)
 
     @PatchMapping("/{strategyId}")
     fun update(

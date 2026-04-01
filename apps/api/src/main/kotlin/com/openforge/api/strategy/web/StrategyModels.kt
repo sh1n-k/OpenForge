@@ -1,6 +1,8 @@
 package com.openforge.api.strategy.web
 
 import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.OrderFillSource
+import com.openforge.api.strategy.domain.OrderLifecycleStatus
 import com.openforge.api.strategy.domain.OrderMode
 import com.openforge.api.strategy.domain.OrderRequestStatus
 import com.openforge.api.strategy.domain.OrderSide
@@ -15,6 +17,7 @@ import com.openforge.api.strategy.domain.StrategyValidationStatus
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Positive
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -211,9 +214,48 @@ data class OrderRequestResponse(
     val price: Double,
     val mode: OrderMode,
     val status: OrderRequestStatus,
+    val currentStatus: OrderLifecycleStatus,
+    val filledQuantity: Long,
+    val remainingQuantity: Long,
     val precheckPassed: Boolean,
     val failureReason: String?,
     val requestedAt: OffsetDateTime,
+)
+
+data class CreateOrderFillRequest(
+    @field:Positive
+    val quantity: Long,
+    @field:Positive
+    val price: Double,
+    @field:NotNull
+    val filledAt: OffsetDateTime,
+)
+
+data class OrderStatusEventResponse(
+    val id: UUID,
+    val orderRequestId: UUID,
+    val status: OrderLifecycleStatus,
+    val reason: String?,
+    val occurredAt: OffsetDateTime,
+    val payload: Map<String, Any?>,
+)
+
+data class OrderFillResponse(
+    val id: UUID,
+    val orderRequestId: UUID,
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Long,
+    val price: Double,
+    val filledAt: OffsetDateTime,
+    val source: OrderFillSource,
+)
+
+data class StrategyPositionResponse(
+    val symbol: String,
+    val netQuantity: Long,
+    val avgEntryPrice: Double,
+    val lastFillAt: OffsetDateTime?,
 )
 
 data class CreateUniverseRequest(

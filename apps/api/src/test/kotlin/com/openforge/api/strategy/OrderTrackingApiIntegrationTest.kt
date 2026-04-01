@@ -20,8 +20,9 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.json.JsonMapper
 import java.time.ZonedDateTime
+import java.util.UUID
 
-class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
+class OrderTrackingApiIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Autowired
     lateinit var mockMvc: MockMvc
@@ -40,155 +41,186 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
     }
 
     @Test
-    fun `lists order candidates from recent signals`() {
-        val signalEventId = prepareSignal("Order Candidate")
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
+    fun `stores requested status event when order request is created`() {
+        val prepared = prepareOrderRequest("Tracking Requested")
 
-        mockMvc.perform(get("/api/v1/strategies/${signalEventId.strategyId}/orders/candidates?limit=50"))
+        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/requests/${prepared.orderRequestId}/status-events?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$", hasSize<Any>(1)))
-            .andExpect(jsonPath("$[0].signalEventId").value(signalEventId.signalEventId))
-            .andExpect(jsonPath("$[0].side").value("buy"))
-            .andExpect(jsonPath("$[0].quantity").value(1))
-            .andExpect(jsonPath("$[0].price").value(12.0))
-            .andExpect(jsonPath("$[0].precheck.passed").value(true))
-    }
-
-    @Test
-    fun `marks candidate as invalid when strategy status is not running`() {
-        val prepared = prepareSignal("Status Guard")
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
-        markBacktestCompleted(prepared.strategyId)
-
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].precheck.passed").value(false))
-            .andExpect(jsonPath("$[0].precheck.strategyStatus").value(false))
-            .andExpect(jsonPath("$[0].precheck.reasonCodes[0]").value("strategy_status"))
-    }
-
-    @Test
-    fun `marks candidate as invalid outside market hours`() {
-        val prepared = prepareSignal("Market Hours Guard")
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T16:00:00+09:00[Asia/Seoul]"))
-
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].precheck.passed").value(false))
-            .andExpect(jsonPath("$[0].precheck.marketHours").value(false))
-            .andExpect(jsonPath("$[0].precheck.reasonCodes[0]").value("market_hours"))
-    }
-
-    @Test
-    fun `marks candidate as invalid when price is missing`() {
-        val prepared = prepareSignal("Price Guard")
-        jdbcTemplate.update(
-            "update strategy_signal_event set payload = '{}'::jsonb where id = ?::uuid",
-            prepared.signalEventId,
-        )
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
-
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].price").value(0.0))
-            .andExpect(jsonPath("$[0].precheck.passed").value(false))
-            .andExpect(jsonPath("$[0].precheck.priceValid").value(false))
-            .andExpect(jsonPath("$[0].precheck.reasonCodes[0]").value("price_invalid"))
-    }
-
-    @Test
-    fun `creates paper order request and blocks duplicate requests`() {
-        val prepared = prepareSignal("Order Create")
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
-
-        mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsBytes(
-                        mapOf(
-                            "signalEventId" to prepared.signalEventId,
-                            "mode" to "paper",
-                        ),
-                    ),
-                ),
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.status").value("requested"))
-            .andExpect(jsonPath("$.currentStatus").value("requested"))
-            .andExpect(jsonPath("$.filledQuantity").value(0))
-            .andExpect(jsonPath("$.remainingQuantity").value(1))
-            .andExpect(jsonPath("$.precheckPassed").value(true))
-
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/requests?limit=20"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$", hasSize<Any>(1)))
-            .andExpect(jsonPath("$[0].signalEventId").value(prepared.signalEventId))
             .andExpect(jsonPath("$[0].status").value("requested"))
-            .andExpect(jsonPath("$[0].currentStatus").value("requested"))
+    }
+
+    @Test
+    fun `records partial and full fills and projects current position`() {
+        val signal = prepareSignalContext("Tracking Fill")
+        val orderRequestId = insertOrderRequest(
+            strategyId = signal.strategyId,
+            signalEventId = signal.signalEventId,
+            side = "BUY",
+            quantity = 2,
+            price = 100.0,
+            requestedAt = "2026-01-05T10:00:00+09:00",
+        )
 
         mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
+            post("/api/v1/strategies/${signal.strategyId}/orders/requests/$orderRequestId/fills")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     objectMapper.writeValueAsBytes(
                         mapOf(
-                            "signalEventId" to prepared.signalEventId,
-                            "mode" to "paper",
+                            "quantity" to 1,
+                            "price" to 100.0,
+                            "filledAt" to "2026-01-05T10:05:00+09:00",
+                        ),
+                    ),
+                ),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.quantity").value(1))
+            .andExpect(jsonPath("$.source").value("paper_manual"))
+
+        mockMvc.perform(get("/api/v1/strategies/${signal.strategyId}/orders/requests?limit=20"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].currentStatus").value("partially_filled"))
+            .andExpect(jsonPath("$[0].filledQuantity").value(1))
+            .andExpect(jsonPath("$[0].remainingQuantity").value(1))
+
+        mockMvc.perform(
+            post("/api/v1/strategies/${signal.strategyId}/orders/requests/$orderRequestId/fills")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsBytes(
+                        mapOf(
+                            "quantity" to 1,
+                            "price" to 140.0,
+                            "filledAt" to "2026-01-05T10:06:00+09:00",
+                        ),
+                    ),
+                ),
+        )
+            .andExpect(status().isOk)
+
+        mockMvc.perform(get("/api/v1/strategies/${signal.strategyId}/orders/requests/$orderRequestId/status-events?limit=50"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(4)))
+            .andExpect(jsonPath("$[0].status").value("filled"))
+            .andExpect(jsonPath("$[1].status").value("partially_filled"))
+            .andExpect(jsonPath("$[2].status").value("accepted"))
+            .andExpect(jsonPath("$[3].status").value("requested"))
+
+        mockMvc.perform(get("/api/v1/strategies/${signal.strategyId}/fills?limit=50"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(2)))
+            .andExpect(jsonPath("$[0].price").value(140.0))
+            .andExpect(jsonPath("$[1].price").value(100.0))
+
+        mockMvc.perform(get("/api/v1/strategies/${signal.strategyId}/positions"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(1)))
+            .andExpect(jsonPath("$[0].symbol").value("AAA"))
+            .andExpect(jsonPath("$[0].netQuantity").value(2))
+            .andExpect(jsonPath("$[0].avgEntryPrice").value(120.0))
+
+        mockMvc.perform(get("/api/v1/strategies/${signal.strategyId}/orders/requests?limit=20"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].currentStatus").value("filled"))
+            .andExpect(jsonPath("$[0].filledQuantity").value(2))
+            .andExpect(jsonPath("$[0].remainingQuantity").value(0))
+    }
+
+    @Test
+    fun `rejects fills that exceed requested quantity`() {
+        val prepared = prepareOrderRequest("Tracking Overfill")
+
+        mockMvc.perform(
+            post("/api/v1/strategies/${prepared.strategyId}/orders/requests/${prepared.orderRequestId}/fills")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsBytes(
+                        mapOf(
+                            "quantity" to 1,
+                            "price" to 100.0,
+                            "filledAt" to "2026-01-05T10:05:00+09:00",
+                        ),
+                    ),
+                ),
+        )
+            .andExpect(status().isOk)
+
+        mockMvc.perform(
+            post("/api/v1/strategies/${prepared.strategyId}/orders/requests/${prepared.orderRequestId}/fills")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsBytes(
+                        mapOf(
+                            "quantity" to 1,
+                            "price" to 101.0,
+                            "filledAt" to "2026-01-05T10:06:00+09:00",
                         ),
                     ),
                 ),
         )
             .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.detail").value(containsString("Duplicate order request")))
+            .andExpect(jsonPath("$.detail").value(containsString("exceeds requested order quantity")))
     }
 
     @Test
-    fun `stores rejected precheck request when created outside market hours`() {
-        val prepared = prepareSignal("Rejected Precheck")
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T16:00:00+09:00[Asia/Seoul]"))
+    fun `rejects sell fills that would create a negative position`() {
+        val signal = prepareSignalContext("Tracking Sell Guard")
+        val sellOrderRequestId = insertOrderRequest(
+            strategyId = signal.strategyId,
+            signalEventId = signal.signalEventId,
+            side = "SELL",
+            quantity = 1,
+            price = 100.0,
+            requestedAt = "2026-01-05T10:02:00+09:00",
+        )
 
         mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
+            post("/api/v1/strategies/${signal.strategyId}/orders/requests/$sellOrderRequestId/fills")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     objectMapper.writeValueAsBytes(
                         mapOf(
-                            "signalEventId" to prepared.signalEventId,
+                            "quantity" to 1,
+                            "price" to 100.0,
+                            "filledAt" to "2026-01-05T10:05:00+09:00",
+                        ),
+                    ),
+                ),
+        )
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("exceeds current position quantity")))
+    }
+
+    private fun prepareOrderRequest(name: String): PreparedOrderRequest {
+        val signal = prepareSignalContext(name)
+        val orderRequestId = mockMvc.perform(
+            post("/api/v1/strategies/${signal.strategyId}/orders/requests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsBytes(
+                        mapOf(
+                            "signalEventId" to signal.signalEventId,
                             "mode" to "paper",
                         ),
                     ),
                 ),
         )
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.status").value("rejected_precheck"))
-            .andExpect(jsonPath("$.currentStatus").value("rejected"))
-            .andExpect(jsonPath("$.precheckPassed").value(false))
-            .andExpect(jsonPath("$.failureReason").value(containsString("market_hours")))
-    }
+            .andReturn()
+            .response
+            .contentAsString
+            .let { objectMapper.readTree(it).get("id").asText() }
 
-    @Test
-    fun `rejects live mode explicitly`() {
-        val prepared = prepareSignal("Live Guard")
-        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
-
-        mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsBytes(
-                        mapOf(
-                            "signalEventId" to prepared.signalEventId,
-                            "mode" to "live",
-                        ),
-                    ),
-                ),
+        return PreparedOrderRequest(
+            strategyId = signal.strategyId,
+            signalEventId = signal.signalEventId,
+            orderRequestId = orderRequestId,
         )
-            .andExpect(status().isConflict)
-            .andExpect(jsonPath("$.detail").value(containsString("Live order mode")))
     }
 
-    private fun prepareSignal(name: String): PreparedSignal {
+    private fun prepareSignalContext(name: String): PreparedTrackingSignal {
         importCsv(
             """
                 symbol,date,open,high,low,close,volume
@@ -205,6 +237,7 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
         paperExecutionService.processDueExecutionsAt(
             ZonedDateTime.parse("2026-01-05T09:30:00+09:00[Asia/Seoul]"),
         )
+        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
 
         val signalEventId = mockMvc.perform(get("/api/v1/strategies/$strategyId/signals?limit=50"))
             .andExpect(status().isOk)
@@ -213,7 +246,66 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
             .contentAsString
             .let { objectMapper.readTree(it)[0].get("id").asText() }
 
-        return PreparedSignal(strategyId = strategyId, signalEventId = signalEventId)
+        return PreparedTrackingSignal(
+            strategyId = strategyId,
+            signalEventId = signalEventId,
+        )
+    }
+
+    private fun insertOrderRequest(
+        strategyId: String,
+        signalEventId: String,
+        side: String,
+        quantity: Long,
+        price: Double,
+        requestedAt: String,
+    ): String {
+        val orderRequestId = UUID.randomUUID().toString()
+        val strategyVersionId = jdbcTemplate.queryForObject(
+            "select strategy_version_id from strategy_signal_event where id = ?::uuid",
+            String::class.java,
+            signalEventId,
+        )!!
+        val executionRunId = jdbcTemplate.queryForObject(
+            "select run_id from strategy_signal_event where id = ?::uuid",
+            String::class.java,
+            signalEventId,
+        )!!
+        jdbcTemplate.update(
+            """
+                insert into strategy_order_request (
+                    id, strategy_id, strategy_version_id, signal_event_id, execution_run_id,
+                    mode, side, order_type, quantity, price, status, precheck_passed,
+                    precheck_summary, failure_reason, requested_at, created_at, updated_at
+                ) values (
+                    ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid,
+                    'PAPER', ?, 'LIMIT', ?, ?, 'REQUESTED', true,
+                    '{"passed":true}'::jsonb, null, ?::timestamptz, now(), now()
+                )
+            """.trimIndent(),
+            orderRequestId,
+            strategyId,
+            strategyVersionId,
+            signalEventId,
+            executionRunId,
+            side,
+            quantity,
+            price,
+            requestedAt,
+        )
+        jdbcTemplate.update(
+            """
+                insert into strategy_order_status_event (
+                    id, order_request_id, status, reason, payload, occurred_at, created_at, updated_at
+                ) values (
+                    ?::uuid, ?::uuid, 'REQUESTED', null, '{}'::jsonb, ?::timestamptz, now(), now()
+                )
+            """.trimIndent(),
+            UUID.randomUUID().toString(),
+            orderRequestId,
+            requestedAt,
+        )
+        return orderRequestId
     }
 
     private fun enableExecution(strategyId: String, scheduleTime: String) {
@@ -255,7 +347,7 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
                     objectMapper.writeValueAsBytes(
                         mapOf(
                             "name" to name,
-                            "description" to "order universe",
+                            "description" to "tracking universe",
                         ),
                     ),
                 ),
@@ -317,7 +409,7 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
                 objectMapper.writeValueAsBytes(
                     mapOf(
                         "name" to name,
-                        "description" to "order draft",
+                        "description" to "tracking draft",
                         "strategyType" to "builder",
                         "initialPayload" to mapOf(
                             "payloadFormat" to "builder_json",
@@ -338,10 +430,10 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
             "metadata" to mapOf(
                 "id" to name.lowercase().replace(" ", "_"),
                 "name" to name,
-                "description" to "order draft",
+                "description" to "tracking draft",
                 "category" to "custom",
                 "author" to "OpenForge",
-                "tags" to listOf("order"),
+                "tags" to listOf("tracking"),
             ),
             "indicators" to listOf(
                 mapOf(
@@ -380,7 +472,13 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
     )
 }
 
-private data class PreparedSignal(
+private data class PreparedOrderRequest(
+    val strategyId: String,
+    val signalEventId: String,
+    val orderRequestId: String,
+)
+
+private data class PreparedTrackingSignal(
     val strategyId: String,
     val signalEventId: String,
 )

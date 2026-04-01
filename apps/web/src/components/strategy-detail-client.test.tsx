@@ -35,6 +35,9 @@ describe("StrategyDetailClient", () => {
         signals={signalsFixture}
         orderCandidates={orderCandidatesFixture}
         orderRequests={orderRequestsFixture}
+        fills={fillsFixture}
+        positions={positionsFixture}
+        statusEventsByRequestId={statusEventsByRequestIdFixture}
       />,
     );
 
@@ -42,6 +45,15 @@ describe("StrategyDetailClient", () => {
     expect(screen.getAllByText("paper").length).toBeGreaterThan(0);
     expect(screen.getByText("최근 실행 로그")).toBeInTheDocument();
     expect(screen.getByText("최근 시그널 이력")).toBeInTheDocument();
+    expect(screen.getByText("체결 이력")).toBeInTheDocument();
+    expect(screen.getByText("현재 포지션")).toBeInTheDocument();
+    expect(screen.getByText(/current partially_filled/)).toBeInTheDocument();
+    expect(
+      screen.getAllByText((_, element) =>
+        element?.textContent?.includes("filled 1 / 2 / remaining 1") ?? false,
+      ),
+    ).not.toHaveLength(0);
+    expect(screen.getByText("accepted")).toBeInTheDocument();
 
     const scheduleInput = screen.getByLabelText("실행 시각");
     expect(scheduleInput).toHaveValue("09:30");
@@ -75,13 +87,16 @@ describe("StrategyDetailClient", () => {
         signals={signalsFixture}
         orderCandidates={orderCandidatesFixture}
         orderRequests={orderRequestsFixture}
+        fills={fillsFixture}
+        positions={positionsFixture}
+        statusEventsByRequestId={statusEventsByRequestIdFixture}
       />,
     );
 
     expect(screen.getByText("주문 후보")).toBeInTheDocument();
     expect(screen.getByText("주문 요청 이력")).toBeInTheDocument();
-    expect(screen.getAllByText("AAA / buy")).toHaveLength(2);
-    expect(screen.getByText("pending")).toBeInTheDocument();
+    expect(screen.getAllByText("AAA / buy").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("requested").length).toBeGreaterThan(0);
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -93,6 +108,47 @@ describe("StrategyDetailClient", () => {
       expect(createOrderRequest).toHaveBeenCalledWith("strategy-1", {
         signalEventId: "signal-1",
         mode: "paper",
+      });
+    });
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalled();
+    });
+  });
+
+  it("registers a manual fill for an order request", async () => {
+    const createOrderFill = vi
+      .spyOn(apiModule, "createOrderFill")
+      .mockResolvedValue(undefined);
+
+    render(
+      <StrategyDetailClient
+        strategy={strategyFixture}
+        versions={versionsFixture}
+        universes={universesFixture}
+        execution={executionFixture}
+        runs={runsFixture}
+        signals={signalsFixture}
+        orderCandidates={orderCandidatesFixture}
+        orderRequests={orderRequestsFixture}
+        fills={fillsFixture}
+        positions={positionsFixture}
+        statusEventsByRequestId={statusEventsByRequestIdFixture}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("체결 수량"), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText("체결 가격"), {
+      target: { value: "124.25" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "체결 등록" }));
+
+    await waitFor(() => {
+      expect(createOrderFill).toHaveBeenCalledWith("strategy-1", "order-1", {
+        quantity: 1,
+        price: 124.25,
+        filledAt: expect.any(String),
       });
     });
     await waitFor(() => {
@@ -122,6 +178,9 @@ describe("StrategyDetailClient", () => {
           },
         ]}
         orderRequests={[]}
+        fills={[]}
+        positions={[]}
+        statusEventsByRequestId={{}}
       />,
     );
 
@@ -242,7 +301,7 @@ const orderCandidatesFixture: apiModule.OrderCandidate[] = [
     strategyVersionId: "version-1",
     symbol: "AAA",
     side: "buy",
-    quantity: 1,
+    quantity: 2,
     price: 123.45,
     tradingDate: "2026-04-01",
     mode: "paper",
@@ -265,10 +324,13 @@ const orderRequestsFixture: apiModule.OrderRequest[] = [
     signalEventId: "signal-1",
     symbol: "AAA",
     side: "buy",
-    quantity: 1,
+    quantity: 2,
     price: 123.45,
     mode: "paper",
-    status: "pending",
+    status: "requested",
+    currentStatus: "partially_filled",
+    filledQuantity: 1,
+    remainingQuantity: 1,
     precheckPassed: true,
     failureReason: null,
     requestedAt: "2026-04-01T09:31:00+09:00",
@@ -280,3 +342,48 @@ const orderRequestFixture: apiModule.OrderRequest = {
   id: "order-2",
   requestedAt: "2026-04-01T09:32:00+09:00",
 };
+
+const statusEventsByRequestIdFixture: Record<string, apiModule.OrderStatusEvent[]> = {
+  "order-1": [
+    {
+      id: "status-1",
+      orderRequestId: "order-1",
+      status: "requested",
+      reason: null,
+      occurredAt: "2026-04-01T09:31:00+09:00",
+      payload: {},
+    },
+    {
+      id: "status-2",
+      orderRequestId: "order-1",
+      status: "accepted",
+      reason: "paper fill received",
+      occurredAt: "2026-04-01T09:31:30+09:00",
+      payload: {
+        source: "paper_manual",
+      },
+    },
+  ],
+};
+
+const fillsFixture: apiModule.OrderFill[] = [
+  {
+    id: "fill-1",
+    orderRequestId: "order-1",
+    symbol: "AAA",
+    side: "buy",
+    quantity: 1,
+    price: 123.45,
+    filledAt: "2026-04-01T09:31:30+09:00",
+    source: "paper_manual",
+  },
+];
+
+const positionsFixture: apiModule.StrategyPosition[] = [
+  {
+    symbol: "AAA",
+    netQuantity: 1,
+    avgEntryPrice: 123.45,
+    lastFillAt: "2026-04-01T09:31:30+09:00",
+  },
+];

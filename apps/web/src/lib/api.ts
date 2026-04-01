@@ -17,13 +17,17 @@ export type StrategySignalType = "entry" | "exit";
 export type OrderMode = "paper" | "live";
 export type OrderSide = "buy" | "sell";
 export type OrderType = "limit";
+export type OrderLifecycleStatus =
+  | "requested"
+  | "accepted"
+  | "partially_filled"
+  | "filled"
+  | "cancelled"
+  | "rejected";
 export type OrderRequestStatus =
-  | "pending"
+  | "requested"
   | "rejected_duplicate"
-  | "rejected_precheck"
-  | "submitted"
-  | "completed"
-  | "failed";
+  | "rejected_precheck";
 
 export type StrategyValidationMessage = {
   category: string;
@@ -157,9 +161,41 @@ export type OrderRequest = {
   price: number;
   mode: OrderMode;
   status: OrderRequestStatus;
+  currentStatus: OrderLifecycleStatus | OrderRequestStatus;
+  filledQuantity: number;
+  remainingQuantity: number;
   precheckPassed: boolean;
   failureReason: string | null;
   requestedAt: string;
+};
+
+export type OrderStatusEvent = {
+  id: string;
+  orderRequestId: string;
+  status: OrderLifecycleStatus;
+  reason: string | null;
+  occurredAt: string;
+  payload: Record<string, unknown>;
+};
+
+export type OrderFillSource = "paper_manual" | "live_sync_reserved";
+
+export type OrderFill = {
+  id: string;
+  orderRequestId: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  filledAt: string;
+  source: OrderFillSource;
+};
+
+export type StrategyPosition = {
+  symbol: string;
+  netQuantity: number;
+  avgEntryPrice: number;
+  lastFillAt: string | null;
 };
 
 export type BacktestHeadlineMetrics = {
@@ -365,6 +401,30 @@ export async function loadStrategyOrderRequests(
   );
 }
 
+export async function loadStrategyOrderStatusEvents(
+  strategyId: string,
+  orderRequestId: string,
+  limit = 50,
+) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<OrderStatusEvent[]>(
+    `/api/v1/strategies/${strategyId}/orders/requests/${orderRequestId}/status-events?${params.toString()}`,
+  );
+}
+
+export async function loadStrategyFills(strategyId: string, limit = 50) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<OrderFill[]>(
+    `/api/v1/strategies/${strategyId}/fills?${params.toString()}`,
+  );
+}
+
+export async function loadStrategyPositions(strategyId: string) {
+  return apiFetch<StrategyPosition[]>(`/api/v1/strategies/${strategyId}/positions`);
+}
+
 export async function loadStrategyVersions(strategyId: string) {
   return apiFetch<StrategyVersion[]>(`/api/v1/strategies/${strategyId}/versions`);
 }
@@ -433,6 +493,24 @@ export async function createOrderRequest(
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function createOrderFill(
+  strategyId: string,
+  orderRequestId: string,
+  input: {
+    quantity: number;
+    price: number;
+    filledAt: string;
+  },
+) {
+  return apiFetch<void>(
+    `/api/v1/strategies/${strategyId}/orders/requests/${orderRequestId}/fills`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export async function validateStrategy(input: {

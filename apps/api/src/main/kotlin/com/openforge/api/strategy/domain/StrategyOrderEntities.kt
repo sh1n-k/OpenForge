@@ -67,3 +67,69 @@ class StrategyOrderRequestEntity(
     @Column(name = "requested_at", nullable = false)
     var requestedAt: OffsetDateTime,
 ) : BaseAuditableEntity()
+
+@Entity
+@Table(name = "strategy_order_status_event")
+class StrategyOrderStatusEventEntity(
+    @Id
+    @Column(columnDefinition = "uuid")
+    var id: UUID = UUID.randomUUID(),
+
+    @Column(name = "order_request_id", columnDefinition = "uuid", nullable = false)
+    var orderRequestId: UUID,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    var status: OrderLifecycleStatus,
+
+    @Column(columnDefinition = "text")
+    var reason: String? = null,
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    var payload: Map<String, Any?> = emptyMap(),
+
+    @Column(name = "occurred_at", nullable = false)
+    var occurredAt: OffsetDateTime,
+) : BaseAuditableEntity()
+
+@Entity
+@Table(name = "strategy_order_fill")
+class StrategyOrderFillEntity(
+    @Id
+    @Column(columnDefinition = "uuid")
+    var id: UUID = UUID.randomUUID(),
+
+    @Column(name = "order_request_id", columnDefinition = "uuid", nullable = false)
+    var orderRequestId: UUID,
+
+    @Column(name = "strategy_id", columnDefinition = "uuid", nullable = false)
+    var strategyId: UUID,
+
+    @Column(name = "strategy_version_id", columnDefinition = "uuid", nullable = false)
+    var strategyVersionId: UUID,
+
+    @Column(nullable = false, length = 32)
+    var symbol: String,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    var side: OrderSide,
+
+    @Column(nullable = false)
+    var quantity: Long,
+
+    @Column(nullable = false, precision = 19, scale = 6)
+    var price: BigDecimal,
+
+    @Column(name = "filled_at", nullable = false)
+    var filledAt: OffsetDateTime,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 32)
+    var source: OrderFillSource,
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    var payload: Map<String, Any?> = emptyMap(),
+) : BaseAuditableEntity()
