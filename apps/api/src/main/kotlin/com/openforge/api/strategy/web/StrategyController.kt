@@ -1,5 +1,6 @@
 package com.openforge.api.strategy.web
 
+import com.openforge.api.strategy.application.OrderService
 import com.openforge.api.strategy.application.PaperExecutionService
 import com.openforge.api.strategy.application.StrategyService
 import jakarta.validation.Valid
@@ -19,6 +20,7 @@ import java.util.UUID
 class StrategyController(
     private val strategyService: StrategyService,
     private val paperExecutionService: PaperExecutionService,
+    private val orderService: OrderService,
 ) {
 
     @PostMapping("/validate")
@@ -61,6 +63,24 @@ class StrategyController(
         @PathVariable strategyId: UUID,
         @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") limit: Int,
     ): List<StrategySignalEventResponse> = paperExecutionService.listSignals(strategyId, limit)
+
+    @GetMapping("/{strategyId}/orders/candidates")
+    fun orderCandidates(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") limit: Int,
+    ): List<OrderCandidateResponse> = orderService.listOrderCandidates(strategyId, limit)
+
+    @GetMapping("/{strategyId}/orders/requests")
+    fun orderRequests(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") limit: Int,
+    ): List<OrderRequestResponse> = orderService.listOrderRequests(strategyId, limit)
+
+    @PostMapping("/{strategyId}/orders/requests")
+    fun createOrderRequest(
+        @PathVariable strategyId: UUID,
+        @Valid @RequestBody request: CreateOrderRequest,
+    ): OrderRequestResponse = orderService.createOrderRequest(strategyId, request)
 
     @PatchMapping("/{strategyId}")
     fun update(

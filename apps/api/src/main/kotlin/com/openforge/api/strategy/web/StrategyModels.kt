@@ -1,6 +1,9 @@
 package com.openforge.api.strategy.web
 
 import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.OrderMode
+import com.openforge.api.strategy.domain.OrderRequestStatus
+import com.openforge.api.strategy.domain.OrderSide
 import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.StrategyExecutionMode
 import com.openforge.api.strategy.domain.StrategyExecutionRunStatus
@@ -167,6 +170,50 @@ data class StrategySignalEventResponse(
     val tradingDate: java.time.LocalDate,
     val createdAt: OffsetDateTime,
     val payload: Map<String, Any?>,
+)
+
+data class CreateOrderRequest(
+    @field:NotNull
+    val signalEventId: UUID,
+    val mode: OrderMode = OrderMode.PAPER,
+)
+
+data class OrderPrecheckResponse(
+    val passed: Boolean,
+    val marketHours: Boolean,
+    val strategyStatus: Boolean,
+    val duplicateOrder: Boolean,
+    val quantityValid: Boolean,
+    val priceValid: Boolean,
+    val reasonCodes: List<String>,
+)
+
+data class OrderCandidateResponse(
+    val signalEventId: UUID,
+    val executionRunId: UUID,
+    val strategyVersionId: UUID,
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Long,
+    val price: Double,
+    val tradingDate: java.time.LocalDate,
+    val mode: OrderMode,
+    val alreadyRequested: Boolean,
+    val precheck: OrderPrecheckResponse,
+)
+
+data class OrderRequestResponse(
+    val id: UUID,
+    val signalEventId: UUID,
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Long,
+    val price: Double,
+    val mode: OrderMode,
+    val status: OrderRequestStatus,
+    val precheckPassed: Boolean,
+    val failureReason: String?,
+    val requestedAt: OffsetDateTime,
 )
 
 data class CreateUniverseRequest(

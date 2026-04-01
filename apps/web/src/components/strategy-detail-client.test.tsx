@@ -33,6 +33,8 @@ describe("StrategyDetailClient", () => {
         execution={executionFixture}
         runs={runsFixture}
         signals={signalsFixture}
+        orderCandidates={orderCandidatesFixture}
+        orderRequests={orderRequestsFixture}
       />,
     );
 
@@ -56,6 +58,78 @@ describe("StrategyDetailClient", () => {
     await waitFor(() => {
       expect(refresh).toHaveBeenCalled();
     });
+  });
+
+  it("renders order candidates and creates a paper order request", async () => {
+    const createOrderRequest = vi
+      .spyOn(apiModule, "createOrderRequest")
+      .mockResolvedValue(orderRequestFixture);
+
+    render(
+      <StrategyDetailClient
+        strategy={strategyFixture}
+        versions={versionsFixture}
+        universes={universesFixture}
+        execution={executionFixture}
+        runs={runsFixture}
+        signals={signalsFixture}
+        orderCandidates={orderCandidatesFixture}
+        orderRequests={orderRequestsFixture}
+      />,
+    );
+
+    expect(screen.getByText("주문 후보")).toBeInTheDocument();
+    expect(screen.getByText("주문 요청 이력")).toBeInTheDocument();
+    expect(screen.getAllByText("AAA / buy")).toHaveLength(2);
+    expect(screen.getByText("pending")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "paper 주문 생성",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(createOrderRequest).toHaveBeenCalledWith("strategy-1", {
+        signalEventId: "signal-1",
+        mode: "paper",
+      });
+    });
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalled();
+    });
+  });
+
+  it("disables order creation when precheck fails", () => {
+    render(
+      <StrategyDetailClient
+        strategy={strategyFixture}
+        versions={versionsFixture}
+        universes={universesFixture}
+        execution={executionFixture}
+        runs={runsFixture}
+        signals={signalsFixture}
+        orderCandidates={[
+          {
+            ...orderCandidatesFixture[0],
+            alreadyRequested: true,
+            precheck: {
+              ...orderCandidatesFixture[0].precheck,
+              passed: false,
+              duplicateOrder: true,
+              reasonCodes: ["duplicate_order"],
+            },
+          },
+        ]}
+        orderRequests={[]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "paper 주문 생성",
+      }),
+    ).toBeDisabled();
   });
 });
 
@@ -160,3 +234,49 @@ const signalsFixture: apiModule.StrategySignalEvent[] = [
     },
   },
 ];
+
+const orderCandidatesFixture: apiModule.OrderCandidate[] = [
+  {
+    signalEventId: "signal-1",
+    executionRunId: "run-1",
+    strategyVersionId: "version-1",
+    symbol: "AAA",
+    side: "buy",
+    quantity: 1,
+    price: 123.45,
+    tradingDate: "2026-04-01",
+    mode: "paper",
+    alreadyRequested: false,
+    precheck: {
+      passed: true,
+      marketHours: true,
+      strategyStatus: true,
+      duplicateOrder: false,
+      quantityValid: true,
+      priceValid: true,
+      reasonCodes: [],
+    },
+  },
+];
+
+const orderRequestsFixture: apiModule.OrderRequest[] = [
+  {
+    id: "order-1",
+    signalEventId: "signal-1",
+    symbol: "AAA",
+    side: "buy",
+    quantity: 1,
+    price: 123.45,
+    mode: "paper",
+    status: "pending",
+    precheckPassed: true,
+    failureReason: null,
+    requestedAt: "2026-04-01T09:31:00+09:00",
+  },
+];
+
+const orderRequestFixture: apiModule.OrderRequest = {
+  ...orderRequestsFixture[0],
+  id: "order-2",
+  requestedAt: "2026-04-01T09:32:00+09:00",
+};

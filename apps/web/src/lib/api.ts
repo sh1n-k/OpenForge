@@ -14,6 +14,16 @@ export type BacktestRunStatus = "queued" | "running" | "completed" | "failed";
 export type StrategyExecutionMode = "paper";
 export type StrategyExecutionTriggerType = "scheduled";
 export type StrategySignalType = "entry" | "exit";
+export type OrderMode = "paper" | "live";
+export type OrderSide = "buy" | "sell";
+export type OrderType = "limit";
+export type OrderRequestStatus =
+  | "pending"
+  | "rejected_duplicate"
+  | "rejected_precheck"
+  | "submitted"
+  | "completed"
+  | "failed";
 
 export type StrategyValidationMessage = {
   category: string;
@@ -112,6 +122,44 @@ export type StrategySignalEvent = {
   tradingDate: string;
   createdAt: string;
   payload: Record<string, unknown>;
+};
+
+export type OrderPrecheck = {
+  passed: boolean;
+  marketHours: boolean;
+  strategyStatus: boolean;
+  duplicateOrder: boolean;
+  quantityValid: boolean;
+  priceValid: boolean;
+  reasonCodes: string[];
+};
+
+export type OrderCandidate = {
+  signalEventId: string;
+  executionRunId: string;
+  strategyVersionId: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  tradingDate: string;
+  mode: OrderMode;
+  alreadyRequested: boolean;
+  precheck: OrderPrecheck;
+};
+
+export type OrderRequest = {
+  id: string;
+  signalEventId: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  mode: OrderMode;
+  status: OrderRequestStatus;
+  precheckPassed: boolean;
+  failureReason: string | null;
+  requestedAt: string;
 };
 
 export type BacktestHeadlineMetrics = {
@@ -295,6 +343,28 @@ export async function loadStrategySignals(strategyId: string, limit = 50) {
   );
 }
 
+export async function loadStrategyOrderCandidates(
+  strategyId: string,
+  limit = 50,
+) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<OrderCandidate[]>(
+    `/api/v1/strategies/${strategyId}/orders/candidates?${params.toString()}`,
+  );
+}
+
+export async function loadStrategyOrderRequests(
+  strategyId: string,
+  limit = 20,
+) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<OrderRequest[]>(
+    `/api/v1/strategies/${strategyId}/orders/requests?${params.toString()}`,
+  );
+}
+
 export async function loadStrategyVersions(strategyId: string) {
   return apiFetch<StrategyVersion[]>(`/api/v1/strategies/${strategyId}/versions`);
 }
@@ -347,6 +417,19 @@ export async function addStrategyVersion(
   },
 ) {
   return apiFetch<StrategyVersion>(`/api/v1/strategies/${strategyId}/versions`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createOrderRequest(
+  strategyId: string,
+  input: {
+    signalEventId: string;
+    mode: OrderMode;
+  },
+) {
+  return apiFetch<OrderRequest>(`/api/v1/strategies/${strategyId}/orders/requests`, {
     method: "POST",
     body: JSON.stringify(input),
   });

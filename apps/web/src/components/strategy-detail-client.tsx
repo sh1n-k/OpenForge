@@ -6,10 +6,13 @@ import { startTransition, useEffect, useState } from "react";
 import {
   archiveStrategy,
   cloneStrategy,
+  createOrderRequest,
   replaceStrategyUniverses,
   updateStrategyExecution,
   type StrategyDetail,
   type StrategyExecutionResponse,
+  type OrderCandidate,
+  type OrderRequest,
   type StrategyExecutionRun,
   type StrategySignalEvent,
   type StrategyVersion,
@@ -23,6 +26,8 @@ type StrategyDetailClientProps = {
   execution: StrategyExecutionResponse;
   runs: StrategyExecutionRun[];
   signals: StrategySignalEvent[];
+  orderCandidates: OrderCandidate[];
+  orderRequests: OrderRequest[];
 };
 
 export function StrategyDetailClient({
@@ -32,6 +37,8 @@ export function StrategyDetailClient({
   execution,
   runs,
   signals,
+  orderCandidates,
+  orderRequests,
 }: StrategyDetailClientProps) {
   const router = useRouter();
   const [selectedUniverseIds, setSelectedUniverseIds] = useState<string[]>(
@@ -41,6 +48,7 @@ export function StrategyDetailClient({
   const [scheduleTime, setScheduleTime] = useState(execution.scheduleTime);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingOrderSignalId, setPendingOrderSignalId] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedUniverseIds(strategy.universes.map((universe) => universe.id));
@@ -82,6 +90,26 @@ export function StrategyDetailClient({
           ? universeError.message
           : "유니버스 연결 저장에 실패했습니다.",
       );
+    }
+  }
+
+  async function handleCreateOrder(signalEventId: string) {
+    try {
+      setError(null);
+      setPendingOrderSignalId(signalEventId);
+      await createOrderRequest(strategy.id, {
+        signalEventId,
+        mode: "paper",
+      });
+      startTransition(() => router.refresh());
+    } catch (orderError) {
+      setError(
+        orderError instanceof Error
+          ? orderError.message
+          : "주문 요청 생성에 실패했습니다.",
+      );
+    } finally {
+      setPendingOrderSignalId(null);
     }
   }
 
@@ -380,6 +408,130 @@ export function StrategyDetailClient({
       <section className="grid gap-6 md:grid-cols-2">
         <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold text-slate-950">주문 후보</h2>
+            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              order candidates
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {orderCandidates.length === 0 ? (
+              <p className="text-sm text-slate-500">주문 후보가 아직 없습니다.</p>
+            ) : (
+              orderCandidates.map((candidate) => {
+                const canCreate =
+                  candidate.mode === "paper" &&
+                  candidate.precheck.passed &&
+                  !candidate.alreadyRequested;
+                return (
+                  <article
+                    key={candidate.signalEventId}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {candidate.symbol} / {candidate.side}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          {candidate.tradingDate} / {candidate.mode} / qty {candidate.quantity} / price {candidate.price}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        {candidate.precheck.passed ? "precheck ok" : "precheck fail"}
+                      </span>
+                    </div>
+                    <dl className="mt-3 grid gap-2 text-sm text-slate-600">
+                      <PrecheckRow label="marketHours" value={candidate.precheck.marketHours} />
+                      <PrecheckRow label="strategyStatus" value={candidate.precheck.strategyStatus} />
+                      <PrecheckRow label="duplicateOrder" value={candidate.precheck.duplicateOrder} />
+                      <PrecheckRow label="quantityValid" value={candidate.precheck.quantityValid} />
+                      <PrecheckRow label="priceValid" value={candidate.precheck.priceValid} />
+                      <div>
+                        <dt className="font-semibold text-slate-900">이미 요청됨</dt>
+                        <dd>{candidate.alreadyRequested ? "yes" : "no"}</dd>
+                      </div>
+                    </dl>
+                    {candidate.precheck.reasonCodes.length > 0 ? (
+                      <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                        {candidate.precheck.reasonCodes.join(", ")}
+                      </p>
+                    ) : null}
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={!canCreate || pendingOrderSignalId === candidate.signalEventId}
+                        onClick={async () => handleCreateOrder(candidate.signalEventId)}
+                        className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {pendingOrderSignalId === candidate.signalEventId
+                          ? "생성 중..."
+                          : "paper 주문 생성"}
+                      </button>
+                      <span className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        {candidate.alreadyRequested ? "already requested" : "ready"}
+                      </span>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-semibold text-slate-950">주문 요청 이력</h2>
+            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+              order requests
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {orderRequests.length === 0 ? (
+              <p className="text-sm text-slate-500">주문 요청이 아직 없습니다.</p>
+            ) : (
+              orderRequests.map((request) => (
+                <article
+                  key={request.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {request.symbol} / {request.side}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {request.mode} / qty {request.quantity} / price {request.price}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      {request.status}
+                    </span>
+                  </div>
+                  <dl className="mt-3 grid gap-2 text-sm text-slate-600">
+                    <div>
+                      <dt className="font-semibold text-slate-900">Requested</dt>
+                      <dd>{formatDateTime(request.requestedAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-slate-900">Precheck</dt>
+                      <dd>{request.precheckPassed ? "passed" : "failed"}</dd>
+                    </div>
+                  </dl>
+                  {request.failureReason ? (
+                    <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                      {request.failureReason}
+                    </p>
+                  ) : null}
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      </section>
+
+      <section className="grid gap-6 md:grid-cols-2">
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between gap-4">
             <h2 className="text-2xl font-semibold text-slate-950">최근 실행 로그</h2>
             <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
               execution runs
@@ -485,6 +637,21 @@ export function StrategyDetailClient({
 
 function shortId(value: string) {
   return value.slice(0, 8);
+}
+
+function PrecheckRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="font-semibold text-slate-900">{label}</dt>
+      <dd>{value ? "true" : "false"}</dd>
+    </div>
+  );
 }
 
 function formatDateTime(value: string | null) {

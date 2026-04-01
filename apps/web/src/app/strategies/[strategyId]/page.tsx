@@ -1,5 +1,7 @@
 import { StrategyDetailClient } from "@/components/strategy-detail-client";
 import {
+  loadStrategyOrderCandidates,
+  loadStrategyOrderRequests,
   loadStrategy,
   loadStrategyExecution,
   loadStrategyExecutionRuns,
@@ -18,13 +20,24 @@ export default async function StrategyDetailPage({
   params,
 }: StrategyDetailPageProps) {
   const { strategyId } = await params;
-  const [strategy, versions, universes, execution, runs, signals] = await Promise.all([
+  const [
+    strategy,
+    versions,
+    universes,
+    execution,
+    runs,
+    signals,
+    orderCandidates,
+    orderRequests,
+  ] = await Promise.all([
     loadStrategy(strategyId),
     loadStrategyVersions(strategyId),
     loadUniverses(),
     loadStrategyExecution(strategyId),
     loadStrategyExecutionRuns(strategyId),
     loadStrategySignals(strategyId),
+    loadStrategyOrderCandidates(strategyId),
+    loadStrategyOrderRequests(strategyId),
   ]);
 
   return (
@@ -35,6 +48,8 @@ export default async function StrategyDetailPage({
       execution={execution}
       runs={runs}
       signals={signals}
+      orderCandidates={orderCandidates}
+      orderRequests={orderRequests}
     />
   );
 }
