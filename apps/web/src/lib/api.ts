@@ -253,6 +253,44 @@ export type SystemRiskEvent = {
   occurredAt: string;
 };
 
+export type BrokerConnectionTestStatus = "success" | "failed";
+export type BrokerConnectionEventType =
+  | "config_saved"
+  | "connection_test_succeeded"
+  | "connection_test_failed"
+  | "enabled_changed";
+
+export type BrokerConnection = {
+  brokerType: string;
+  targetMode: OrderMode;
+  enabled: boolean;
+  isConfigured: boolean;
+  maskedAppKey: string | null;
+  maskedAccountNumber: string | null;
+  maskedProductCode: string | null;
+  lastConnectionTestAt: string | null;
+  lastConnectionTestStatus: BrokerConnectionTestStatus | null;
+  lastConnectionTestMessage: string | null;
+};
+
+export type SystemBrokerStatus = {
+  currentSystemMode: OrderMode;
+  paper: BrokerConnection;
+  live: BrokerConnection;
+  hasPaperConfig: boolean;
+  hasLiveConfig: boolean;
+  isCurrentModeConfigured: boolean;
+};
+
+export type BrokerConnectionEvent = {
+  id: string;
+  targetMode: OrderMode;
+  eventType: BrokerConnectionEventType;
+  message: string;
+  payload: Record<string, unknown>;
+  occurredAt: string;
+};
+
 export type BacktestHeadlineMetrics = {
   totalReturnRate: number;
   maxDrawdownRate: number;
@@ -504,6 +542,18 @@ export async function loadSystemRiskEvents(limit = 20) {
   );
 }
 
+export async function loadSystemBrokerStatus() {
+  return apiFetch<SystemBrokerStatus>("/api/v1/system/broker");
+}
+
+export async function loadSystemBrokerEvents(limit = 20) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<BrokerConnectionEvent[]>(
+    `/api/v1/system/broker/events?${params.toString()}`,
+  );
+}
+
 export async function loadStrategyVersions(strategyId: string) {
   return apiFetch<StrategyVersion[]>(`/api/v1/strategies/${strategyId}/versions`);
 }
@@ -566,6 +616,27 @@ export async function updateStrategyRisk(
 export async function updateSystemRiskKillSwitch(input: { enabled: boolean }) {
   return apiFetch<SystemRisk>("/api/v1/system/risk/kill-switch", {
     method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateBrokerConnectionConfig(input: {
+  targetMode: OrderMode;
+  appKey?: string | null;
+  appSecret?: string | null;
+  accountNumber?: string | null;
+  productCode?: string | null;
+  enabled: boolean;
+}) {
+  return apiFetch<BrokerConnection>("/api/v1/system/broker/config", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function testBrokerConnection(input: { targetMode: OrderMode }) {
+  return apiFetch<BrokerConnection>("/api/v1/system/broker/test", {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }

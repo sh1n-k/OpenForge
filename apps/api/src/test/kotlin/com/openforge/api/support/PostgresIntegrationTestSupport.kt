@@ -17,6 +17,7 @@ import org.testcontainers.containers.PostgreSQLContainer
         "app.web-origin=http://127.0.0.1:3000",
         "app.environment=test",
         "app.mode=paper",
+        "app.secret-key=test-openforge-secret-key",
     ],
 )
 abstract class PostgresIntegrationTestSupport {
@@ -27,7 +28,7 @@ abstract class PostgresIntegrationTestSupport {
     @BeforeEach
     fun cleanupData() {
         jdbcTemplate.execute(
-            "truncate table strategy_risk_event, strategy_risk_config, strategy_order_fill, strategy_order_status_event, strategy_order_request, strategy_signal_event, strategy_execution_run, strategy_execution_config, app_event_log, app_config, backtest_equity_point, backtest_trade, backtest_run, market_daily_bar, strategy_universe, universe_symbol, strategy_version, strategy, universe restart identity cascade",
+            "truncate table broker_connection_event, broker_connection_config, strategy_risk_event, strategy_risk_config, strategy_order_fill, strategy_order_status_event, strategy_order_request, strategy_signal_event, strategy_execution_run, strategy_execution_config, app_event_log, app_config, backtest_equity_point, backtest_trade, backtest_run, market_daily_bar, strategy_universe, universe_symbol, strategy_version, strategy, universe restart identity cascade",
         )
     }
 
