@@ -1,5 +1,6 @@
 package com.openforge.api.strategy.web
 
+import com.openforge.api.strategy.application.PaperExecutionService
 import com.openforge.api.strategy.application.StrategyService
 import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -17,6 +18,7 @@ import java.util.UUID
 @RequestMapping("/api/v1/strategies")
 class StrategyController(
     private val strategyService: StrategyService,
+    private val paperExecutionService: PaperExecutionService,
 ) {
 
     @PostMapping("/validate")
@@ -36,6 +38,29 @@ class StrategyController(
     fun detail(
         @PathVariable strategyId: UUID,
     ): StrategyDetailResponse = strategyService.getStrategy(strategyId)
+
+    @GetMapping("/{strategyId}/execution")
+    fun execution(
+        @PathVariable strategyId: UUID,
+    ): StrategyExecutionResponse = paperExecutionService.getExecution(strategyId)
+
+    @PutMapping("/{strategyId}/execution")
+    fun updateExecution(
+        @PathVariable strategyId: UUID,
+        @Valid @RequestBody request: UpdateStrategyExecutionRequest,
+    ): StrategyExecutionResponse = paperExecutionService.updateExecution(strategyId, request)
+
+    @GetMapping("/{strategyId}/execution/runs")
+    fun executionRuns(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") limit: Int,
+    ): List<StrategyExecutionRunResponse> = paperExecutionService.listExecutionRuns(strategyId, limit)
+
+    @GetMapping("/{strategyId}/signals")
+    fun signals(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") limit: Int,
+    ): List<StrategySignalEventResponse> = paperExecutionService.listSignals(strategyId, limit)
 
     @PatchMapping("/{strategyId}")
     fun update(

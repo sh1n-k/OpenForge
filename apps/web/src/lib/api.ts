@@ -11,6 +11,9 @@ export type StrategyValidationStatus =
   | "invalid"
   | "invalid_legacy_draft";
 export type BacktestRunStatus = "queued" | "running" | "completed" | "failed";
+export type StrategyExecutionMode = "paper";
+export type StrategyExecutionTriggerType = "scheduled";
+export type StrategySignalType = "entry" | "exit";
 
 export type StrategyValidationMessage = {
   category: string;
@@ -65,6 +68,50 @@ export type StrategyDetail = {
   universes: UniverseReference[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type StrategyExecutionLastRun = {
+  runId: string;
+  status: BacktestRunStatus;
+  scheduledDate: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  signalCount: number;
+  errorMessage: string | null;
+};
+
+export type StrategyExecutionResponse = {
+  mode: StrategyExecutionMode;
+  enabled: boolean;
+  scheduleTime: string;
+  timezone: string;
+  strategyStatus: StrategyStatus;
+  lastRun: StrategyExecutionLastRun | null;
+  nextRunAt: string | null;
+};
+
+export type StrategyExecutionRun = {
+  runId: string;
+  status: BacktestRunStatus;
+  triggerType: StrategyExecutionTriggerType;
+  scheduledDate: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  symbolCount: number;
+  signalCount: number;
+  errorMessage: string | null;
+  strategyVersionId: string;
+};
+
+export type StrategySignalEvent = {
+  id: string;
+  runId: string;
+  strategyVersionId: string;
+  symbol: string;
+  signalType: StrategySignalType;
+  tradingDate: string;
+  createdAt: string;
+  payload: Record<string, unknown>;
 };
 
 export type BacktestHeadlineMetrics = {
@@ -225,6 +272,29 @@ export async function loadStrategy(strategyId: string) {
   return apiFetch<StrategyDetail>(`/api/v1/strategies/${strategyId}`);
 }
 
+export async function loadStrategyExecution(strategyId: string) {
+  return apiFetch<StrategyExecutionResponse>(`/api/v1/strategies/${strategyId}/execution`);
+}
+
+export async function loadStrategyExecutionRuns(
+  strategyId: string,
+  limit = 20,
+) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<StrategyExecutionRun[]>(
+    `/api/v1/strategies/${strategyId}/execution/runs?${params.toString()}`,
+  );
+}
+
+export async function loadStrategySignals(strategyId: string, limit = 50) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<StrategySignalEvent[]>(
+    `/api/v1/strategies/${strategyId}/signals?${params.toString()}`,
+  );
+}
+
 export async function loadStrategyVersions(strategyId: string) {
   return apiFetch<StrategyVersion[]>(`/api/v1/strategies/${strategyId}/versions`);
 }
@@ -253,6 +323,19 @@ export async function updateStrategy(
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export async function updateStrategyExecution(
+  strategyId: string,
+  input: { enabled: boolean; scheduleTime: string },
+) {
+  return apiFetch<StrategyExecutionResponse>(
+    `/api/v1/strategies/${strategyId}/execution`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export async function addStrategyVersion(

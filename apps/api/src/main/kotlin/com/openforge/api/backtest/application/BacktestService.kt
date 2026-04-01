@@ -243,7 +243,7 @@ class BacktestService(
         backtestRunRepository.save(run)
 
         try {
-            val spec = parseStrategySpec(run.normalizedSpec)
+            val spec = StrategySignalSupport.parseStrategySpec(run.normalizedSpec)
             val config = RunConfig(
                 initialCapital = numberValue(run.runConfig["initialCapital"]),
                 commissionRate = numberValue(run.runConfig["commissionRate"]),
@@ -407,58 +407,6 @@ class BacktestService(
         }
     }
 
-    private fun parseStrategySpec(normalizedSpec: Map<String, Any?>): StrategySpec {
-        val strategy = normalizedSpec["strategy"] as? Map<*, *>
-            ?: throw IllegalArgumentException("normalizedSpec.strategy is required")
-        val indicators = ((strategy["indicators"] as? List<*>) ?: emptyList<Any?>()).map { raw ->
-            val indicator = raw as? Map<*, *> ?: throw IllegalArgumentException("indicator entry is invalid")
-            IndicatorSpec(
-                id = indicator["id"]?.toString() ?: throw IllegalArgumentException("indicator.id is required"),
-                alias = indicator["alias"]?.toString() ?: throw IllegalArgumentException("indicator.alias is required"),
-                params = ((indicator["params"] as? Map<*, *>) ?: emptyMap<Any, Any>()).entries.associate { (key, value) ->
-                    key.toString() to numberValue(value)
-                },
-                output = indicator["output"]?.toString() ?: "value",
-            )
-        }
-        val entry = parseConditionGroup(strategy["entry"] as? Map<*, *>)
-        val exit = parseConditionGroup(strategy["exit"] as? Map<*, *>)
-        val riskMap = normalizedSpec["risk"] as? Map<*, *> ?: emptyMap<String, Any>()
-        return StrategySpec(
-            indicators = indicators,
-            entry = entry,
-            exit = exit,
-            risk = RiskSpec(
-                stopLossEnabled = boolValue((riskMap["stop_loss"] as? Map<*, *>)?.get("enabled")),
-                stopLossPercent = percent((riskMap["stop_loss"] as? Map<*, *>)?.get("percent")),
-                takeProfitEnabled = boolValue((riskMap["take_profit"] as? Map<*, *>)?.get("enabled")),
-                takeProfitPercent = percent((riskMap["take_profit"] as? Map<*, *>)?.get("percent")),
-                trailingStopEnabled = boolValue((riskMap["trailing_stop"] as? Map<*, *>)?.get("enabled")),
-                trailingStopPercent = percent((riskMap["trailing_stop"] as? Map<*, *>)?.get("percent")),
-            ),
-        )
-    }
-
-    private fun parseConditionGroup(source: Map<*, *>?): ConditionGroupSpec = ConditionGroupSpec(
-        logic = source?.get("logic")?.toString() ?: "AND",
-        conditions = ((source?.get("conditions") as? List<*>) ?: emptyList<Any?>()).map { raw ->
-            val condition = raw as? Map<*, *> ?: throw IllegalArgumentException("condition entry is invalid")
-            ConditionSpec(
-                left = parseOperand(condition["left"] as? Map<*, *>),
-                operator = condition["operator"]?.toString() ?: throw IllegalArgumentException("operator is required"),
-                right = parseOperand(condition["right"] as? Map<*, *>),
-            )
-        },
-    )
-
-    private fun parseOperand(source: Map<*, *>?): OperandSpec = OperandSpec(
-        type = source?.get("type")?.toString() ?: throw IllegalArgumentException("operand.type is required"),
-        field = source["field"]?.toString(),
-        alias = source["alias"]?.toString(),
-        output = source["output"]?.toString(),
-        value = source["value"]?.let(::numberValue),
-    )
-
     private fun decimal(value: Double, scale: Int): BigDecimal = BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP)
 
     private fun numberValue(value: Any?): Double = when (value) {
@@ -466,14 +414,6 @@ class BacktestService(
         is String -> value.toDouble()
         else -> throw IllegalArgumentException("Numeric value is required")
     }
-
-    private fun boolValue(value: Any?): Boolean = when (value) {
-        is Boolean -> value
-        is String -> value.toBooleanStrictOrNull() ?: false
-        else -> false
-    }
-
-    private fun percent(value: Any?): Double = (value?.let(::numberValue) ?: 0.0) / 100.0
 
     private fun toHeadlineMetrics(summary: Map<String, Any?>): BacktestHeadlineMetricsResponse = BacktestHeadlineMetricsResponse(
         totalReturnRate = numberValue(summary["totalReturnRate"]),

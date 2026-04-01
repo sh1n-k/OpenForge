@@ -27,7 +27,7 @@ abstract class PostgresIntegrationTestSupport {
     @BeforeEach
     fun cleanupData() {
         jdbcTemplate.execute(
-            "truncate table backtest_equity_point, backtest_trade, backtest_run, market_daily_bar, strategy_universe, universe_symbol, strategy_version, strategy, universe restart identity cascade",
+            "truncate table strategy_signal_event, strategy_execution_run, strategy_execution_config, backtest_equity_point, backtest_trade, backtest_run, market_daily_bar, strategy_universe, universe_symbol, strategy_version, strategy, universe restart identity cascade",
         )
     }
 

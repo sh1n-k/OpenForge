@@ -2,6 +2,10 @@ package com.openforge.api.strategy.web
 
 import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.PayloadFormat
+import com.openforge.api.strategy.domain.StrategyExecutionMode
+import com.openforge.api.strategy.domain.StrategyExecutionRunStatus
+import com.openforge.api.strategy.domain.StrategyExecutionTriggerType
+import com.openforge.api.strategy.domain.StrategySignalType
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyType
 import com.openforge.api.strategy.domain.StrategyValidationStatus
@@ -112,6 +116,57 @@ data class StrategyDetailResponse(
     val universes: List<UniverseReferenceResponse>,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
+)
+
+data class UpdateStrategyExecutionRequest(
+    @field:NotNull
+    val enabled: Boolean,
+    @field:NotBlank
+    val scheduleTime: String,
+)
+
+data class StrategyExecutionLastRunResponse(
+    val runId: UUID,
+    val status: StrategyExecutionRunStatus,
+    val scheduledDate: java.time.LocalDate,
+    val startedAt: OffsetDateTime,
+    val completedAt: OffsetDateTime?,
+    val signalCount: Int,
+    val errorMessage: String?,
+)
+
+data class StrategyExecutionResponse(
+    val mode: StrategyExecutionMode,
+    val enabled: Boolean,
+    val scheduleTime: String,
+    val timezone: String,
+    val strategyStatus: StrategyStatus,
+    val lastRun: StrategyExecutionLastRunResponse?,
+    val nextRunAt: OffsetDateTime?,
+)
+
+data class StrategyExecutionRunResponse(
+    val runId: UUID,
+    val status: StrategyExecutionRunStatus,
+    val triggerType: StrategyExecutionTriggerType,
+    val scheduledDate: java.time.LocalDate,
+    val startedAt: OffsetDateTime,
+    val completedAt: OffsetDateTime?,
+    val symbolCount: Int,
+    val signalCount: Int,
+    val errorMessage: String?,
+    val strategyVersionId: UUID,
+)
+
+data class StrategySignalEventResponse(
+    val id: UUID,
+    val runId: UUID,
+    val strategyVersionId: UUID,
+    val symbol: String,
+    val signalType: StrategySignalType,
+    val tradingDate: java.time.LocalDate,
+    val createdAt: OffsetDateTime,
+    val payload: Map<String, Any?>,
 )
 
 data class CreateUniverseRequest(

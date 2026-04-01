@@ -2,6 +2,7 @@ package com.openforge.api.strategy.application
 
 import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.StrategyEntity
+import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyType
@@ -37,6 +38,7 @@ class StrategyService(
     private val strategyVersionRepository: StrategyVersionRepository,
     private val strategyUniverseRepository: StrategyUniverseRepository,
     private val universeRepository: UniverseRepository,
+    private val strategyExecutionConfigRepository: StrategyExecutionConfigRepository,
     private val strategyEditorService: StrategyEditorService,
 ) {
 
@@ -137,7 +139,15 @@ class StrategyService(
             strategy.description = request.description.trim().ifBlank { null }
         }
 
-        request.status?.let { strategy.status = it }
+        request.status?.let { requestedStatus ->
+            if (requestedStatus == StrategyStatus.RUNNING || requestedStatus == StrategyStatus.STOPPED) {
+                throw ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Use execution settings to manage running and stopped statuses",
+                )
+            }
+            strategy.status = requestedStatus
+        }
         strategyRepository.save(strategy)
         return getStrategy(strategy.id)
     }
@@ -148,6 +158,10 @@ class StrategyService(
         val version = createVersion(strategy.id, request)
         strategy.latestVersionId = version.id
         strategy.status = StrategyStatus.DRAFT
+        strategyExecutionConfigRepository.findById(strategy.id).ifPresent {
+            it.enabled = false
+            strategyExecutionConfigRepository.save(it)
+        }
         syncStrategyMetadataFromVersion(strategy, version)
         strategyRepository.save(strategy)
 
