@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // When OPENFORGE_AUTH_PASSWORD is not set, authentication is disabled
   const authPassword = process.env.OPENFORGE_AUTH_PASSWORD;
   if (!authPassword) {
