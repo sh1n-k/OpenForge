@@ -1,6 +1,7 @@
 package com.openforge.api.strategy.application
 
 import com.openforge.api.strategy.domain.PayloadFormat
+import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.StrategyEntity
 import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyRepository
@@ -105,6 +106,7 @@ class StrategyService(
                             id = it.id,
                             name = it.name,
                             description = it.description,
+                            marketScope = it.marketScope,
                         )
                     }.sortedBy { it.name.lowercase() }
             }
@@ -277,12 +279,24 @@ class StrategyService(
         }
 
         strategyUniverseRepository.deleteAllByStrategyId(strategy.id)
+        strategyUniverseRepository.flush()
         if (uniqueUniverseIds.isNotEmpty()) {
             strategyUniverseRepository.saveAll(
                 uniqueUniverseIds.map {
                     StrategyUniverseEntity(strategyId = strategy.id, universeId = it)
                 },
             )
+        }
+        val containsOverseasUniverse = universes.any { it.marketScope != MarketType.DOMESTIC }
+        if (containsOverseasUniverse) {
+            strategyExecutionConfigRepository.findById(strategy.id).ifPresent {
+                it.enabled = false
+                strategyExecutionConfigRepository.save(it)
+            }
+            if (strategy.status == StrategyStatus.RUNNING) {
+                strategy.status = StrategyStatus.STOPPED
+                strategyRepository.save(strategy)
+            }
         }
         return getStrategy(strategy.id)
     }

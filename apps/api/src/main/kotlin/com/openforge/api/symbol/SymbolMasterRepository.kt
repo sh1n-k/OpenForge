@@ -1,5 +1,6 @@
 package com.openforge.api.symbol
 
+import com.openforge.api.strategy.domain.MarketType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -9,7 +10,8 @@ interface SymbolMasterRepository : JpaRepository<SymbolMasterEntity, SymbolMaste
     @Query(
         """
         select s from SymbolMasterEntity s
-        where (:exchange is null or s.exchange = :exchange)
+        where s.marketScope = :marketScope
+          and (:exchange is null or s.exchange = :exchange)
           and (lower(s.code) like lower(concat('%', :query, '%'))
                or lower(s.name) like lower(concat('%', :query, '%')))
         order by
@@ -23,16 +25,50 @@ interface SymbolMasterRepository : JpaRepository<SymbolMasterEntity, SymbolMaste
     )
     fun search(
         query: String,
+        marketScope: String,
         exchange: String?,
         limit: org.springframework.data.domain.Pageable,
     ): List<SymbolMasterEntity>
 
-    fun countByExchange(exchange: String): Int
+    fun countByMarketScope(marketScope: String): Int
+
+    fun countByMarketScopeAndExchange(
+        marketScope: String,
+        exchange: String,
+    ): Int
+
+    fun existsByMarketScopeAndCode(
+        marketScope: String,
+        code: String,
+    ): Boolean
+
+    fun existsByMarketScopeAndExchangeAndCode(
+        marketScope: String,
+        exchange: String,
+        code: String,
+    ): Boolean
+
+    @Query(
+        """
+        select distinct s.marketScope
+        from SymbolMasterEntity s
+        where s.code in :codes
+        """,
+    )
+    fun findDistinctMarketScopesByCodeIn(codes: Collection<String>): List<String>
 
     @Modifying
     @Transactional
-    @Query("delete from SymbolMasterEntity s where s.exchange = :exchange")
-    fun deleteByExchange(exchange: String)
+    @Query("delete from SymbolMasterEntity s where s.marketScope = :marketScope")
+    fun deleteByMarketScope(marketScope: String)
+
+    @Modifying
+    @Transactional
+    @Query("delete from SymbolMasterEntity s where s.marketScope = :marketScope and s.exchange = :exchange")
+    fun deleteByMarketScopeAndExchange(
+        marketScope: String,
+        exchange: String,
+    )
 }
 
-interface SymbolMasterStatusRepository : JpaRepository<SymbolMasterStatusEntity, String>
+interface SymbolMasterStatusRepository : JpaRepository<SymbolMasterStatusEntity, MarketType>

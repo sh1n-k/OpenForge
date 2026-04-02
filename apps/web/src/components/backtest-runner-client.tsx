@@ -50,6 +50,7 @@ export function BacktestRunnerClient({
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const hasOverseasUniverses = linkedUniverses.some((universe) => universe.marketScope === "us");
 
   const resolvedSymbols = useMemo(() => {
     if (useDirectSymbols) {
@@ -71,7 +72,7 @@ export function BacktestRunnerClient({
     let cancelled = false;
 
     async function checkCoverage() {
-      if (resolvedSymbols.length === 0 || !startDate || !endDate) {
+      if (hasOverseasUniverses || resolvedSymbols.length === 0 || !startDate || !endDate) {
         setCoverage(null);
         setCoverageError(null);
         return;
@@ -101,7 +102,7 @@ export function BacktestRunnerClient({
     return () => {
       cancelled = true;
     };
-  }, [endDate, resolvedSymbols, startDate]);
+  }, [endDate, hasOverseasUniverses, resolvedSymbols, startDate]);
 
   const canRun =
     !!selectedVersionId &&
@@ -109,6 +110,7 @@ export function BacktestRunnerClient({
     !!endDate &&
     resolvedSymbols.length > 0 &&
     coverage?.covered === true &&
+    !hasOverseasUniverses &&
     !isRunning;
 
   async function handleRun() {
@@ -197,6 +199,11 @@ export function BacktestRunnerClient({
               편집
             </Link>
           </div>
+          {hasOverseasUniverses ? (
+            <div className="doc-panel doc-panel-warn mt-4">
+              미국 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다.
+            </div>
+          ) : null}
         </section>
 
         <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
@@ -204,6 +211,11 @@ export function BacktestRunnerClient({
           <p className="section-copy">
             실행 설정과 데이터 커버리지를 먼저 확인하고 백테스트를 시작합니다.
           </p>
+          {hasOverseasUniverses ? (
+            <p className="inline-warning" style={{ marginTop: 12 }}>
+              미국 유니버스가 포함된 전략은 현재 백테스트가 차단됩니다.
+            </p>
+          ) : null}
           <dl className="mt-4 grid gap-3 text-sm text-slate-600">
             <div>
               <dt className="font-semibold text-slate-900">버전</dt>
@@ -370,13 +382,18 @@ export function BacktestRunnerClient({
               </div>
 
               {useDirectSymbols ? (
-                <textarea
-                  value={symbolsText}
-                  onChange={(event) => setSymbolsText(event.target.value)}
-                  rows={6}
-                  placeholder="005930, 000660"
-                  className="mt-4 font-mono text-sm"
-                />
+                <>
+                  <p className="section-copy" style={{ marginTop: 12 }}>
+                    직접 입력은 현재 국내 심볼만 지원합니다. 미국 심볼은 서버에서 차단됩니다.
+                  </p>
+                  <textarea
+                    value={symbolsText}
+                    onChange={(event) => setSymbolsText(event.target.value)}
+                    rows={6}
+                    placeholder="005930, 000660"
+                    className="mt-4 font-mono text-sm"
+                  />
+                </>
               ) : (
                 <div className="mt-4 stack-list">
                   {linkedUniverses.length === 0 ? (

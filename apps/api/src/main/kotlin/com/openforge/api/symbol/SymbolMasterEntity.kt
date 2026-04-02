@@ -8,6 +8,7 @@ import jakarta.persistence.Table
 import java.io.Serializable
 
 data class SymbolMasterId(
+    val marketScope: String = "",
     val code: String = "",
     val exchange: String = "",
 ) : Serializable
@@ -16,6 +17,9 @@ data class SymbolMasterId(
 @Table(name = "symbol_master")
 @IdClass(SymbolMasterId::class)
 class SymbolMasterEntity(
+    @Id
+    @Column(name = "market_scope", length = 16, nullable = false)
+    var marketScope: String,
     @Id
     @Column(length = 12, nullable = false)
     var code: String,

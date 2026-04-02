@@ -7,8 +7,14 @@ import {
   replaceStrategyUniverses,
   type StrategyDetail,
   type StrategyVersion,
+  type UniverseMarketScope,
   type UniverseSummary,
 } from "@/lib/api";
+
+const marketScopeLabel: Record<UniverseMarketScope, string> = {
+  domestic: "국내",
+  us: "미국",
+};
 
 type Props = {
   strategy: StrategyDetail;
@@ -80,7 +86,12 @@ export function StrategyVersionsSection({ strategy, versions, universes }: Props
       </section>
 
       <section className="doc-panel">
-        <h2 className="detail-heading">연결된 유니버스</h2>
+        <div className="flex-between">
+          <h2 className="detail-heading">연결된 유니버스</h2>
+          {strategy.universes.some((universe) => universe.marketScope === "us") ? (
+            <span className="status-chip status-chip-warning">미국 포함</span>
+          ) : null}
+        </div>
 
         {error ? (
           <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
@@ -111,6 +122,9 @@ export function StrategyVersionsSection({ strategy, versions, universes }: Props
                   }}
                 />
                 <span>{universe.name}</span>
+                <span className="status-chip status-chip-info" style={{ marginLeft: "auto" }}>
+                  {marketScopeLabel[universe.marketScope]}
+                </span>
               </label>
             ))
           )}

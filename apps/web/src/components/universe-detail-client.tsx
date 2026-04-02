@@ -1,15 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   archiveUniverse,
   collectSymbols,
   replaceUniverseSymbols,
   searchSymbols,
+  type SymbolCollectResponse,
+  type SymbolMasterMarketStatus,
   type SymbolMasterStatusResponse,
   type SymbolSearchItem,
   type UniverseDetail,
+  type UniverseMarketScope,
   updateUniverse,
 } from "@/lib/api";
 import { UniverseDetailView } from "@/components/universe-detail-view";
@@ -19,6 +29,59 @@ type UniverseDetailClientProps = {
   symbolMasterStatus: SymbolMasterStatusResponse;
 };
 
+const marketScopeLabel: Record<UniverseMarketScope, string> = {
+  domestic: "국내",
+  us: "미국",
+};
+
+function toMarketStatus(
+  response: SymbolMasterStatusResponse,
+  marketScope: UniverseMarketScope,
+): SymbolMasterMarketStatus {
+  const current = response.markets?.find((market) => market.marketScope === marketScope);
+  if (current) return current;
+
+  return {
+    marketScope,
+    totalCount:
+      response.totalCount ??
+      (marketScope === "domestic"
+        ? (response.kospiCount ?? 0) + (response.kosdaqCount ?? 0)
+        : 0),
+    collectedAt: response.collectedAt ?? null,
+    needsUpdate: response.needsUpdate ?? true,
+    exchangeCounts: [],
+  };
+}
+
+function mergeMarketStatus(
+  current: SymbolMasterStatusResponse,
+  next: SymbolCollectResponse,
+): SymbolMasterStatusResponse {
+  const markets = current.markets ?? [];
+  const collectedAt = new Date().toISOString();
+  const updatedMarket: SymbolMasterMarketStatus = {
+    marketScope: next.marketScope,
+    totalCount: next.totalCount,
+    collectedAt,
+    needsUpdate: !next.success,
+    exchangeCounts: next.exchangeCounts,
+  };
+  const existingIndex = markets.findIndex((market) => market.marketScope === next.marketScope);
+
+  if (existingIndex < 0) {
+    return {
+      ...current,
+      markets: [...markets, updatedMarket],
+    };
+  }
+
+  return {
+    ...current,
+    markets: markets.map((market, index) => (index === existingIndex ? updatedMarket : market)),
+  };
+}
+
 export function UniverseDetailClient({
   universe,
   symbolMasterStatus,
@@ -26,27 +89,36 @@ export function UniverseDetailClient({
   const router = useRouter();
   const [symbolsText, setSymbolsText] = useState(
     universe.symbols
-      .map((symbol) => `${symbol.symbol},${symbol.displayName}`)
+      .map((symbol) => `${symbol.symbol},${symbol.exchange},${symbol.displayName}`)
       .join("\n"),
   );
-
+  const [masterStatus, setMasterStatus] = useState(symbolMasterStatus);
   const symbolSectionRef = useRef<HTMLElement>(null);
 
   const addedCodes = useMemo(() => {
     const codes = new Set<string>();
     for (const line of symbolsText.split("\n")) {
-      const code = line.split(",")[0]?.trim();
+      const [symbol, exchange] = line.split(",").map((value) => value.trim());
+      const code = symbol && exchange ? `${symbol}:${exchange}` : null;
       if (code) codes.add(code);
     }
     return codes;
   }, [symbolsText]);
 
+  const marketStatus = useMemo(
+    () => toMarketStatus(masterStatus, universe.marketScope),
+    [masterStatus, universe.marketScope],
+  );
+
   const handleAddSymbol = useCallback((item: SymbolSearchItem) => {
     setSymbolsText((current) => {
       const lines = current.split("\n").filter((line) => line.trim());
-      const exists = lines.some((line) => line.startsWith(`${item.code},`));
+      const exists = lines.some((line) => {
+        const [symbol, exchange] = line.split(",").map((value) => value.trim());
+        return symbol === item.code && exchange === item.exchange;
+      });
       if (exists) return current;
-      const newLine = `${item.code},${item.name}`;
+      const newLine = `${item.code},${item.exchange},${item.name}`;
 
       const el = symbolSectionRef.current;
       if (el) {
@@ -73,11 +145,12 @@ export function UniverseDetailClient({
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line, index) => {
-        const [symbol, displayName] = line.split(",").map((value) => value.trim());
+        const [symbol, exchange, displayName] = line.split(",").map((value) => value.trim());
         return {
           symbol,
+          exchange,
           displayName: displayName || symbol,
-          market: "domestic" as const,
+          market: universe.marketScope,
           sortOrder: index,
         };
       });
@@ -91,25 +164,12 @@ export function UniverseDetailClient({
       <UniverseDetailView universe={universe} />
 
       <section className="summary-grid summary-grid-columns-2">
-        <form
-          action={handleUpdate}
-          id="universe-basic-info"
-          className="doc-panel"
-        >
+        <form action={handleUpdate} id="universe-basic-info" className="doc-panel">
           <h2 className="section-title">기본 정보</h2>
           <div className="mt-4 grid gap-3">
-            <input
-              name="name"
-              defaultValue={universe.name}
-            />
-            <input
-              name="description"
-              defaultValue={universe.description ?? ""}
-            />
-            <button
-              type="submit"
-              className="button-primary"
-            >
+            <input name="name" defaultValue={universe.name} />
+            <input name="description" defaultValue={universe.description ?? ""} />
+            <button type="submit" className="button-primary">
               저장
             </button>
           </div>
@@ -117,7 +177,9 @@ export function UniverseDetailClient({
 
         <section className="doc-panel">
           <h2 className="section-title">관리</h2>
-          <p className="section-copy">보존이 필요한 정보는 먼저 다른 유니버스로 옮긴 뒤 보관 처리합니다.</p>
+          <p className="section-copy">
+            보존이 필요한 정보는 먼저 다른 유니버스로 옮긴 뒤 보관 처리합니다.
+          </p>
           <button
             type="button"
             onClick={async () => {
@@ -132,15 +194,17 @@ export function UniverseDetailClient({
       </section>
 
       <SymbolSearchSection
-        symbolMasterStatus={symbolMasterStatus}
+        marketScope={universe.marketScope}
+        marketStatus={marketStatus}
         onAdd={handleAddSymbol}
+        onCollectStatusChange={(next) => setMasterStatus((current) => mergeMarketStatus(current, next))}
         addedCodes={addedCodes}
       />
 
       <section ref={symbolSectionRef} className="doc-panel doc-panel-code">
         <h2 className="section-title">심볼 구성</h2>
         <p className="section-copy">
-          한 줄에 <code className="inline-code">종목코드,표시명</code> 형식으로 입력합니다.
+          한 줄에 <code className="inline-code">종목코드,거래소,표시명</code> 형식으로 입력합니다.
           위 검색에서 종목을 추가하면 자동으로 반영됩니다.
         </p>
         <textarea
@@ -161,19 +225,22 @@ export function UniverseDetailClient({
 }
 
 function SymbolSearchSection({
-  symbolMasterStatus,
+  marketScope,
+  marketStatus,
   onAdd,
+  onCollectStatusChange,
   addedCodes,
 }: {
-  symbolMasterStatus: SymbolMasterStatusResponse;
+  marketScope: UniverseMarketScope;
+  marketStatus: SymbolMasterMarketStatus;
   onAdd: (item: SymbolSearchItem) => void;
+  onCollectStatusChange: (next: SymbolCollectResponse) => void;
   addedCodes: Set<string>;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SymbolSearchItem[]>([]);
   const [isCollecting, setIsCollecting] = useState(false);
   const [collectError, setCollectError] = useState<string | null>(null);
-  const [masterStatus, setMasterStatus] = useState(symbolMasterStatus);
   const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -183,27 +250,30 @@ function SymbolSearchSection({
       setResults([]);
       return;
     }
+
     debounceRef.current = setTimeout(async () => {
       try {
-        const response = await searchSymbols(query.trim());
+        const response = await searchSymbols(query.trim(), marketScope);
         setResults(response.items);
       } catch {
         setResults([]);
       }
     }, 300);
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [marketScope, query]);
 
   function handleAdd(item: SymbolSearchItem) {
-    if (addedCodes.has(item.code)) return;
+    const codeKey = `${item.code}:${item.exchange}`;
+    if (addedCodes.has(codeKey)) return;
     onAdd(item);
-    setRecentlyAdded((prev) => new Set(prev).add(item.code));
+    setRecentlyAdded((prev) => new Set(prev).add(codeKey));
     setTimeout(() => {
       setRecentlyAdded((prev) => {
         const next = new Set(prev);
-        next.delete(item.code);
+        next.delete(codeKey);
         return next;
       });
     }, 1200);
@@ -213,17 +283,11 @@ function SymbolSearchSection({
     try {
       setIsCollecting(true);
       setCollectError(null);
-      const result = await collectSymbols();
+      const result = await collectSymbols(marketScope);
       if (!result.success) {
         setCollectError(`수집 실패: ${result.errors.join(", ")}`);
       }
-      setMasterStatus({
-        kospiCount: result.kospiCount,
-        kosdaqCount: result.kosdaqCount,
-        totalCount: result.totalCount,
-        collectedAt: new Date().toISOString(),
-        needsUpdate: !result.success,
-      });
+      onCollectStatusChange(result);
     } catch (e) {
       setCollectError(e instanceof Error ? e.message : "마스터파일 수집에 실패했습니다.");
     } finally {
@@ -237,8 +301,8 @@ function SymbolSearchSection({
         <h2 className="section-title">종목 검색</h2>
         <div className="flex items-center gap-3 text-sm text-slate-500">
           <span>
-            {masterStatus.totalCount > 0
-              ? `${masterStatus.totalCount.toLocaleString()}종목 수집됨`
+            {marketStatus.totalCount > 0
+              ? `${marketStatus.totalCount.toLocaleString()}종목 수집됨`
               : "미수집"}
           </span>
           <button
@@ -247,24 +311,38 @@ function SymbolSearchSection({
             disabled={isCollecting}
             className="button-secondary"
           >
-            {isCollecting ? "수집 중..." : masterStatus.needsUpdate ? "마스터 최신화" : "마스터 재수집"}
+            {isCollecting ? "수집 중..." : marketStatus.needsUpdate ? "마스터 최신화" : "마스터 재수집"}
           </button>
         </div>
       </div>
-      {collectError ? <p className="inline-error" style={{ marginTop: 8 }}>{collectError}</p> : null}
-      <p className="section-copy">종목코드 또는 이름으로 검색하여 유니버스에 추가합니다.</p>
+
+      {collectError ? (
+        <p className="inline-error" style={{ marginTop: 8 }}>
+          {collectError}
+        </p>
+      ) : null}
+
+      <p className="section-copy">
+        {marketScopeLabel[marketScope]} 시장의 종목코드 또는 이름으로 검색하여 유니버스에 추가합니다.
+      </p>
       <input
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="종목코드 또는 이름 (예: 삼성전자, 005930)"
+        placeholder={
+          marketScope === "us"
+            ? "티커 또는 이름 (예: AAPL, Apple)"
+            : "종목코드 또는 이름 (예: 삼성전자, 005930)"
+        }
         className="mt-4 w-full"
       />
+
       {results.length > 0 ? (
         <div className="stack-list" style={{ marginTop: 12, maxHeight: 320, overflowY: "auto" }}>
           {results.map((item) => {
-            const isRecent = recentlyAdded.has(item.code);
-            const isAdded = addedCodes.has(item.code);
+            const codeKey = `${item.code}:${item.exchange}`;
+            const isRecent = recentlyAdded.has(codeKey);
+            const isAdded = addedCodes.has(codeKey);
             return (
               <button
                 key={`${item.code}-${item.exchange}`}
@@ -281,13 +359,19 @@ function SymbolSearchSection({
                   <span className="font-semibold">{item.code}</span>
                   <span className="ml-3 text-slate-600">{item.name}</span>
                 </div>
-                {isRecent ? (
-                  <span className="text-xs font-medium" style={{ color: "var(--success)" }}>추가됨</span>
-                ) : isAdded ? (
-                  <span className="text-xs text-slate-400">추가됨</span>
-                ) : (
-                  <span className="text-xs text-slate-400">{item.exchange}</span>
-                )}
+                <span className="flex items-center gap-2 text-xs text-slate-400">
+                  <span className="status-chip status-chip-info">
+                    {marketScopeLabel[item.marketScope]}
+                  </span>
+                  <span>{item.exchange}</span>
+                  {isRecent ? (
+                    <span className="text-xs font-medium" style={{ color: "var(--success)" }}>
+                      추가됨
+                    </span>
+                  ) : isAdded ? (
+                    <span className="text-xs text-slate-400">추가됨</span>
+                  ) : null}
+                </span>
               </button>
             );
           })}

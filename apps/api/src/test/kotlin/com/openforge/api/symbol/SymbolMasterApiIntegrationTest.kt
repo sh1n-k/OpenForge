@@ -20,20 +20,25 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
         mockMvc
             .perform(get("/api/v1/symbols/status"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.totalCount").value(0))
-            .andExpect(jsonPath("$.needsUpdate").value(true))
-            .andExpect(jsonPath("$.collectedAt").isEmpty)
+            .andExpect(jsonPath("$.markets.length()").value(2))
+            .andExpect(jsonPath("$.markets[0].marketScope").value("domestic"))
+            .andExpect(jsonPath("$.markets[0].totalCount").value(0))
+            .andExpect(jsonPath("$.markets[0].needsUpdate").value(true))
+            .andExpect(jsonPath("$.markets[1].marketScope").value("us"))
+            .andExpect(jsonPath("$.markets[1].totalCount").value(0))
+            .andExpect(jsonPath("$.markets[1].needsUpdate").value(true))
     }
 
     @Test
     fun `search returns matching symbols`() {
         symbolMasterRepository.saveAll(
             listOf(
-                SymbolMasterEntity(code = "005930", name = "삼성전자", exchange = "kospi"),
-                SymbolMasterEntity(code = "000660", name = "SK하이닉스", exchange = "kospi"),
-                SymbolMasterEntity(code = "035420", name = "NAVER", exchange = "kospi"),
-                SymbolMasterEntity(code = "035720", name = "카카오", exchange = "kospi"),
-                SymbolMasterEntity(code = "247540", name = "에코프로비엠", exchange = "kosdaq"),
+                SymbolMasterEntity(marketScope = "domestic", code = "005930", name = "삼성전자", exchange = "kospi"),
+                SymbolMasterEntity(marketScope = "domestic", code = "000660", name = "SK하이닉스", exchange = "kospi"),
+                SymbolMasterEntity(marketScope = "domestic", code = "035420", name = "NAVER", exchange = "kospi"),
+                SymbolMasterEntity(marketScope = "domestic", code = "035720", name = "카카오", exchange = "kospi"),
+                SymbolMasterEntity(marketScope = "domestic", code = "247540", name = "에코프로비엠", exchange = "kosdaq"),
+                SymbolMasterEntity(marketScope = "us", code = "AAPL", name = "Apple", exchange = "nasdaq"),
             ),
         )
 
@@ -43,6 +48,7 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
             .andExpect(jsonPath("$.total").value(1))
             .andExpect(jsonPath("$.items[0].code").value("005930"))
             .andExpect(jsonPath("$.items[0].name").value("삼성전자"))
+            .andExpect(jsonPath("$.items[0].marketScope").value("domestic"))
 
         mockMvc
             .perform(get("/api/v1/symbols/search").param("q", "005930"))
@@ -55,8 +61,8 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
     fun `search filters by exchange`() {
         symbolMasterRepository.saveAll(
             listOf(
-                SymbolMasterEntity(code = "005930", name = "삼성전자", exchange = "kospi"),
-                SymbolMasterEntity(code = "247540", name = "에코프로비엠", exchange = "kosdaq"),
+                SymbolMasterEntity(marketScope = "domestic", code = "005930", name = "삼성전자", exchange = "kospi"),
+                SymbolMasterEntity(marketScope = "domestic", code = "247540", name = "에코프로비엠", exchange = "kosdaq"),
             ),
         )
 
@@ -64,6 +70,7 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(
                 get("/api/v1/symbols/search")
                     .param("q", "에코")
+                    .param("marketScope", "domestic")
                     .param("exchange", "kosdaq"),
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.total").value(1))
@@ -73,7 +80,36 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(
                 get("/api/v1/symbols/search")
                     .param("q", "에코")
+                    .param("marketScope", "domestic")
                     .param("exchange", "kospi"),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.total").value(0))
+    }
+
+    @Test
+    fun `search filters by market scope`() {
+        symbolMasterRepository.saveAll(
+            listOf(
+                SymbolMasterEntity(marketScope = "domestic", code = "005930", name = "삼성전자", exchange = "kospi"),
+                SymbolMasterEntity(marketScope = "us", code = "AAPL", name = "Apple", exchange = "nasdaq"),
+            ),
+        )
+
+        mockMvc
+            .perform(
+                get("/api/v1/symbols/search")
+                    .param("q", "a")
+                    .param("marketScope", "us"),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.items[0].code").value("AAPL"))
+            .andExpect(jsonPath("$.items[0].marketScope").value("us"))
+
+        mockMvc
+            .perform(
+                get("/api/v1/symbols/search")
+                    .param("q", "a")
+                    .param("marketScope", "domestic"),
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.total").value(0))
     }
@@ -83,6 +119,7 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
         symbolMasterRepository.saveAll(
             (1..30).map {
                 SymbolMasterEntity(
+                    marketScope = "domestic",
                     code = String.format("%06d", it),
                     name = "종목$it",
                     exchange = "kospi",
@@ -94,6 +131,7 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(
                 get("/api/v1/symbols/search")
                     .param("q", "종목")
+                    .param("marketScope", "domestic")
                     .param("limit", "5"),
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.total").value(5))

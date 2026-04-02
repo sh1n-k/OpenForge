@@ -57,6 +57,7 @@ enum class MarketType(
     @get:JsonValue val value: String,
 ) {
     DOMESTIC("domestic"),
+    US("us"),
     ;
 
     companion object {

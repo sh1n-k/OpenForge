@@ -4,6 +4,11 @@ type UniverseDetailViewProps = {
   universe: UniverseDetail;
 };
 
+const marketScopeLabel = {
+  domestic: "국내",
+  us: "미국",
+} as const;
+
 export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
   return (
     <section
@@ -23,6 +28,9 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
           </p>
         </div>
         <div className="list-card">
+          <div className="status-chip status-chip-info" style={{ marginBottom: 8 }}>
+            {marketScopeLabel[universe.marketScope]}
+          </div>
           <div>{universe.symbolCount}개 종목</div>
           <div>{universe.strategyCount}개 연결 전략</div>
         </div>
@@ -40,18 +48,16 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
         ) : (
           universe.symbols.map((symbol) => (
             <div
-              key={symbol.symbol}
+              key={`${symbol.symbol}-${symbol.exchange}`}
               className="list-card flex items-center justify-between text-sm"
             >
               <div>
                 <div className="doc-nav-title">
                   {symbol.displayName}
                 </div>
-                <div className="doc-nav-description">{symbol.symbol}</div>
+                <div className="doc-nav-description">{symbol.symbol} · {symbol.exchange}</div>
               </div>
-              <div className="metric-card-label">
-                {symbol.market}
-              </div>
+              <div className="metric-card-label">{marketScopeLabel[symbol.market]}</div>
             </div>
           ))
         )}

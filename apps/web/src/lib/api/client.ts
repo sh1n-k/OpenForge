@@ -25,6 +25,7 @@ import type {
   BacktestRunSummary,
   MarketCoverage,
   StrategyValidateResponse,
+  UniverseMarketScope,
   UniverseSummary,
   UniverseDetail,
   UniverseSymbol,
@@ -258,7 +259,7 @@ export async function updateStrategy(
 
 export async function updateStrategyExecution(
   strategyId: string,
-  input: { enabled: boolean; scheduleTime: string },
+  input: { enabled: boolean; scheduleTime: string; timezone: string; mode: "paper" },
 ) {
   return apiFetch<StrategyExecutionResponse>(
     `/api/v1/strategies/${strategyId}/execution`,
@@ -453,6 +454,7 @@ export async function loadUniverse(universeId: string) {
 export async function createUniverse(input: {
   name: string;
   description?: string;
+  marketScope: UniverseMarketScope;
 }) {
   return apiFetch<UniverseDetail>("/api/v1/universes", {
     method: "POST",
@@ -517,16 +519,24 @@ export async function loadSystemActivity(limit = 100, category?: string) {
   return apiFetch<ActivityEvent[]>(`/api/v1/system/activity?${params}`);
 }
 
-export async function searchSymbols(q: string, exchange?: string, limit = 20) {
+export async function searchSymbols(
+  q: string,
+  marketScope: UniverseMarketScope,
+  exchange?: string,
+  limit = 20,
+) {
   const params = new URLSearchParams();
   params.set("q", q);
+  params.set("marketScope", marketScope);
   if (exchange) params.set("exchange", exchange);
   params.set("limit", String(limit));
   return apiFetch<SymbolSearchResponse>(`/api/v1/symbols/search?${params}`);
 }
 
-export async function collectSymbols() {
-  return apiFetch<SymbolCollectResponse>("/api/v1/symbols/collect", {
+export async function collectSymbols(marketScope: UniverseMarketScope) {
+  const params = new URLSearchParams();
+  params.set("marketScope", marketScope);
+  return apiFetch<SymbolCollectResponse>(`/api/v1/symbols/collect?${params}`, {
     method: "POST",
   });
 }

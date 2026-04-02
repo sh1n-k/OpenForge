@@ -1,5 +1,6 @@
 package com.openforge.api.symbol
 
+import com.openforge.api.strategy.domain.MarketType
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.client.SimpleClientHttpRequestFactory
@@ -20,23 +21,19 @@ class SymbolMasterPersistence(
 ) {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun replaceExchange(
+        marketScope: MarketType,
         exchange: String,
         symbols: List<SymbolMasterEntity>,
     ): Int {
-        symbolMasterRepository.deleteByExchange(exchange)
+        symbolMasterRepository.deleteByMarketScopeAndExchange(marketScope.value, exchange)
         symbolMasterRepository.flush()
         symbolMasterRepository.saveAll(symbols)
         return symbols.size
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun updateStatus(
-        kospiCount: Int,
-        kosdaqCount: Int,
-    ) {
-        val status = statusRepository.findById("singleton").orElse(SymbolMasterStatusEntity())
-        status.kospiCount = kospiCount
-        status.kosdaqCount = kosdaqCount
+    fun updateStatus(marketScope: MarketType) {
+        val status = statusRepository.findById(marketScope).orElse(SymbolMasterStatusEntity(marketScope = marketScope))
         status.collectedAt = OffsetDateTime.now()
         statusRepository.save(status)
     }
@@ -51,10 +48,17 @@ class SymbolMasterService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val collecting = AtomicBoolean(false)
 
-    private val masterUrls =
+    private val marketConfigurations =
         mapOf(
-            "kospi" to "https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip",
-            "kosdaq" to "https://new.real.download.dws.co.kr/common/master/kosdaq_code.mst.zip",
+            MarketType.DOMESTIC to linkedMapOf(
+                "kospi" to "https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip",
+                "kosdaq" to "https://new.real.download.dws.co.kr/common/master/kosdaq_code.mst.zip",
+            ),
+            MarketType.US to linkedMapOf(
+                "nasdaq" to "https://new.real.download.dws.co.kr/common/master/nasmst.cod.zip",
+                "nyse" to "https://new.real.download.dws.co.kr/common/master/nysmst.cod.zip",
+                "amex" to "https://new.real.download.dws.co.kr/common/master/amsmst.cod.zip",
+            ),
         )
 
     private val restClient =
@@ -69,73 +73,101 @@ class SymbolMasterService(
 
     fun search(
         query: String,
+        marketScope: MarketType,
         exchange: String?,
         limit: Int,
     ): SymbolSearchResponse {
         val results =
             symbolMasterRepository.search(
                 query = query,
+                marketScope = marketScope.value,
                 exchange = exchange,
                 limit = PageRequest.of(0, limit),
             )
         return SymbolSearchResponse(
             query = query,
             total = results.size,
-            items = results.map { SymbolSearchItemResponse(it.code, it.name, it.exchange) },
+            items = results.map {
+                SymbolSearchItemResponse(
+                    code = it.code,
+                    name = it.name,
+                    exchange = it.exchange,
+                    marketScope = MarketType.fromValue(it.marketScope),
+                )
+            },
         )
     }
 
-    fun getStatus(): SymbolMasterStatusResponse {
-        val status = statusRepository.findById("singleton").orElse(SymbolMasterStatusEntity())
-        return SymbolMasterStatusResponse(
-            kospiCount = status.kospiCount,
-            kosdaqCount = status.kosdaqCount,
-            totalCount = status.kospiCount + status.kosdaqCount,
-            collectedAt = status.collectedAt,
-            needsUpdate =
-                status.collectedAt == null ||
-                    status.collectedAt!!.toLocalDate() < LocalDate.now(),
+    fun getStatus(): SymbolMasterStatusResponse =
+        SymbolMasterStatusResponse(
+            markets =
+                listOf(MarketType.DOMESTIC, MarketType.US).map { marketScope ->
+                    val exchangeCodes = marketConfigurations[marketScope].orEmpty().keys.toList()
+                    val exchangeCounts =
+                        exchangeCodes.map { exchange ->
+                            SymbolMasterExchangeCountResponse(
+                                exchange = exchange,
+                                count = symbolMasterRepository.countByMarketScopeAndExchange(marketScope.value, exchange),
+                            )
+                        }
+                    val totalCount = symbolMasterRepository.countByMarketScope(marketScope.value)
+                    val status = statusRepository.findById(marketScope).orElse(SymbolMasterStatusEntity(marketScope = marketScope))
+                    SymbolMasterMarketStatusResponse(
+                        marketScope = marketScope,
+                        exchangeCounts = exchangeCounts,
+                        totalCount = totalCount,
+                        collectedAt = status.collectedAt,
+                        needsUpdate =
+                            status.collectedAt == null ||
+                                status.collectedAt!!.toLocalDate() < LocalDate.now(),
+                    )
+                },
         )
-    }
 
-    fun collect(): SymbolCollectResponse {
+    fun collect(marketScope: MarketType): SymbolCollectResponse {
         if (!collecting.compareAndSet(false, true)) {
             return SymbolCollectResponse(
+                marketScope = marketScope,
                 success = false,
-                kospiCount = 0,
-                kosdaqCount = 0,
+                exchangeCounts = emptyList(),
                 totalCount = 0,
                 errors = listOf("수집이 이미 진행 중입니다."),
             )
         }
 
         try {
-            val errors = mutableListOf<String>()
-            var kospiCount = 0
-            var kosdaqCount = 0
+            val marketMasterUrls =
+                marketConfigurations[marketScope]
+                    ?: throw IllegalArgumentException("Unsupported marketScope: ${marketScope.value}")
 
-            for ((exchange, url) in masterUrls) {
+            val errors = mutableListOf<String>()
+            val exchangeCounts = mutableListOf<SymbolMasterExchangeCountResponse>()
+
+            for ((exchange, url) in marketMasterUrls) {
                 try {
-                    val symbols = downloadAndParse(url, exchange)
-                    val count = persistence.replaceExchange(exchange, symbols)
-                    when (exchange) {
-                        "kospi" -> kospiCount = count
-                        "kosdaq" -> kosdaqCount = count
-                    }
-                    log.info("마스터파일 수집 완료: {} — {}건", exchange, count)
+                    val symbols = downloadAndParse(url, marketScope, exchange)
+                    persistence.replaceExchange(marketScope, exchange, symbols)
+                    exchangeCounts += SymbolMasterExchangeCountResponse(exchange = exchange, count = symbols.size)
+                    log.info("마스터파일 수집 완료: {} / {} - {}건", marketScope.value, exchange, symbols.size)
                 } catch (e: Exception) {
-                    log.error("마스터파일 수집 실패: {} — {}", exchange, e.message)
+                    log.error("마스터파일 수집 실패: {} / {} - {}", marketScope.value, exchange, e.message)
                     errors.add("$exchange: ${e.message}")
+                    exchangeCounts +=
+                        SymbolMasterExchangeCountResponse(
+                            exchange = exchange,
+                            count = symbolMasterRepository.countByMarketScopeAndExchange(marketScope.value, exchange),
+                        )
                 }
             }
 
-            persistence.updateStatus(kospiCount, kosdaqCount)
+            val count = symbolMasterRepository.countByMarketScope(marketScope.value)
+            persistence.updateStatus(marketScope)
 
             return SymbolCollectResponse(
+                marketScope = marketScope,
                 success = errors.isEmpty(),
-                kospiCount = kospiCount,
-                kosdaqCount = kosdaqCount,
-                totalCount = kospiCount + kosdaqCount,
+                exchangeCounts = exchangeCounts,
+                totalCount = count,
                 errors = errors,
             )
         } finally {
@@ -145,6 +177,7 @@ class SymbolMasterService(
 
     private fun downloadAndParse(
         url: String,
+        marketScope: MarketType,
         exchange: String,
     ): List<SymbolMasterEntity> {
         val zipBytes =
@@ -153,10 +186,13 @@ class SymbolMasterService(
                 .uri(url)
                 .retrieve()
                 .body(ByteArray::class.java)
-                ?: throw IllegalStateException("마스터파일 다운로드 실패: $exchange")
+                ?: throw IllegalStateException("마스터파일 다운로드 실패: ${marketScope.value} / $exchange")
 
         val mstBytes = unzip(zipBytes)
-        return parseMst(mstBytes, exchange)
+        return when (marketScope) {
+            MarketType.DOMESTIC -> parseDomesticMst(mstBytes, exchange, marketScope)
+            MarketType.US -> parseOverseasMst(mstBytes, exchange, marketScope)
+        }
     }
 
     private fun unzip(zipBytes: ByteArray): ByteArray {
@@ -168,16 +204,16 @@ class SymbolMasterService(
         }
     }
 
-    private fun parseMst(
+    private fun parseDomesticMst(
         content: ByteArray,
         exchange: String,
+        marketScope: MarketType,
     ): List<SymbolMasterEntity> {
         val euckr = charset("EUC-KR")
         val lines = String(content, euckr).lines()
 
         return lines.mapNotNull { line ->
             val lineBytes = line.toByteArray(euckr)
-            // KIS MST: 종목코드(9) + 표준코드(12) + 종목명(가변) + 통계필드(228)
             if (lineBytes.size < 250) return@mapNotNull null
 
             val code = String(lineBytes, 0, 9, euckr).trim().takeLast(6)
@@ -186,7 +222,45 @@ class SymbolMasterService(
 
             if (code.isBlank() || name.isBlank()) return@mapNotNull null
 
-            SymbolMasterEntity(code = code, name = name, exchange = exchange)
+            SymbolMasterEntity(
+                marketScope = marketScope.value,
+                code = code,
+                exchange = exchange,
+                name = name,
+            )
+        }
+    }
+
+    private fun parseOverseasMst(
+        content: ByteArray,
+        exchange: String,
+        marketScope: MarketType,
+    ): List<SymbolMasterEntity> {
+        val cp949 = charset("CP949")
+        val lines = String(content, cp949).lines()
+
+        return lines.mapNotNull { line ->
+            if (line.isBlank()) return@mapNotNull null
+
+            val columns = line.split('\t')
+            if (columns.size < 9) return@mapNotNull null
+
+            val symbol = columns.getOrNull(4)?.trim().orEmpty()
+            val koreaName = columns.getOrNull(6)?.trim().orEmpty()
+            val englishName = columns.getOrNull(7)?.trim().orEmpty()
+            val securityType = columns.getOrNull(8)?.trim().orEmpty()
+
+            if (symbol.isBlank() || securityType != "2") return@mapNotNull null
+
+            val name = koreaName.ifBlank { englishName }
+            if (name.isBlank()) return@mapNotNull null
+
+            SymbolMasterEntity(
+                marketScope = marketScope.value,
+                code = symbol.uppercase(),
+                exchange = exchange,
+                name = name,
+            )
         }
     }
 }

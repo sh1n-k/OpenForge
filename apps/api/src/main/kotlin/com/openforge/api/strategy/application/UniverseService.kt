@@ -2,9 +2,11 @@ package com.openforge.api.strategy.application
 
 import com.openforge.api.strategy.domain.StrategyUniverseRepository
 import com.openforge.api.strategy.domain.UniverseEntity
+import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.UniverseRepository
 import com.openforge.api.strategy.domain.UniverseSymbolEntity
 import com.openforge.api.strategy.domain.UniverseSymbolRepository
+import com.openforge.api.symbol.SymbolMasterRepository
 import com.openforge.api.strategy.web.CreateUniverseRequest
 import com.openforge.api.strategy.web.UniverseDetailResponse
 import com.openforge.api.strategy.web.UniverseSummaryResponse
@@ -23,10 +25,11 @@ class UniverseService(
     private val universeRepository: UniverseRepository,
     private val universeSymbolRepository: UniverseSymbolRepository,
     private val strategyUniverseRepository: StrategyUniverseRepository,
+    private val symbolMasterRepository: SymbolMasterRepository,
 ) {
-    fun listUniverses(): List<UniverseSummaryResponse> =
-        universeRepository
-            .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
+    fun listUniverses(marketScope: MarketType? = null): List<UniverseSummaryResponse> =
+        (marketScope?.let { universeRepository.findAllByMarketScopeAndIsArchivedFalseOrderByUpdatedAtDesc(it) }
+            ?: universeRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc())
             .map(::toSummary)
 
     fun createUniverse(request: CreateUniverseRequest): UniverseDetailResponse {
@@ -35,6 +38,7 @@ class UniverseService(
             universeRepository.save(
                 UniverseEntity(
                     name = request.name.trim(),
+                    marketScope = request.marketScope,
                     description = request.description?.trim()?.ifBlank { null },
                 ),
             )
@@ -43,11 +47,12 @@ class UniverseService(
 
     fun getUniverse(universeId: UUID): UniverseDetailResponse {
         val universe = getActiveUniverse(universeId)
-        val symbols = universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universe.id)
+        val symbols = universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universe.id)
         return UniverseDetailResponse(
             id = universe.id,
             name = universe.name,
             description = universe.description,
+            marketScope = universe.marketScope,
             symbolCount = symbols.size.toLong(),
             strategyCount = strategyUniverseRepository.countByUniverseId(universe.id),
             symbols =
@@ -55,6 +60,7 @@ class UniverseService(
                     UniverseSymbolResponse(
                         symbol = it.symbol,
                         market = it.market,
+                        exchange = it.exchange,
                         displayName = it.displayName,
                         sortOrder = it.sortOrder,
                     )
@@ -94,20 +100,44 @@ class UniverseService(
         val normalized =
             inputs
                 .mapIndexed { index, input ->
+                    val normalizedSymbol = input.symbol.trim().uppercase()
+                    val normalizedExchange = input.exchange.trim().lowercase()
+                    val normalizedDisplayName = input.displayName.trim()
+                    if (normalizedSymbol.isBlank() || normalizedExchange.isBlank() || normalizedDisplayName.isBlank()) {
+                        throw ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Universe symbols require symbol, exchange, and displayName",
+                        )
+                    }
+                    if (input.market != universe.marketScope) {
+                        throw ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Universe symbols must match the universe market scope",
+                        )
+                    }
+                    if (
+                        !symbolMasterRepository.existsByMarketScopeAndExchangeAndCode(
+                            universe.marketScope.value,
+                            normalizedExchange,
+                            normalizedSymbol,
+                        )
+                    ) {
+                        throw ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Unknown symbol for ${universe.marketScope.value}: $normalizedExchange/$normalizedSymbol",
+                        )
+                    }
                     UniverseSymbolEntity(
                         universeId = universe.id,
-                        symbol = input.symbol.trim(),
+                        symbol = normalizedSymbol,
                         market = input.market,
-                        displayName = input.displayName.trim(),
+                        exchange = normalizedExchange,
+                        displayName = normalizedDisplayName,
                         sortOrder = input.sortOrder.takeIf { it >= 0 } ?: index,
                     )
                 }
 
-        if (normalized.any { it.symbol.isBlank() || it.displayName.isBlank() }) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe symbols require symbol and displayName")
-        }
-
-        if (normalized.map { it.symbol }.distinct().size != normalized.size) {
+        if (normalized.map { "${it.symbol}:${it.exchange}" }.distinct().size != normalized.size) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe symbols must be unique")
         }
 
@@ -140,6 +170,7 @@ class UniverseService(
             id = universe.id,
             name = universe.name,
             description = universe.description,
+            marketScope = universe.marketScope,
             symbolCount = universeSymbolRepository.countByUniverseId(universe.id),
             strategyCount = strategyUniverseRepository.countByUniverseId(universe.id),
             updatedAt = universe.updatedAt,

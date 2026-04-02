@@ -5,7 +5,8 @@ export type StrategyStatus =
   | "running"
   | "stopped";
 export type PayloadFormat = "builder_json" | "code_text";
-export type MarketType = "domestic";
+export type UniverseMarketScope = "domestic" | "us";
+export type MarketType = UniverseMarketScope;
 export type StrategyValidationStatus =
   | "valid"
   | "invalid"
@@ -64,6 +65,7 @@ export type UniverseReference = {
   id: string;
   name: string;
   description: string | null;
+  marketScope: UniverseMarketScope;
 };
 
 export type StrategyDetail = {
@@ -370,6 +372,7 @@ export type UniverseSummary = {
   id: string;
   name: string;
   description: string | null;
+  marketScope: UniverseMarketScope;
   symbolCount: number;
   strategyCount: number;
   updatedAt: string;
@@ -378,6 +381,7 @@ export type UniverseSummary = {
 export type UniverseSymbol = {
   symbol: string;
   market: MarketType;
+  exchange: string;
   displayName: string;
   sortOrder: number;
 };
@@ -386,6 +390,7 @@ export type UniverseDetail = {
   id: string;
   name: string;
   description: string | null;
+  marketScope: UniverseMarketScope;
   symbolCount: number;
   strategyCount: number;
   symbols: UniverseSymbol[];
@@ -501,6 +506,7 @@ export type SymbolSearchItem = {
   code: string;
   name: string;
   exchange: string;
+  marketScope: UniverseMarketScope;
 };
 
 export type SymbolSearchResponse = {
@@ -510,19 +516,28 @@ export type SymbolSearchResponse = {
 };
 
 export type SymbolMasterStatusResponse = {
-  kospiCount: number;
-  kosdaqCount: number;
-  totalCount: number;
-  collectedAt: string | null;
-  needsUpdate: boolean;
+  markets: SymbolMasterMarketStatus[];
+  totalCount?: number;
+  collectedAt?: string | null;
+  needsUpdate?: boolean;
+  kospiCount?: number;
+  kosdaqCount?: number;
 };
 
 export type SymbolCollectResponse = {
+  marketScope: UniverseMarketScope;
   success: boolean;
-  kospiCount: number;
-  kosdaqCount: number;
   totalCount: number;
+  exchangeCounts: { exchange: string; count: number }[];
   errors: string[];
+};
+
+export type SymbolMasterMarketStatus = {
+  marketScope: UniverseMarketScope;
+  totalCount: number;
+  collectedAt: string | null;
+  needsUpdate: boolean;
+  exchangeCounts: { exchange: string; count: number }[];
 };
 
 // ---------------------------------------------------------------------------

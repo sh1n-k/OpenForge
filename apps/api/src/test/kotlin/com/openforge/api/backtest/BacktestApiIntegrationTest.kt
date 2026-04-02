@@ -1,6 +1,8 @@
 package com.openforge.api.backtest
 
 import com.openforge.api.backtest.application.BacktestService
+import com.openforge.api.symbol.SymbolMasterEntity
+import com.openforge.api.symbol.SymbolMasterRepository
 import com.openforge.api.support.PostgresIntegrationTestSupport
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasSize
@@ -12,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.json.JsonMapper
@@ -22,6 +25,9 @@ class BacktestApiIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Autowired
     lateinit var backtestService: BacktestService
+
+    @Autowired
+    lateinit var symbolMasterRepository: SymbolMasterRepository
 
     private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
@@ -107,6 +113,85 @@ class BacktestApiIntegrationTest : PostgresIntegrationTestSupport() {
     }
 
     @Test
+    fun `rejects run when overseas universe is selected`() {
+        symbolMasterRepository.save(
+            SymbolMasterEntity(
+                marketScope = "us",
+                code = "AAPL",
+                exchange = "nasdaq",
+                name = "Apple",
+            ),
+        )
+        importCsv(
+            """
+            symbol,date,open,high,low,close,volume
+            AAPL,2026-01-01,10,10,10,10,1000
+            AAPL,2026-01-02,11,11,11,11,1000
+            """.trimIndent(),
+            expectedRows = 2,
+        )
+
+        val strategyId = createStrategy("Overseas Block")
+        val universeId = createUniverse("US Core", "AAPL", "us")
+
+        mockMvc
+            .perform(
+                post("/api/v1/backtests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "strategyId" to strategyId,
+                                "startDate" to "2026-01-01",
+                                "endDate" to "2026-01-02",
+                                "universeIds" to listOf(universeId),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("overseas universes")))
+    }
+
+    @Test
+    fun `rejects run when overseas direct symbol is selected`() {
+        symbolMasterRepository.save(
+            SymbolMasterEntity(
+                marketScope = "us",
+                code = "AAPL",
+                exchange = "nasdaq",
+                name = "Apple",
+            ),
+        )
+        importCsv(
+            """
+            symbol,date,open,high,low,close,volume
+            AAPL,2026-01-01,10,10,10,10,1000
+            AAPL,2026-01-02,11,11,11,11,1000
+            """.trimIndent(),
+            expectedRows = 2,
+        )
+
+        val strategyId = createStrategy("Overseas Direct Block")
+
+        mockMvc
+            .perform(
+                post("/api/v1/backtests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "strategyId" to strategyId,
+                                "startDate" to "2026-01-01",
+                                "endDate" to "2026-01-02",
+                                "symbols" to listOf("AAPL"),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("overseas symbols")))
+    }
+
+    @Test
     fun `returns problem detail for malformed csv`() {
         val file =
             MockMultipartFile(
@@ -122,12 +207,15 @@ class BacktestApiIntegrationTest : PostgresIntegrationTestSupport() {
             .andExpect(jsonPath("$.title").value("Bad Request"))
     }
 
-    private fun importCsv(content: String) {
+    private fun importCsv(
+        content: String,
+        expectedRows: Int = 6,
+    ) {
         val file = MockMultipartFile("file", "bars.csv", "text/csv", content.toByteArray())
         mockMvc
             .perform(multipart("/api/v1/market-data/daily-bars/import").file(file))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.importedRows").value(6))
+            .andExpect(jsonPath("$.importedRows").value(expectedRows))
     }
 
     private fun createStrategy(name: String): String =
@@ -208,4 +296,73 @@ class BacktestApiIntegrationTest : PostgresIntegrationTestSupport() {
                         ),
                 ),
         )
+
+    private fun createUniverse(
+        name: String,
+        symbol: String,
+        marketScope: String = "domestic",
+    ): String {
+        seedSymbolMaster(symbol, marketScope)
+        val universeId =
+            mockMvc
+                .perform(
+                    post("/api/v1/universes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "name" to name,
+                                    "marketScope" to marketScope,
+                                    "description" to "backtest universe",
+                                ),
+                            ),
+                        ),
+                ).andExpect(status().isOk)
+                .andReturn()
+                .response
+                .contentAsString
+                .let { objectMapper.readTree(it).get("id").asText() }
+
+        mockMvc
+            .perform(
+                put("/api/v1/universes/$universeId/symbols")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "symbols" to
+                                    listOf(
+                                        mapOf(
+                                            "symbol" to symbol,
+                                            "exchange" to if (marketScope == "us") "nasdaq" else "kospi",
+                                            "market" to marketScope,
+                                            "displayName" to symbol,
+                                            "sortOrder" to 0,
+                                        ),
+                                    ),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+
+        return universeId
+    }
+
+    private fun seedSymbolMaster(
+        symbol: String,
+        marketScope: String,
+    ) {
+        val exchange = if (marketScope == "us") "nasdaq" else "kospi"
+        jdbcTemplate.update(
+            """
+            insert into symbol_master (market_scope, code, exchange, name)
+            values (?, ?, ?, ?)
+            on conflict do nothing
+            """.trimIndent(),
+            marketScope,
+            symbol.uppercase(),
+            exchange,
+            symbol,
+        )
+    }
 }

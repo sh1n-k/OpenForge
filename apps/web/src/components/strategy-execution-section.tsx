@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 import {
   updateStrategyExecution,
+  type StrategyExecutionMode,
   type StrategyExecutionResponse,
 } from "@/lib/api";
 import { formatDateTime, shortId } from "@/lib/format";
@@ -18,19 +19,24 @@ const statusLabel: Record<string, string> = {
 type Props = {
   strategyId: string;
   execution: StrategyExecutionResponse;
+  hasOverseasUniverses: boolean;
 };
 
-export function StrategyExecutionSection({ strategyId, execution }: Props) {
+export function StrategyExecutionSection({ strategyId, execution, hasOverseasUniverses }: Props) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(execution.enabled);
+  const [mode, setMode] = useState<StrategyExecutionMode>(execution.mode);
   const [scheduleTime, setScheduleTime] = useState(execution.scheduleTime);
+  const [timezone, setTimezone] = useState(execution.timezone);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setEnabled(execution.enabled);
+    setMode(execution.mode);
     setScheduleTime(execution.scheduleTime);
-  }, [execution.enabled, execution.scheduleTime]);
+    setTimezone(execution.timezone);
+  }, [execution.enabled, execution.mode, execution.scheduleTime, execution.timezone]);
 
   async function handleExecutionSave() {
     try {
@@ -38,7 +44,9 @@ export function StrategyExecutionSection({ strategyId, execution }: Props) {
       setIsSaving(true);
       await updateStrategyExecution(strategyId, {
         enabled,
+        mode,
         scheduleTime,
+        timezone,
       });
       startTransition(() => router.refresh());
     } catch (executionError) {
@@ -71,6 +79,12 @@ export function StrategyExecutionSection({ strategyId, execution }: Props) {
         </span>
       </div>
 
+      {hasOverseasUniverses ? (
+        <div className="doc-panel doc-panel-warn" style={{ marginTop: 12 }}>
+          미국 유니버스가 연결되어 있습니다. 현재 실행 경로는 국내 시장 기준이므로 `enabled=true` 저장이 실패할 수 있습니다.
+        </div>
+      ) : null}
+
       {error ? (
         <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
           {error}
@@ -93,11 +107,30 @@ export function StrategyExecutionSection({ strategyId, execution }: Props) {
         </label>
 
         <label className="form-field">
+          <span className="form-label">실행 모드</span>
+          <select
+            value={mode}
+            onChange={(event) => setMode(event.target.value as StrategyExecutionMode)}
+          >
+            <option value="paper">paper</option>
+          </select>
+        </label>
+
+        <label className="form-field">
           <span className="form-label">실행 시각</span>
           <input
             type="time"
             value={scheduleTime}
             onChange={(event) => setScheduleTime(event.target.value)}
+          />
+        </label>
+
+        <label className="form-field">
+          <span className="form-label">시간대</span>
+          <input
+            value={timezone}
+            onChange={(event) => setTimezone(event.target.value)}
+            placeholder="예: Asia/Seoul"
           />
         </label>
 

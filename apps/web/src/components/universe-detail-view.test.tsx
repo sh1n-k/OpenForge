@@ -10,18 +10,21 @@ describe("UniverseDetailView", () => {
           id: "u-1",
           name: "Semis KR",
           description: "Korean semiconductor basket",
+          marketScope: "domestic",
           symbolCount: 2,
           strategyCount: 1,
           symbols: [
             {
               symbol: "005930",
               market: "domestic",
+              exchange: "kospi",
               displayName: "삼성전자",
               sortOrder: 0,
             },
             {
               symbol: "000660",
               market: "domestic",
+              exchange: "kospi",
               displayName: "SK하이닉스",
               sortOrder: 1,
             },
@@ -33,9 +36,10 @@ describe("UniverseDetailView", () => {
     );
 
     expect(screen.getByText("Semis KR")).toBeInTheDocument();
+    expect(screen.getAllByText("국내").length).toBeGreaterThan(0);
     expect(screen.getByText("2개 종목")).toBeInTheDocument();
     expect(screen.getByText("삼성전자")).toBeInTheDocument();
     expect(screen.getByText("SK하이닉스")).toBeInTheDocument();
+    expect(screen.getAllByText(/kospi/).length).toBeGreaterThan(0);
   });
 });
-

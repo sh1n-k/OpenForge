@@ -259,7 +259,9 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
     private fun createUniverse(
         name: String,
         symbol: String,
+        marketScope: String = "domestic",
     ): String {
+        seedSymbolMaster(symbol, marketScope)
         val universeId =
             mockMvc
                 .perform(
@@ -269,6 +271,7 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
                             objectMapper.writeValueAsBytes(
                                 mapOf(
                                     "name" to name,
+                                    "marketScope" to marketScope,
                                     "description" to "order universe",
                                 ),
                             ),
@@ -290,7 +293,8 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
                                     listOf(
                                         mapOf(
                                             "symbol" to symbol,
-                                            "market" to "domestic",
+                                            "exchange" to if (marketScope == "us") "nasdaq" else "kospi",
+                                            "market" to marketScope,
                                             "displayName" to symbol,
                                             "sortOrder" to 0,
                                         ),
@@ -301,6 +305,24 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
             ).andExpect(status().isOk)
 
         return universeId
+    }
+
+    private fun seedSymbolMaster(
+        symbol: String,
+        marketScope: String,
+    ) {
+        val exchange = if (marketScope == "us") "nasdaq" else "kospi"
+        jdbcTemplate.update(
+            """
+            insert into symbol_master (market_scope, code, exchange, name)
+            values (?, ?, ?, ?)
+            on conflict do nothing
+            """.trimIndent(),
+            marketScope,
+            symbol.uppercase(),
+            exchange,
+            symbol,
+        )
     }
 
     private fun linkStrategyUniverse(

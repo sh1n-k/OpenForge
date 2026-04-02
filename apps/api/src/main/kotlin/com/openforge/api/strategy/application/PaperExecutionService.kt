@@ -13,6 +13,7 @@ import com.openforge.api.strategy.domain.StrategyExecutionRunRepository
 import com.openforge.api.strategy.domain.StrategyExecutionRunStatus
 import com.openforge.api.strategy.domain.StrategyExecutionTriggerType
 import com.openforge.api.strategy.domain.StrategyRepository
+import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.StrategySignalEventEntity
 import com.openforge.api.strategy.domain.StrategySignalEventRepository
 import com.openforge.api.strategy.domain.StrategySignalType
@@ -36,6 +37,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import java.time.DateTimeException
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
@@ -93,12 +95,12 @@ class PaperExecutionService(
         val strategy = getActiveStrategy(strategyId)
         val config = strategyExecutionConfigRepository.findById(strategy.id).orElse(defaultConfig(strategy.id))
         config.scheduleTime = parseScheduleTime(request.scheduleTime)
+        config.timezone = parseTimezone(request.timezone)
+        config.mode = request.mode
 
         if (request.enabled) {
             ensureStrategyExecutable(strategy)
             config.enabled = true
-            config.mode = StrategyExecutionMode.PAPER
-            config.timezone = DEFAULT_TIMEZONE
             strategy.status = StrategyStatus.RUNNING
         } else {
             config.enabled = false
@@ -193,6 +195,7 @@ class PaperExecutionService(
             )
 
         try {
+            ensureStrategyExecutable(strategy)
             if (symbols.isEmpty()) {
                 throw IllegalStateException("Strategy requires at least one linked symbol")
             }
@@ -252,6 +255,7 @@ class PaperExecutionService(
         if (strategy.status == StrategyStatus.DRAFT) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "Only backtested strategies can enable paper execution")
         }
+        ensureDomesticUniverseScope(strategy.id)
         if (resolveLinkedSymbols(strategy.id).isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Strategy requires at least one linked symbol")
         }
@@ -317,8 +321,24 @@ class PaperExecutionService(
 
         return universeIds
             .flatMap { universeId ->
-                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId).map { it.symbol.uppercase() }
+                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universeId).map { it.symbol.uppercase() }
             }.distinct()
+    }
+
+    private fun ensureDomesticUniverseScope(strategyId: UUID) {
+        val universeIds = strategyUniverseRepository.findAllByStrategyId(strategyId).map { it.universeId }.distinct()
+        if (universeIds.isEmpty()) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Strategy requires at least one linked symbol")
+        }
+
+        val activeUniverses = universeRepository.findAllById(universeIds).filter { !it.isArchived }
+        if (activeUniverses.size != universeIds.size) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe contains archived or missing entries")
+        }
+
+        if (activeUniverses.any { it.marketScope != MarketType.DOMESTIC }) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy contains overseas universes and cannot enable paper execution")
+        }
     }
 
     private fun getActiveStrategy(strategyId: UUID): StrategyEntity =
@@ -339,6 +359,13 @@ class PaperExecutionService(
             LocalTime.parse(value.trim(), SCHEDULE_TIME_FORMATTER)
         } catch (_: DateTimeParseException) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "scheduleTime must use HH:mm format")
+        }
+
+    private fun parseTimezone(value: String): String =
+        try {
+            ZoneId.of(value.trim()).id
+        } catch (_: DateTimeException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "timezone must be a valid IANA timezone")
         }
 
     private fun normalizeLimit(

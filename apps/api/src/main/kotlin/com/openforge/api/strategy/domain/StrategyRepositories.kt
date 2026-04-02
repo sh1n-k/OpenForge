@@ -35,6 +35,8 @@ interface StrategyVersionRepository : JpaRepository<StrategyVersionEntity, UUID>
 interface UniverseRepository : JpaRepository<UniverseEntity, UUID> {
     fun findAllByIsArchivedFalseOrderByUpdatedAtDesc(): List<UniverseEntity>
 
+    fun findAllByMarketScopeAndIsArchivedFalseOrderByUpdatedAtDesc(marketScope: MarketType): List<UniverseEntity>
+
     fun findByIdAndIsArchivedFalse(id: UUID): UniverseEntity?
 
     @Query(
@@ -50,10 +52,12 @@ interface UniverseRepository : JpaRepository<UniverseEntity, UUID> {
         name: String,
         excludeId: UUID? = null,
     ): Boolean
+
+    fun countByMarketScopeAndIsArchivedFalse(marketScope: MarketType): Long
 }
 
 interface UniverseSymbolRepository : JpaRepository<UniverseSymbolEntity, UUID> {
-    fun findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId: UUID): List<UniverseSymbolEntity>
+    fun findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universeId: UUID): List<UniverseSymbolEntity>
 
     fun deleteAllByUniverseId(universeId: UUID)
 

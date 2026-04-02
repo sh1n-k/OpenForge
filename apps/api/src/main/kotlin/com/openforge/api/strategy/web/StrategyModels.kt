@@ -105,6 +105,7 @@ data class UniverseReferenceResponse(
     val id: UUID,
     val name: String,
     val description: String?,
+    val marketScope: MarketType,
 )
 
 data class StrategyDetailResponse(
@@ -131,6 +132,10 @@ data class UpdateStrategyExecutionRequest(
     val enabled: Boolean,
     @field:NotBlank
     val scheduleTime: String,
+    @field:NotBlank
+    val timezone: String = "Asia/Seoul",
+    @field:NotNull
+    val mode: StrategyExecutionMode = StrategyExecutionMode.PAPER,
 )
 
 data class StrategyExecutionLastRunResponse(
@@ -323,6 +328,8 @@ data class GlobalRiskEventResponse(
 data class CreateUniverseRequest(
     @field:NotBlank
     val name: String,
+    @field:NotNull
+    val marketScope: MarketType,
     val description: String? = null,
 )
 
@@ -335,6 +342,8 @@ data class UniverseSymbolInput(
     @field:NotBlank
     val symbol: String,
     val market: MarketType = MarketType.DOMESTIC,
+    @field:NotBlank
+    val exchange: String = "",
     @field:NotBlank
     val displayName: String,
     val sortOrder: Int = 0,
@@ -349,6 +358,7 @@ data class UniverseSummaryResponse(
     val id: UUID,
     val name: String,
     val description: String?,
+    val marketScope: MarketType,
     val symbolCount: Long,
     val strategyCount: Long,
     val updatedAt: OffsetDateTime,
@@ -357,6 +367,7 @@ data class UniverseSummaryResponse(
 data class UniverseSymbolResponse(
     val symbol: String,
     val market: MarketType,
+    val exchange: String,
     val displayName: String,
     val sortOrder: Int,
 )
@@ -365,6 +376,7 @@ data class UniverseDetailResponse(
     val id: UUID,
     val name: String,
     val description: String?,
+    val marketScope: MarketType,
     val symbolCount: Long,
     val strategyCount: Long,
     val symbols: List<UniverseSymbolResponse>,

@@ -45,6 +45,10 @@ describe("StrategyDetailClient", () => {
 
     expect(screen.getByText("자동 실행 설정")).toBeInTheDocument();
     expect(screen.getAllByText("paper").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("미국 유니버스가 연결되어 있습니다. 현재 실행 경로는 국내 시장 기준이므로 `enabled=true` 저장이 실패할 수 있습니다."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("미국 포함")).toBeInTheDocument();
     expect(screen.getByText("최근 실행 로그")).toBeInTheDocument();
     expect(screen.getByText("최근 시그널 이력")).toBeInTheDocument();
     expect(screen.getByText("리스크 설정")).toBeInTheDocument();
@@ -61,14 +65,21 @@ describe("StrategyDetailClient", () => {
 
     const scheduleInput = screen.getByLabelText("실행 시각");
     expect(scheduleInput).toHaveValue("09:30");
+    expect(screen.getByLabelText("실행 모드")).toHaveValue("paper");
+    expect(screen.getByLabelText("시간대")).toHaveValue("Asia/Seoul");
 
     fireEvent.change(scheduleInput, { target: { value: "10:15" } });
+    fireEvent.change(screen.getByLabelText("시간대"), {
+      target: { value: "America/New_York" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "자동 실행 저장" }));
 
     await waitFor(() => {
       expect(updateExecution).toHaveBeenCalledWith("strategy-1", {
         enabled: true,
+        mode: "paper",
         scheduleTime: "10:15",
+        timezone: "America/New_York",
       });
     });
     await waitFor(() => {
@@ -273,7 +284,10 @@ const strategyFixture: apiModule.StrategyDetail = {
     changeSummary: "initial",
     createdAt: "2026-03-31T22:30:00+09:00",
   },
-  universes: [{ id: "universe-1", name: "KR Core", description: null }],
+  universes: [
+    { id: "universe-1", name: "KR Core", description: null, marketScope: "domestic" },
+    { id: "universe-us", name: "US Core", description: null, marketScope: "us" },
+  ],
   createdAt: "2026-03-31T22:30:00+09:00",
   updatedAt: "2026-03-31T22:30:00+09:00",
 };
@@ -297,6 +311,16 @@ const universesFixture: apiModule.UniverseSummary[] = [
     id: "universe-1",
     name: "KR Core",
     description: null,
+    marketScope: "domestic",
+    symbolCount: 1,
+    strategyCount: 1,
+    updatedAt: "2026-03-31T22:30:00+09:00",
+  },
+  {
+    id: "universe-us",
+    name: "US Core",
+    description: null,
+    marketScope: "us",
     symbolCount: 1,
     strategyCount: 1,
     updatedAt: "2026-03-31T22:30:00+09:00",

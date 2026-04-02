@@ -53,13 +53,19 @@ export function StrategyDetailClient({
   positions,
   statusEventsByRequestId,
 }: StrategyDetailClientProps) {
+  const hasOverseasUniverses = strategy.universes.some((universe) => universe.marketScope === "us");
+
   return (
     <main className="page-shell docs-page-shell">
       <StrategyOverviewHeader strategy={strategy} execution={execution} />
 
       <section className="summary-grid summary-grid-columns-2">
         <StrategyInfoPanel strategy={strategy} />
-        <StrategyExecutionSection strategyId={strategy.id} execution={execution} />
+        <StrategyExecutionSection
+          strategyId={strategy.id}
+          execution={execution}
+          hasOverseasUniverses={hasOverseasUniverses}
+        />
       </section>
 
       <StrategyRiskSection

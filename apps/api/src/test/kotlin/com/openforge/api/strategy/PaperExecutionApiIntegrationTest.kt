@@ -1,6 +1,8 @@
 package com.openforge.api.strategy
 
 import com.openforge.api.strategy.application.PaperExecutionService
+import com.openforge.api.symbol.SymbolMasterEntity
+import com.openforge.api.symbol.SymbolMasterRepository
 import com.openforge.api.support.PostgresIntegrationTestSupport
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasSize
@@ -25,6 +27,9 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Autowired
     lateinit var paperExecutionService: PaperExecutionService
+
+    @Autowired
+    lateinit var symbolMasterRepository: SymbolMasterRepository
 
     private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
@@ -199,6 +204,98 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
             .andExpect(jsonPath("$.strategyStatus").value("draft"))
     }
 
+    @Test
+    fun `rejects enabling when linked universe is overseas`() {
+        symbolMasterRepository.save(
+            SymbolMasterEntity(
+                marketScope = "us",
+                code = "AAPL",
+                exchange = "nasdaq",
+                name = "Apple",
+            ),
+        )
+
+        val strategyId = createStrategy("Paper Overseas Guard")
+        val universeId = createUniverse("US Core", "AAPL", "us")
+        linkStrategyUniverse(strategyId, universeId)
+        markBacktestCompleted(strategyId)
+
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/execution")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "enabled" to true,
+                                "scheduleTime" to "09:00",
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("overseas universes")))
+    }
+
+    @Test
+    fun `disables execution when overseas universe is linked later`() {
+        val strategyId = createStrategy("Paper Overseas Rewire")
+        val domesticUniverseId = createUniverse("KR Core", "AAA")
+        linkStrategyUniverse(strategyId, domesticUniverseId)
+        markBacktestCompleted(strategyId)
+        enableExecution(strategyId, "09:00")
+
+        symbolMasterRepository.save(
+            SymbolMasterEntity(
+                marketScope = "us",
+                code = "AAPL",
+                exchange = "nasdaq",
+                name = "Apple",
+            ),
+        )
+        val overseasUniverseId = createUniverse("US Core", "AAPL", "us")
+
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/universes")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("universeIds" to listOf(domesticUniverseId, overseasUniverseId)))),
+            ).andExpect(status().isOk)
+
+        mockMvc
+            .perform(get("/api/v1/strategies/$strategyId/execution"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.enabled").value(false))
+            .andExpect(jsonPath("$.strategyStatus").value("stopped"))
+    }
+
+    @Test
+    fun `updates execution timezone and mode`() {
+        val strategyId = createStrategy("Paper Config Update")
+        val domesticUniverseId = createUniverse("KR Core", "AAA")
+        linkStrategyUniverse(strategyId, domesticUniverseId)
+        markBacktestCompleted(strategyId)
+
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/execution")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "enabled" to false,
+                                "mode" to "paper",
+                                "scheduleTime" to "10:15",
+                                "timezone" to "America/New_York",
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.enabled").value(false))
+            .andExpect(jsonPath("$.mode").value("paper"))
+            .andExpect(jsonPath("$.scheduleTime").value("10:15"))
+            .andExpect(jsonPath("$.timezone").value("America/New_York"))
+    }
+
     private fun enableExecution(
         strategyId: String,
         scheduleTime: String,
@@ -211,7 +308,9 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
                         objectMapper.writeValueAsBytes(
                             mapOf(
                                 "enabled" to true,
+                                "mode" to "paper",
                                 "scheduleTime" to scheduleTime,
+                                "timezone" to "Asia/Seoul",
                             ),
                         ),
                     ),
@@ -236,7 +335,9 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
     private fun createUniverse(
         name: String,
         symbol: String,
+        marketScope: String = "domestic",
     ): String {
+        seedSymbolMaster(symbol, marketScope)
         val universeId =
             mockMvc
                 .perform(
@@ -246,6 +347,7 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
                             objectMapper.writeValueAsBytes(
                                 mapOf(
                                     "name" to name,
+                                    "marketScope" to marketScope,
                                     "description" to "paper universe",
                                 ),
                             ),
@@ -267,7 +369,8 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
                                     listOf(
                                         mapOf(
                                             "symbol" to symbol,
-                                            "market" to "domestic",
+                                            "exchange" to if (marketScope == "us") "nasdaq" else "kospi",
+                                            "market" to marketScope,
                                             "displayName" to symbol,
                                             "sortOrder" to 0,
                                         ),
@@ -278,6 +381,24 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
             ).andExpect(status().isOk)
 
         return universeId
+    }
+
+    private fun seedSymbolMaster(
+        symbol: String,
+        marketScope: String,
+    ) {
+        val exchange = if (marketScope == "us") "nasdaq" else "kospi"
+        jdbcTemplate.update(
+            """
+            insert into symbol_master (market_scope, code, exchange, name)
+            values (?, ?, ?, ?)
+            on conflict do nothing
+            """.trimIndent(),
+            marketScope,
+            symbol.uppercase(),
+            exchange,
+            symbol,
+        )
     }
 
     private fun linkStrategyUniverse(

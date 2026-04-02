@@ -1,7 +1,9 @@
 package com.openforge.api.strategy.web
 
 import com.openforge.api.strategy.application.UniverseService
+import com.openforge.api.strategy.domain.MarketType
 import jakarta.validation.Valid
+import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -10,7 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
 
 @RestController
@@ -19,7 +23,12 @@ class UniverseController(
     private val universeService: UniverseService,
 ) {
     @GetMapping
-    fun list(): List<UniverseSummaryResponse> = universeService.listUniverses()
+    fun list(
+        @RequestParam(required = false) marketScope: String?,
+    ): List<UniverseSummaryResponse> =
+        universeService.listUniverses(
+            marketScope?.let { parseMarketScope(it) },
+        )
 
     @PostMapping
     fun create(
@@ -49,4 +58,11 @@ class UniverseController(
     ) {
         universeService.archiveUniverse(universeId)
     }
+
+    private fun parseMarketScope(value: String): MarketType =
+        try {
+            MarketType.fromValue(value)
+        } catch (exception: IllegalArgumentException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, exception.message, exception)
+        }
 }

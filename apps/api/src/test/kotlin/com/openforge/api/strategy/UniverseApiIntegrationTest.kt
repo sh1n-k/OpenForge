@@ -36,12 +36,22 @@ class UniverseApiIntegrationTest : PostgresIntegrationTestSupport() {
                 .perform(
                     post("/api/v1/universes")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(mapOf("name" to "Semis", "description" to "KR semis"))),
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "name" to "Semis",
+                                    "marketScope" to "domestic",
+                                    "description" to "KR semis",
+                                ),
+                            ),
+                        ),
                 ).andReturn()
                 .response
                 .contentAsString
                 .let { objectMapper.readTree(it).get("id").asText() }
 
+        seedSymbolMaster("005930", "domestic")
+        seedSymbolMaster("000660", "domestic")
         mockMvc
             .perform(
                 put("/api/v1/universes/$universeId/symbols")
@@ -51,15 +61,17 @@ class UniverseApiIntegrationTest : PostgresIntegrationTestSupport() {
                             mapOf(
                                 "symbols" to
                                     listOf(
-                                        mapOf("symbol" to "005930", "displayName" to "삼성전자", "market" to "domestic", "sortOrder" to 0),
-                                        mapOf("symbol" to "000660", "displayName" to "SK하이닉스", "market" to "domestic", "sortOrder" to 1),
+                                        mapOf("symbol" to "005930", "exchange" to "kospi", "displayName" to "삼성전자", "market" to "domestic", "sortOrder" to 0),
+                                        mapOf("symbol" to "000660", "exchange" to "kospi", "displayName" to "SK하이닉스", "market" to "domestic", "sortOrder" to 1),
                                     ),
                             ),
                         ),
                     ),
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.symbolCount").value(2))
+            .andExpect(jsonPath("$.marketScope").value("domestic"))
             .andExpect(jsonPath("$.symbols[0].symbol").value("005930"))
+            .andExpect(jsonPath("$.symbols[0].exchange").value("kospi"))
 
         val strategy =
             strategyService.createStrategy(
@@ -121,5 +133,112 @@ class UniverseApiIntegrationTest : PostgresIntegrationTestSupport() {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.universeCount").value(1))
             .andExpect(jsonPath("$.universes[0].name").value("Semis"))
+    }
+
+    @Test
+    fun `rejects symbols whose market scope does not match the universe`() {
+        val universeId =
+            mockMvc
+                .perform(
+                    post("/api/v1/universes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "name" to "KR Only",
+                                    "marketScope" to "domestic",
+                                    "description" to "KR only",
+                                ),
+                            ),
+                        ),
+                ).andReturn()
+                .response
+                .contentAsString
+                .let { objectMapper.readTree(it).get("id").asText() }
+
+        mockMvc
+            .perform(
+                put("/api/v1/universes/$universeId/symbols")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "symbols" to
+                                    listOf(
+                                        mapOf(
+                                            "symbol" to "AAPL",
+                                            "exchange" to "nasdaq",
+                                            "displayName" to "Apple",
+                                            "market" to "us",
+                                            "sortOrder" to 0,
+                                        ),
+                                    ),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("market scope")))
+    }
+
+    @Test
+    fun `rejects symbols when exchange is missing`() {
+        seedSymbolMaster("005930", "domestic")
+        val universeId =
+            mockMvc
+                .perform(
+                    post("/api/v1/universes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "name" to "KR Missing Exchange",
+                                    "marketScope" to "domestic",
+                                ),
+                            ),
+                        ),
+                ).andReturn()
+                .response
+                .contentAsString
+                .let { objectMapper.readTree(it).get("id").asText() }
+
+        mockMvc
+            .perform(
+                put("/api/v1/universes/$universeId/symbols")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "symbols" to
+                                    listOf(
+                                        mapOf(
+                                            "symbol" to "005930",
+                                            "displayName" to "삼성전자",
+                                            "market" to "domestic",
+                                            "sortOrder" to 0,
+                                        ),
+                                    ),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("exchange")))
+    }
+
+    private fun seedSymbolMaster(
+        symbol: String,
+        marketScope: String,
+    ) {
+        val exchange = if (marketScope == "us") "nasdaq" else "kospi"
+        jdbcTemplate.update(
+            """
+            insert into symbol_master (market_scope, code, exchange, name)
+            values (?, ?, ?, ?)
+            on conflict do nothing
+            """.trimIndent(),
+            marketScope,
+            symbol.uppercase(),
+            exchange,
+            symbol,
+        )
     }
 }

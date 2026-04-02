@@ -52,6 +52,52 @@ describe("BacktestRunnerClient", () => {
       }),
     ).toBeDisabled();
   });
+
+  it("disables backtest when an overseas universe is linked", async () => {
+    const coverageSpy = vi.spyOn(apiModule, "loadMarketCoverage").mockResolvedValue({
+      covered: true,
+      symbols: [],
+    });
+
+    render(
+      <BacktestRunnerClient
+        strategy={strategyFixture}
+        versions={versionsFixture}
+        linkedUniverses={[
+          linkedUniverseFixture,
+          {
+            ...linkedUniverseFixture,
+            id: "universe-us",
+            name: "US Core",
+            marketScope: "us",
+            symbols: [
+              {
+                symbol: "AAPL",
+                market: "us",
+                exchange: "nasdaq",
+                displayName: "Apple",
+                sortOrder: 0,
+              },
+            ],
+          },
+        ]}
+        runs={[]}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("미국 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다."),
+      ).toBeInTheDocument();
+    });
+
+    expect(coverageSpy).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", {
+        name: "백테스트 실행",
+      }),
+    ).toBeDisabled();
+  });
 });
 
 const strategyFixture: apiModule.StrategyDetail = {
@@ -78,7 +124,7 @@ const strategyFixture: apiModule.StrategyDetail = {
     changeSummary: "initial",
     createdAt: "2026-03-31T22:30:00+09:00",
   },
-  universes: [{ id: "universe-1", name: "KR Core", description: null }],
+  universes: [{ id: "universe-1", name: "KR Core", description: null, marketScope: "domestic" }],
   createdAt: "2026-03-31T22:30:00+09:00",
   updatedAt: "2026-03-31T22:30:00+09:00",
 };
@@ -101,12 +147,14 @@ const linkedUniverseFixture: apiModule.UniverseDetail = {
   id: "universe-1",
   name: "KR Core",
   description: null,
+  marketScope: "domestic",
   symbolCount: 1,
   strategyCount: 1,
   symbols: [
     {
       symbol: "AAA",
       market: "domestic",
+      exchange: "kospi",
       displayName: "AAA",
       sortOrder: 0,
     },

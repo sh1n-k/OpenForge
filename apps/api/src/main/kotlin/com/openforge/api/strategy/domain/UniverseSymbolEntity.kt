@@ -21,6 +21,8 @@ class UniverseSymbolEntity(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var market: MarketType = MarketType.DOMESTIC,
+    @Column(nullable = false, length = 16)
+    var exchange: String,
     @Column(name = "display_name", nullable = false, length = 120)
     var displayName: String,
     @Column(name = "sort_order", nullable = false)

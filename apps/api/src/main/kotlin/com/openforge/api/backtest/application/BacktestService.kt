@@ -19,7 +19,9 @@ import com.openforge.api.backtest.web.CreateBacktestRequest
 import com.openforge.api.backtest.web.MarketCoverageResponse
 import com.openforge.api.backtest.web.MarketCoverageSymbolResponse
 import com.openforge.api.backtest.web.MarketDataImportResponse
+import com.openforge.api.symbol.SymbolMasterRepository
 import com.openforge.api.strategy.domain.StrategyRepository
+import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyUniverseRepository
 import com.openforge.api.strategy.domain.StrategyValidationStatus
@@ -55,6 +57,7 @@ class BacktestService(
     private val backtestRunRepository: BacktestRunRepository,
     private val backtestTradeRepository: BacktestTradeRepository,
     private val backtestEquityPointRepository: BacktestEquityPointRepository,
+    private val symbolMasterRepository: SymbolMasterRepository,
     private val strategyEditorService: StrategyEditorService,
 ) {
     private val engine = BacktestEngine()
@@ -388,6 +391,7 @@ class BacktestService(
     ): List<String> {
         val directSymbols = symbols.map { it.trim().uppercase() }.filter { it.isNotBlank() }
         if (directSymbols.isNotEmpty()) {
+            ensureDomesticDirectSymbols(directSymbols)
             return directSymbols.distinct()
         }
 
@@ -405,11 +409,21 @@ class BacktestService(
         if (activeUniverses.size != resolvedUniverseIds.size) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe contains archived or missing entries")
         }
+        if (activeUniverses.any { it.marketScope != MarketType.DOMESTIC }) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Backtest does not support overseas universes yet")
+        }
 
         return resolvedUniverseIds
             .flatMap { universeId ->
-                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId).map { it.symbol.uppercase() }
+                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universeId).map { it.symbol.uppercase() }
             }.distinct()
+    }
+
+    private fun ensureDomesticDirectSymbols(symbols: List<String>) {
+        val marketScopes = symbolMasterRepository.findDistinctMarketScopesByCodeIn(symbols.distinct())
+        if (marketScopes.any { it != MarketType.DOMESTIC.value }) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Backtest does not support overseas symbols yet")
+        }
     }
 
     private fun parseCsv(
