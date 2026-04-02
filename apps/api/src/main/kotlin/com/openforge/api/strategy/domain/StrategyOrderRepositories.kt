@@ -2,6 +2,7 @@ package com.openforge.api.strategy.domain
 
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import java.time.OffsetDateTime
 import java.util.UUID
 
 interface StrategyOrderRequestRepository : JpaRepository<StrategyOrderRequestEntity, UUID> {
@@ -15,6 +16,8 @@ interface StrategyOrderRequestRepository : JpaRepository<StrategyOrderRequestEnt
         side: OrderSide,
         mode: OrderMode,
     ): Boolean
+    fun findAllByOrderByRequestedAtDesc(pageable: Pageable): List<StrategyOrderRequestEntity>
+    fun findAllByStrategyIdAndRequestedAtAfter(strategyId: UUID, after: OffsetDateTime): List<StrategyOrderRequestEntity>
 }
 
 interface StrategyOrderStatusEventRepository : JpaRepository<StrategyOrderStatusEventEntity, UUID> {
@@ -27,4 +30,5 @@ interface StrategyOrderFillRepository : JpaRepository<StrategyOrderFillEntity, U
     fun findAllByStrategyIdOrderByFilledAtDesc(strategyId: UUID, pageable: Pageable): List<StrategyOrderFillEntity>
     fun findAllByStrategyIdOrderByFilledAtAsc(strategyId: UUID): List<StrategyOrderFillEntity>
     fun findAllByOrderRequestIdOrderByFilledAtAsc(orderRequestId: UUID): List<StrategyOrderFillEntity>
+    fun findAllByOrderByFilledAtDesc(pageable: Pageable): List<StrategyOrderFillEntity>
 }

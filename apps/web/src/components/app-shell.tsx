@@ -10,6 +10,12 @@ export function AppShell({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
+
+  // Login page renders without the navigation shell
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   const mode = getScreenMode(pathname);
 
   return (

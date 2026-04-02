@@ -18,6 +18,7 @@ import {
   type RouteMeta,
   type ScreenMode,
 } from "@/lib/route-meta";
+import { logout } from "@/lib/api";
 
 export function AppNav({
   pathname,
@@ -268,6 +269,10 @@ function SidebarContent({
           </div>
         </nav>
       ) : null}
+
+      <div className="doc-sidebar-footer">
+        <LogoutButton />
+      </div>
     </div>
   );
 }
@@ -316,6 +321,7 @@ function WorkbenchChrome({
 
           <div className="page-actions">
             <CommandPaletteTrigger onOpen={onOpenPalette} />
+            <LogoutButton />
           </div>
         </div>
 
@@ -508,4 +514,25 @@ function navChipClassName(isActive: boolean) {
   return ["workbench-chip", isActive ? "workbench-chip-active" : ""]
     .filter(Boolean)
     .join(" ");
+}
+
+function LogoutButton() {
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // proceed to login even if the API call fails
+    }
+    window.location.href = "/login";
+  }
+
+  return (
+    <button
+      type="button"
+      className="button-ghost"
+      onClick={handleLogout}
+    >
+      로그아웃
+    </button>
+  );
 }

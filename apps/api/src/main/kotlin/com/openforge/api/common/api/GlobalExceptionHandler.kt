@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.ProblemDetail
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.core.AuthenticationException
 import org.springframework.web.ErrorResponseException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -11,6 +13,28 @@ import java.time.OffsetDateTime
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
+
+    @ExceptionHandler(AccessDeniedException::class)
+    fun handleAccessDenied(
+        exception: AccessDeniedException,
+        request: HttpServletRequest,
+    ): ProblemDetail = buildProblemDetail(
+        status = HttpStatus.FORBIDDEN,
+        title = "Forbidden",
+        detail = exception.message ?: "Access denied.",
+        path = request.requestURI,
+    )
+
+    @ExceptionHandler(AuthenticationException::class)
+    fun handleAuthentication(
+        exception: AuthenticationException,
+        request: HttpServletRequest,
+    ): ProblemDetail = buildProblemDetail(
+        status = HttpStatus.UNAUTHORIZED,
+        title = "Unauthorized",
+        detail = exception.message ?: "Authentication required.",
+        path = request.requestURI,
+    )
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgument(

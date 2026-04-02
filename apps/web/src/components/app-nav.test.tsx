@@ -32,7 +32,7 @@ describe("AppNav", () => {
   it("filters page sections with local search on docs screens", () => {
     render(
       <AppNav
-        pathname="/strategies"
+        pathname="/settings"
         mode="docs"
       />,
     );

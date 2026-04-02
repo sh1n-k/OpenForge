@@ -1,5 +1,6 @@
 package com.openforge.api.system.health
 
+import com.openforge.api.config.SecurityConfig
 import com.openforge.api.config.WebConfig
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -25,7 +26,7 @@ import org.mockito.BDDMockito.given
     excludeFilters = [
         ComponentScan.Filter(
             type = FilterType.ASSIGNABLE_TYPE,
-            classes = [WebConfig::class],
+            classes = [WebConfig::class, SecurityConfig::class],
         ),
     ],
 )

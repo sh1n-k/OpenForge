@@ -25,6 +25,7 @@ import {
   type StrategyVersion,
   type UniverseSummary,
 } from "@/lib/api";
+import { formatDateTime, shortId } from "@/lib/format";
 
 type StrategyDetailClientProps = {
   strategy: StrategyDetail;
@@ -1170,10 +1171,6 @@ export function StrategyDetailClient({
   );
 }
 
-function shortId(value: string) {
-  return value.slice(0, 8);
-}
-
 function PrecheckRow({
   label,
   value,
@@ -1187,22 +1184,6 @@ function PrecheckRow({
       <dd>{value ? "true" : "false"}</dd>
     </div>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }
 
 function stringifyNullable(value: number | null) {

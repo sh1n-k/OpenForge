@@ -407,16 +407,43 @@ function getApiBaseUrl() {
   );
 }
 
+async function getServerCookieHeader(): Promise<Record<string, string>> {
+  if (typeof window !== "undefined") return {};
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const token = cookieStore.get("of_access_token");
+    if (token) {
+      return { Cookie: `of_access_token=${token.value}` };
+    }
+  } catch {
+    // cookies() throws outside of server component context
+  }
+  return {};
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
+  const serverCookies = await getServerCookieHeader();
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     cache: "no-store",
+    credentials: "include",
     ...init,
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...serverCookies,
       ...(init?.headers ?? {}),
     },
   });
+
+  if (response.status === 401) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+      throw new Error("Session expired");
+    }
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   if (!response.ok) {
     let message = `Request failed: ${response.status}`;
@@ -811,5 +838,185 @@ export async function replaceUniverseSymbols(
 export async function archiveUniverse(universeId: string) {
   return apiFetch<void>(`/api/v1/universes/${universeId}`, {
     method: "DELETE",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+export type DashboardStrategySummary = {
+  id: string;
+  name: string;
+  strategyType: StrategyType;
+  status: StrategyStatus;
+  executionEnabled: boolean;
+  lastRunStatus: string | null;
+  lastRunAt: string | null;
+  positionCount: number;
+  todayOrderCount: number;
+};
+
+export type DashboardFillItem = {
+  id: string;
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  realizedPnl: number;
+  filledAt: string;
+};
+
+export type DashboardPositionItem = {
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  netQuantity: number;
+  avgEntryPrice: number;
+  lastFillAt: string | null;
+};
+
+export type DashboardErrorItem = {
+  source: string;
+  strategyId: string | null;
+  strategyName: string | null;
+  message: string;
+  occurredAt: string;
+};
+
+export type DashboardResponse = {
+  runningStrategyCount: number;
+  todayOrderCount: number;
+  todayPnl: number;
+  positionCount: number;
+  strategySummaries: DashboardStrategySummary[];
+  recentFills: DashboardFillItem[];
+  currentPositions: DashboardPositionItem[];
+  recentErrors: DashboardErrorItem[];
+  globalKillSwitchEnabled: boolean;
+  health: { apiStatus: string; dbStatus: string };
+};
+
+// ---------------------------------------------------------------------------
+// Cross-strategy
+// ---------------------------------------------------------------------------
+
+export type CrossStrategyOrderRequest = {
+  id: string;
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  mode: OrderMode;
+  status: OrderRequestStatus;
+  precheckPassed: boolean;
+  failureReason: string | null;
+  requestedAt: string;
+};
+
+export type CrossStrategyFill = {
+  id: string;
+  orderRequestId: string;
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  realizedPnl: number;
+  filledAt: string;
+  source: OrderFillSource;
+};
+
+export type CrossStrategyPosition = {
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  netQuantity: number;
+  avgEntryPrice: number;
+  lastFillAt: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Activity events
+// ---------------------------------------------------------------------------
+
+export type ActivityEvent = {
+  id: string;
+  category: "execution" | "signal" | "order" | "risk" | "broker" | "system";
+  strategyId: string | null;
+  strategyName: string | null;
+  summary: string;
+  severity: "info" | "warn" | "error";
+  occurredAt: string;
+};
+
+// ---------------------------------------------------------------------------
+// Dashboard fetch
+// ---------------------------------------------------------------------------
+
+export async function loadDashboard() {
+  return apiFetch<DashboardResponse>("/api/v1/dashboard");
+}
+
+// ---------------------------------------------------------------------------
+// Cross-strategy fetches
+// ---------------------------------------------------------------------------
+
+export async function loadAllOrders(strategyId?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (strategyId) params.set("strategyId", strategyId);
+  params.set("limit", String(limit));
+  return apiFetch<CrossStrategyOrderRequest[]>(`/api/v1/orders?${params}`);
+}
+
+export async function loadAllFills(strategyId?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (strategyId) params.set("strategyId", strategyId);
+  params.set("limit", String(limit));
+  return apiFetch<CrossStrategyFill[]>(`/api/v1/fills?${params}`);
+}
+
+export async function loadAllPositions(strategyId?: string) {
+  const params = new URLSearchParams();
+  if (strategyId) params.set("strategyId", strategyId);
+  return apiFetch<CrossStrategyPosition[]>(`/api/v1/positions?${params}`);
+}
+
+// ---------------------------------------------------------------------------
+// Activity fetch
+// ---------------------------------------------------------------------------
+
+export async function loadSystemActivity(limit = 100, category?: string) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  if (category) params.set("category", category);
+  return apiFetch<ActivityEvent[]>(`/api/v1/system/activity?${params}`);
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+export async function login(password: string) {
+  return apiFetch<{ authenticated: boolean }>("/api/v1/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}
+
+export async function logout() {
+  return apiFetch<{ loggedOut: boolean }>("/api/v1/auth/logout", {
+    method: "POST",
+  });
+}
+
+export async function refreshAuth() {
+  return apiFetch<{ refreshed: boolean }>("/api/v1/auth/refresh", {
+    method: "POST",
   });
 }
