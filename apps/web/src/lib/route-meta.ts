@@ -93,19 +93,6 @@ const routeMetaList: RouteMeta[] = [
     ],
   },
   {
-    href: "/settings",
-    label: "Settings",
-    description: "시스템 설정과 브로커 연결",
-    mode: "docs",
-    match: /^\/settings$/,
-    sections: [
-      { id: "settings-summary", label: "요약" },
-      { id: "settings-broker", label: "브로커 연결" },
-      { id: "settings-risk", label: "전역 리스크" },
-      { id: "settings-system", label: "시스템 상태" },
-    ],
-  },
-  {
     href: "/universes",
     label: "Universes",
     description: "유니버스 레지스트리와 종목 구성",
@@ -175,6 +162,19 @@ const routeMetaList: RouteMeta[] = [
       { id: "logs-summary", label: "요약" },
       { id: "logs-filters", label: "필터" },
       { id: "logs-timeline", label: "이벤트 타임라인" },
+    ],
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    description: "시스템 설정과 브로커 연결",
+    mode: "docs",
+    match: /^\/settings$/,
+    sections: [
+      { id: "settings-summary", label: "요약" },
+      { id: "settings-broker", label: "브로커 연결" },
+      { id: "settings-risk", label: "전역 리스크" },
+      { id: "settings-system", label: "시스템 상태" },
     ],
   },
 ];
