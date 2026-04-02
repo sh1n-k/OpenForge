@@ -18,6 +18,7 @@ import org.testcontainers.containers.PostgreSQLContainer
         "app.environment=test",
         "app.mode=paper",
         "app.secret-key=test-openforge-secret-key",
+        "app.auth.password=",
     ],
 )
 abstract class PostgresIntegrationTestSupport {

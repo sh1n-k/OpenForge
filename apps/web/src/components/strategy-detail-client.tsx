@@ -25,6 +25,35 @@ import {
   type StrategyVersion,
   type UniverseSummary,
 } from "@/lib/api";
+import { formatDateTime, shortId } from "@/lib/format";
+
+const statusLabel: Record<string, string> = {
+  running: "실행 중",
+  stopped: "중지",
+  draft: "초안",
+  backtest_completed: "백테스트 완료",
+};
+
+const statusChip: Record<string, string> = {
+  running: "status-chip status-chip-success",
+  stopped: "status-chip status-chip-warning",
+  draft: "status-chip",
+  backtest_completed: "status-chip status-chip-info",
+};
+
+const typeLabel: Record<string, string> = {
+  builder: "빌더형",
+  code: "코드형",
+};
+
+const precheckLabel: Record<string, string> = {
+  marketHours: "장 운영 시간",
+  strategyStatus: "전략 상태",
+  duplicateOrder: "중복 주문",
+  quantityValid: "수량 유효",
+  priceValid: "가격 유효",
+  riskPassed: "리스크 통과",
+};
 
 type StrategyDetailClientProps = {
   strategy: StrategyDetail;
@@ -216,77 +245,89 @@ export function StrategyDetailClient({
   }
 
   return (
-    <main className="page-shell workbench-page-shell">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <section
-          id="strategy-overview"
-          className="doc-panel"
-        >
-          <div className="page-intro-row">
-            <div className="page-intro">
-              <p className="page-eyebrow">Strategy Detail</p>
-              <h1 className="page-title">{strategy.name}</h1>
-              <p className="page-description">
-                {strategy.strategyType} / {strategy.status} / latest v
-                {strategy.latestVersionNumber ?? 0}
-              </p>
-            </div>
-            <span className="status-chip status-chip-info">
-              latest validation {strategy.latestValidationStatus ?? "unknown"}
-            </span>
+    <main className="page-shell docs-page-shell">
+      <section
+        id="strategy-overview"
+        className="doc-panel"
+      >
+        <div className="page-intro-row">
+          <div className="page-intro">
+            <p className="page-eyebrow">전략 상세</p>
+            <h1 className="page-title">{strategy.name}</h1>
+            <p className="page-description">
+              {typeLabel[strategy.strategyType] ?? strategy.strategyType} / {statusLabel[strategy.status] ?? strategy.status} / 최신 v
+              {strategy.latestVersionNumber ?? 0}
+            </p>
           </div>
+          <span className={statusChip[strategy.latestValidationStatus ?? ""] ?? "status-chip status-chip-info"}>
+            {strategy.latestValidationStatus ?? "미검증"}
+          </span>
+        </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="metric-card">
-              <p className="metric-card-label">Versions</p>
-              <p className="metric-card-value">{strategy.versionCount}</p>
-            </div>
-            <div className="metric-card">
-              <p className="metric-card-label">Universes</p>
-              <p className="metric-card-value">{strategy.universeCount}</p>
-            </div>
-            <div className="metric-card">
-              <p className="metric-card-label">Status</p>
-              <p className="metric-card-value">{strategy.status}</p>
-            </div>
+        <div className="summary-grid summary-grid-columns-3" style={{ marginTop: 16 }}>
+          <div className="metric-card">
+            <p className="metric-card-label">버전 수</p>
+            <p className="metric-card-value">{strategy.versionCount}</p>
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href={`/strategies/${strategy.id}/backtest`}
-              className="button-secondary"
-            >
-              Backtest
-            </Link>
-            <Link
-              href={`/strategies/${strategy.id}/edit`}
-              className="button-primary"
-            >
-              편집기 열기
-            </Link>
+          <div className="metric-card">
+            <p className="metric-card-label">유니버스</p>
+            <p className="metric-card-value">{strategy.universeCount}</p>
           </div>
-        </section>
+          <div className="metric-card">
+            <p className="metric-card-label">현재 상태</p>
+            <p className="metric-card-value">{statusLabel[strategy.status] ?? strategy.status}</p>
+          </div>
+        </div>
 
-        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
-          <h2 className="section-title">Quick Actions</h2>
-          <p className="section-copy">
-            실행 상태와 최근 검증 결과를 먼저 확인한 뒤 편집 또는 백테스트로 이동합니다.
-          </p>
-          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
-            <div>
-              <dt className="font-semibold text-slate-900">Latest Validation</dt>
-              <dd>{strategy.latestValidationStatus ?? "unknown"}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Execution Mode</dt>
-              <dd>{execution.mode}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Next Run</dt>
-              <dd>{formatDateTime(execution.nextRunAt) ?? "대기 중"}</dd>
-            </div>
-          </dl>
-        </aside>
+        <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="detail-row">
+            <span className="detail-label">최신 검증</span>
+            <span className="detail-value">{strategy.latestValidationStatus ?? "미검증"}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">실행 모드</span>
+            <span className="detail-value">{execution.mode}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">다음 실행</span>
+            <span className="detail-value">{formatDateTime(execution.nextRunAt) ?? "대기 중"}</span>
+          </div>
+        </div>
+
+        <div className="page-actions" style={{ marginTop: 16 }}>
+          <Link
+            href={`/strategies/${strategy.id}/backtest`}
+            className="button-secondary"
+          >
+            백테스트
+          </Link>
+          <Link
+            href={`/strategies/${strategy.id}/edit`}
+            className="button-primary"
+          >
+            편집기 열기
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              await cloneStrategy(strategy.id);
+              startTransition(() => router.push("/strategies"));
+            }}
+            className="button-secondary"
+          >
+            복제
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              await archiveStrategy(strategy.id);
+              startTransition(() => router.push("/strategies"));
+            }}
+            className="button-danger"
+          >
+            보관
+          </button>
+        </div>
       </section>
 
       {error ? (
@@ -295,40 +336,40 @@ export function StrategyDetailClient({
         </section>
       ) : null}
 
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="summary-grid summary-grid-columns-2">
         <section className="doc-panel">
-          <h2 className="text-2xl font-semibold text-slate-950">Overview</h2>
-          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+          <h2 className="detail-heading">개요</h2>
+          <div className="stack-list" style={{ marginTop: 16 }}>
             <div>
-              <dt className="font-semibold text-slate-900">Description</dt>
-              <dd>{strategy.description ?? "설명 없음"}</dd>
+              <p className="detail-label">설명</p>
+              <p className="detail-value">{strategy.description ?? "설명 없음"}</p>
             </div>
             <div>
-              <dt className="font-semibold text-slate-900">Validation</dt>
-              <dd>{strategy.latestValidationStatus ?? "unknown"}</dd>
+              <p className="detail-label">검증 상태</p>
+              <p className="detail-value">{strategy.latestValidationStatus ?? "미검증"}</p>
             </div>
             <div>
-              <dt className="font-semibold text-slate-900">Version Count</dt>
-              <dd>{strategy.versionCount}</dd>
+              <p className="detail-label">버전 수</p>
+              <p className="detail-value">{strategy.versionCount}</p>
             </div>
             <div>
-              <dt className="font-semibold text-slate-900">Current Status</dt>
-              <dd>{strategy.status}</dd>
+              <p className="detail-label">현재 상태</p>
+              <p className="detail-value">{statusLabel[strategy.status] ?? strategy.status}</p>
             </div>
-          </dl>
+          </div>
           {strategy.latestValidationErrors.length > 0 ? (
-            <div className="doc-panel doc-panel-error mt-4 p-4 text-sm text-rose-700">
+            <div className="doc-panel doc-panel-error" style={{ marginTop: 16 }}>
               {strategy.latestValidationErrors.map((item, index) => (
-                <p key={`${item.category}-${index}`}>
+                <p key={`${item.category}-${index}`} className="inline-error">
                   [{item.category}] {item.message}
                 </p>
               ))}
             </div>
           ) : null}
           {strategy.latestValidationWarnings.length > 0 ? (
-            <div className="doc-panel doc-panel-warn mt-4 p-4 text-sm text-amber-700">
+            <div className="doc-panel doc-panel-warn" style={{ marginTop: 16 }}>
               {strategy.latestValidationWarnings.map((item, index) => (
-                <p key={`${item.category}-${index}`}>
+                <p key={`${item.category}-${index}`} className="inline-warning">
                   [{item.category}] {item.message}
                 </p>
               ))}
@@ -340,106 +381,103 @@ export function StrategyDetailClient({
           id="strategy-execution"
           className="doc-panel"
         >
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-500">
+              <p className="detail-eyebrow text-success">
                 paper
               </p>
-              <h2 className="text-2xl font-semibold text-slate-950">
+              <h2 className="detail-heading">
                 자동 실행 설정
               </h2>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
+            <span className="detail-badge">
               {execution.mode}
             </span>
           </div>
 
-          <div className="mt-4 grid gap-4">
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+          <div className="grid-section" style={{ marginTop: 16 }}>
+            <label className="list-card flex-center">
               <input
                 type="checkbox"
                 checked={enabled}
                 onChange={(event) => setEnabled(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300"
               />
               <div>
-                <p className="font-semibold text-slate-900">자동 실행 활성화</p>
-                <p className="text-sm text-slate-500">
+                <p className="detail-label">자동 실행 활성화</p>
+                <p className="detail-value">
                   {enabled ? "대기 중인 스케줄을 다음 폴링에서 실행합니다." : "비활성 상태입니다."}
                 </p>
               </div>
             </label>
 
-            <label className="grid gap-2 text-sm text-slate-600">
-              <span>실행 시각</span>
+            <label className="form-field">
+              <span className="form-label">실행 시각</span>
               <input
                 type="time"
                 value={scheduleTime}
                 onChange={(event) => setScheduleTime(event.target.value)}
-                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
               />
             </label>
 
-            <dl className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-              <div>
-                <dt className="font-semibold text-slate-900">현재 상태</dt>
-                <dd>{execution.strategyStatus}</dd>
+            <div className="detail-card">
+              <div className="stack-list">
+                <div className="detail-row">
+                  <span className="detail-label">현재 상태</span>
+                  <span className="detail-value">{statusLabel[execution.strategyStatus] ?? execution.strategyStatus}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">시간대</span>
+                  <span className="detail-value">{execution.timezone}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">다음 실행 예정</span>
+                  <span className="detail-value">{formatDateTime(execution.nextRunAt) ?? "대기 중"}</span>
+                </div>
               </div>
-              <div>
-                <dt className="font-semibold text-slate-900">Timezone</dt>
-                <dd>{execution.timezone}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-slate-900">다음 실행 예정</dt>
-                <dd>{formatDateTime(execution.nextRunAt) ?? "대기 중"}</dd>
-              </div>
-            </dl>
+            </div>
 
-            <section className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-semibold text-slate-900">마지막 실행</h3>
-                <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  recent run
-                </span>
+            <section className="detail-card">
+              <div className="detail-card-header">
+                <h3 className="detail-label">마지막 실행</h3>
               </div>
               {execution.lastRun ? (
-                <dl className="mt-3 grid gap-2 text-sm text-slate-600">
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-slate-900">Run</dt>
-                    <dd>{shortId(execution.lastRun.runId)}</dd>
+                <div className="stack-list" style={{ marginTop: 12 }}>
+                  <div className="detail-row">
+                    <span className="detail-label">실행 ID</span>
+                    <span className="detail-value">{shortId(execution.lastRun.runId)}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-slate-900">Status</dt>
-                    <dd>{execution.lastRun.status}</dd>
+                  <div className="detail-row">
+                    <span className="detail-label">상태</span>
+                    <span className="detail-value">{execution.lastRun.status}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-slate-900">Scheduled</dt>
-                    <dd>{execution.lastRun.scheduledDate}</dd>
+                  <div className="detail-row">
+                    <span className="detail-label">예정일</span>
+                    <span className="detail-value">{execution.lastRun.scheduledDate}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-slate-900">Signals</dt>
-                    <dd>{execution.lastRun.signalCount}</dd>
+                  <div className="detail-row">
+                    <span className="detail-label">시그널 수</span>
+                    <span className="detail-value">{execution.lastRun.signalCount}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-slate-900">Started</dt>
-                    <dd>{formatDateTime(execution.lastRun.startedAt) ?? "대기 중"}</dd>
+                  <div className="detail-row">
+                    <span className="detail-label">시작</span>
+                    <span className="detail-value">{formatDateTime(execution.lastRun.startedAt) ?? "대기 중"}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-slate-900">Completed</dt>
-                    <dd>{formatDateTime(execution.lastRun.completedAt) ?? "대기 중"}</dd>
+                  <div className="detail-row">
+                    <span className="detail-label">완료</span>
+                    <span className="detail-value">{formatDateTime(execution.lastRun.completedAt) ?? "대기 중"}</span>
                   </div>
                   {execution.lastRun.errorMessage ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
-                      {execution.lastRun.errorMessage}
+                    <div className="doc-panel doc-panel-error">
+                      <p className="inline-error">{execution.lastRun.errorMessage}</p>
                     </div>
                   ) : null}
-                </dl>
+                </div>
               ) : (
-                <p className="mt-3 text-sm text-slate-500">아직 실행 기록이 없습니다.</p>
+                <p className="section-copy">아직 실행 기록이 없습니다.</p>
               )}
             </section>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="page-actions">
               <button
                 type="button"
                 onClick={handleExecutionSave}
@@ -448,198 +486,168 @@ export function StrategyDetailClient({
               >
                 {isSaving ? "저장 중..." : "자동 실행 저장"}
               </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  await cloneStrategy(strategy.id);
-                  startTransition(() => router.push("/strategies"));
-                }}
-                className="button-secondary"
-              >
-                Clone
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  await archiveStrategy(strategy.id);
-                  startTransition(() => router.push("/strategies"));
-                }}
-                className="button-danger"
-              >
-                Archive
-              </button>
             </div>
           </div>
         </section>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <section
-          id="strategy-risk"
-          className="doc-panel doc-panel-warn"
-        >
-          <div className="flex items-start justify-between gap-4">
+      <section
+        id="strategy-risk"
+        className="doc-panel doc-panel-warn"
+      >
+        <div className="flex-between">
+          <div>
+            <p className="detail-eyebrow text-warning">
+              risk
+            </p>
+            <h2 className="detail-heading">
+              리스크 설정
+            </h2>
+            <p className="section-copy">
+              비어있으면 해당 제한이 적용되지 않습니다. 전략별 킬 스위치만 바로 전환할 수 있습니다.
+            </p>
+          </div>
+          <span className="detail-badge">
+            {riskConfig.mode}
+          </span>
+        </div>
+
+        <div className="grid-section" style={{ marginTop: 16 }}>
+          <label className="form-field">
+            <span className="form-label">종목당 투자 한도</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={riskDraft.perSymbolMaxNotional}
+              onChange={(event) =>
+                setRiskDraft((current) => ({
+                  ...current,
+                  perSymbolMaxNotional: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="form-field">
+            <span className="form-label">전략당 최대 노출</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={riskDraft.strategyMaxExposure}
+              onChange={(event) =>
+                setRiskDraft((current) => ({
+                  ...current,
+                  strategyMaxExposure: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="form-field">
+            <span className="form-label">동시 보유 수 제한</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={riskDraft.maxOpenPositions}
+              onChange={(event) =>
+                setRiskDraft((current) => ({
+                  ...current,
+                  maxOpenPositions: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="form-field">
+            <span className="form-label">일일 손실 한도</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={riskDraft.dailyLossLimit}
+              onChange={(event) =>
+                setRiskDraft((current) => ({
+                  ...current,
+                  dailyLossLimit: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="list-card flex-center">
+            <input
+              type="checkbox"
+              checked={riskDraft.strategyKillSwitchEnabled}
+              onChange={(event) =>
+                setRiskDraft((current) => ({
+                  ...current,
+                  strategyKillSwitchEnabled: event.target.checked,
+                }))
+              }
+            />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
-                risk
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-                리스크 설정
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                null 값은 비활성입니다. 전략별 킬 스위치만 바로 전환할 수 있습니다.
+              <p className="detail-label">전략 킬 스위치</p>
+              <p className="detail-value">
+                {riskDraft.strategyKillSwitchEnabled ? "주문 차단 중" : "주문 허용"}
               </p>
             </div>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
-              {riskConfig.mode}
+          </label>
+          <div className="flex-center">
+            <button
+              type="button"
+              onClick={handleSaveRisk}
+              disabled={isSavingRisk}
+              className="button-primary"
+            >
+              {isSavingRisk ? "저장 중..." : "리스크 저장"}
+            </button>
+            <span className="detail-value">
+              {formatDateTime(riskConfig.updatedAt) ?? "업데이트 없음"}
             </span>
           </div>
-
-          <div className="mt-4 grid gap-4">
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span>종목당 투자 한도</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={riskDraft.perSymbolMaxNotional}
-                onChange={(event) =>
-                  setRiskDraft((current) => ({
-                    ...current,
-                    perSymbolMaxNotional: event.target.value,
-                  }))
-                }
-                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
-              />
-            </label>
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span>전략당 최대 노출</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={riskDraft.strategyMaxExposure}
-                onChange={(event) =>
-                  setRiskDraft((current) => ({
-                    ...current,
-                    strategyMaxExposure: event.target.value,
-                  }))
-                }
-                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
-              />
-            </label>
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span>동시 보유 수 제한</span>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={riskDraft.maxOpenPositions}
-                onChange={(event) =>
-                  setRiskDraft((current) => ({
-                    ...current,
-                    maxOpenPositions: event.target.value,
-                  }))
-                }
-                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
-              />
-            </label>
-            <label className="grid gap-2 text-sm text-slate-700">
-              <span>일일 손실 한도</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={riskDraft.dailyLossLimit}
-                onChange={(event) =>
-                  setRiskDraft((current) => ({
-                    ...current,
-                    dailyLossLimit: event.target.value,
-                  }))
-                }
-                className="rounded-2xl border border-amber-200 px-4 py-3 text-sm text-slate-900"
-              />
-            </label>
-            <label className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
-              <input
-                type="checkbox"
-                checked={riskDraft.strategyKillSwitchEnabled}
-                onChange={(event) =>
-                  setRiskDraft((current) => ({
-                    ...current,
-                    strategyKillSwitchEnabled: event.target.checked,
-                  }))
-                }
-                className="h-4 w-4 rounded border-slate-300"
-              />
-              <div>
-                <p className="font-semibold text-slate-900">전략 킬 스위치</p>
-                <p className="text-sm text-slate-500">
-                  {riskDraft.strategyKillSwitchEnabled ? "주문 차단 중" : "주문 허용"}
-                </p>
-              </div>
-            </label>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSaveRisk}
-                disabled={isSavingRisk}
-                className="button-primary"
-              >
-                {isSavingRisk ? "저장 중..." : "리스크 저장"}
-              </button>
-              <span className="text-sm text-slate-600">
-                updated {formatDateTime(riskConfig.updatedAt) ?? "unknown"}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <section className="doc-panel">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">최근 리스크 이벤트</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              risk events
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {riskEvents.length === 0 ? (
-              <p className="text-sm text-slate-500">최근 리스크 이벤트가 없습니다.</p>
-            ) : (
-              riskEvents.map((event) => (
-                <article
-                  key={event.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-900">
-                        {event.eventType} / {event.reasonCode}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {event.scope}
-                        {event.orderRequestId ? ` / order ${shortId(event.orderRequestId)}` : ""}
-                      </p>
-                    </div>
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                      {formatDateTime(event.occurredAt)}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-slate-600">{event.message}</p>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
+        </div>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
+      <section className="doc-panel">
+        <div className="detail-card-header">
+          <h2 className="detail-heading">최근 리스크 이벤트</h2>
+        </div>
+        <div className="stack-list" style={{ marginTop: 16 }}>
+          {riskEvents.length === 0 ? (
+            <p className="section-copy">최근 리스크 이벤트가 없습니다.</p>
+          ) : (
+            riskEvents.map((event) => (
+              <article
+                key={event.id}
+                className="detail-card"
+              >
+                <div className="flex-between">
+                  <div>
+                    <p className="detail-label">
+                      {event.eventType} / {event.reasonCode}
+                    </p>
+                    <p className="detail-value">
+                      {event.scope}
+                      {event.orderRequestId ? ` / order ${shortId(event.orderRequestId)}` : ""}
+                    </p>
+                  </div>
+                  <span className="detail-timestamp">
+                    {formatDateTime(event.occurredAt)}
+                  </span>
+                </div>
+                <p className="section-copy">{event.message}</p>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="summary-grid summary-grid-columns-2">
         <section
           id="strategy-versions"
           className="doc-panel"
         >
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">Versions</h2>
+          <div className="detail-card-header">
+            <h2 className="detail-heading">버전</h2>
             <Link
               href={`/strategies/${strategy.id}/edit`}
               className="button-secondary"
@@ -647,25 +655,25 @@ export function StrategyDetailClient({
               새 버전 만들기
             </Link>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="stack-list" style={{ marginTop: 16 }}>
             {versions.map((version) => (
               <article
                 key={version.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                className="detail-card"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold text-slate-900">
+                <div className="detail-card-header">
+                  <h3 className="detail-label">
                     Version {version.versionNumber}
                   </h3>
-                  <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
+                  <span className="detail-timestamp">
                     {version.validationStatus}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="section-copy">
                   {version.changeSummary ?? "변경 메모 없음"}
                 </p>
                 {version.validationErrors.length > 0 ? (
-                  <p className="mt-2 text-sm text-rose-600">
+                  <p className="inline-error" style={{ marginTop: 8 }}>
                     {version.validationErrors[0].message}
                   </p>
                 ) : null}
@@ -675,17 +683,17 @@ export function StrategyDetailClient({
         </section>
 
         <section className="doc-panel">
-          <h2 className="text-2xl font-semibold text-slate-950">Linked Universes</h2>
-          <div className="mt-4 grid gap-3">
+          <h2 className="detail-heading">연결된 유니버스</h2>
+          <div className="stack-list" style={{ marginTop: 16 }}>
             {universes.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="section-copy">
                 생성된 유니버스가 아직 없습니다.
               </p>
             ) : (
               universes.map((universe) => (
                 <label
                   key={universe.id}
-                  className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+                  className="list-card flex-center"
                 >
                   <input
                     type="checkbox"
@@ -706,319 +714,308 @@ export function StrategyDetailClient({
           <button
             type="button"
             onClick={handleReplaceUniverses}
-            className="button-primary mt-4"
+            className="button-primary"
+            style={{ marginTop: 16 }}
           >
             유니버스 연결 저장
           </button>
         </section>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <section
-          id="strategy-orders"
-          className="doc-panel"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">주문 후보</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              order candidates
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {orderCandidates.length === 0 ? (
-              <p className="text-sm text-slate-500">주문 후보가 아직 없습니다.</p>
-            ) : (
-              orderCandidates.map((candidate) => {
-                const canCreate =
-                  candidate.mode === "paper" &&
-                  candidate.precheck.passed &&
-                  candidate.riskCheck.passed &&
-                  !candidate.alreadyRequested;
-                return (
-                  <article
-                    key={candidate.signalEventId}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {candidate.symbol} / {candidate.side}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {candidate.tradingDate} / {candidate.mode} / qty {candidate.quantity} / price {candidate.price}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        {candidate.precheck.passed ? "precheck ok" : "precheck fail"}
-                      </span>
-                    </div>
-                    <dl className="mt-3 grid gap-2 text-sm text-slate-600">
-                      <PrecheckRow label="marketHours" value={candidate.precheck.marketHours} />
-                      <PrecheckRow label="strategyStatus" value={candidate.precheck.strategyStatus} />
-                      <PrecheckRow label="duplicateOrder" value={candidate.precheck.duplicateOrder} />
-                      <PrecheckRow label="quantityValid" value={candidate.precheck.quantityValid} />
-                      <PrecheckRow label="priceValid" value={candidate.precheck.priceValid} />
-                      <PrecheckRow label="riskPassed" value={candidate.riskCheck.passed} />
-                      <div>
-                        <dt className="font-semibold text-slate-900">이미 요청됨</dt>
-                        <dd>{candidate.alreadyRequested ? "yes" : "no"}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-900">riskCheck</dt>
-                        <dd>
-                          {candidate.riskCheck.reasonCodes.length > 0
-                            ? candidate.riskCheck.reasonCodes.join(", ")
-                            : "ok"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-900">projectedSymbolExposure</dt>
-                        <dd>{formatNullableNumber(candidate.riskCheck.projectedSymbolExposure)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-900">projectedStrategyExposure</dt>
-                        <dd>{formatNullableNumber(candidate.riskCheck.projectedStrategyExposure)}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-900">projectedOpenPositions</dt>
-                        <dd>{candidate.riskCheck.projectedOpenPositions}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-900">currentDailyRealizedLoss</dt>
-                        <dd>{candidate.riskCheck.currentDailyRealizedLoss}</dd>
-                      </div>
-                    </dl>
-                    {candidate.precheck.reasonCodes.length > 0 ? (
-                      <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                        {candidate.precheck.reasonCodes.join(", ")}
-                      </p>
-                    ) : null}
-                    {!candidate.riskCheck.passed ? (
-                      <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                        {candidate.riskCheck.reasonCodes.join(", ")}
-                      </p>
-                    ) : null}
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        disabled={!canCreate || pendingOrderSignalId === candidate.signalEventId}
-                        onClick={async () => handleCreateOrder(candidate.signalEventId)}
-                        className="button-primary"
-                      >
-                        {pendingOrderSignalId === candidate.signalEventId
-                          ? "생성 중..."
-                          : "paper 주문 생성"}
-                      </button>
-                      <span className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                        {candidate.alreadyRequested ? "already requested" : "ready"}
-                      </span>
-                    </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        <section className="doc-panel">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">주문 요청 이력</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              order requests
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {orderRequests.length === 0 ? (
-              <p className="text-sm text-slate-500">주문 요청이 아직 없습니다.</p>
-            ) : (
-              orderRequests.map((request) => (
+      <section
+        id="strategy-orders"
+        className="doc-panel"
+      >
+        <div className="detail-card-header">
+          <h2 className="detail-heading">주문 후보</h2>
+        </div>
+        <div className="stack-list" style={{ marginTop: 16 }}>
+          {orderCandidates.length === 0 ? (
+            <p className="section-copy">주문 후보가 아직 없습니다.</p>
+          ) : (
+            orderCandidates.map((candidate) => {
+              const canCreate =
+                candidate.mode === "paper" &&
+                candidate.precheck.passed &&
+                candidate.riskCheck.passed &&
+                !candidate.alreadyRequested;
+              return (
                 <article
-                  key={request.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                  key={candidate.signalEventId}
+                  className="detail-card"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-between">
                     <div>
-                      <p className="font-semibold text-slate-900">
-                        {request.symbol} / {request.side}
+                      <p className="detail-label">
+                        {candidate.symbol} / {candidate.side}
                       </p>
-                      <p className="text-sm text-slate-500">
-                        {request.mode} / current {request.currentStatus} / filled{" "}
-                        {request.filledQuantity} / {request.quantity} / remaining{" "}
-                        {request.remainingQuantity}
+                      <p className="detail-value">
+                        {candidate.tradingDate} / {candidate.mode} / qty {candidate.quantity} / price {candidate.price}
                       </p>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      {request.status}
+                    <span className="detail-badge">
+                      {candidate.precheck.passed ? "통과" : "실패"}
                     </span>
                   </div>
-                  <dl className="mt-3 grid gap-2 text-sm text-slate-600">
-                    <div>
-                      <dt className="font-semibold text-slate-900">Requested</dt>
-                      <dd>{formatDateTime(request.requestedAt)}</dd>
+                  <div className="stack-list" style={{ marginTop: 12 }}>
+                    <PrecheckRow label="marketHours" value={candidate.precheck.marketHours} />
+                    <PrecheckRow label="strategyStatus" value={candidate.precheck.strategyStatus} />
+                    <PrecheckRow label="duplicateOrder" value={candidate.precheck.duplicateOrder} />
+                    <PrecheckRow label="quantityValid" value={candidate.precheck.quantityValid} />
+                    <PrecheckRow label="priceValid" value={candidate.precheck.priceValid} />
+                    <PrecheckRow label="riskPassed" value={candidate.riskCheck.passed} />
+                    <div className="detail-row">
+                      <span className="detail-label">이미 요청됨</span>
+                      <span className="detail-value">{candidate.alreadyRequested ? "예" : "아니오"}</span>
                     </div>
-                    <div>
-                      <dt className="font-semibold text-slate-900">Precheck</dt>
-                      <dd>{request.precheckPassed ? "passed" : "failed"}</dd>
+                    <div className="detail-row">
+                      <span className="detail-label">리스크 검증</span>
+                      <span className="detail-value">
+                        {candidate.riskCheck.reasonCodes.length > 0
+                          ? candidate.riskCheck.reasonCodes.join(", ")
+                          : "ok"}
+                      </span>
                     </div>
-                  </dl>
-                  {request.failureReason ? (
-                    <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                      {request.failureReason}
-                    </p>
+                    <div className="detail-row">
+                      <span className="detail-label">예상 종목 노출</span>
+                      <span className="detail-value">{formatNullableNumber(candidate.riskCheck.projectedSymbolExposure)}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">예상 전략 노출</span>
+                      <span className="detail-value">{formatNullableNumber(candidate.riskCheck.projectedStrategyExposure)}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">예상 보유 종목 수</span>
+                      <span className="detail-value">{candidate.riskCheck.projectedOpenPositions}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">금일 실현 손실</span>
+                      <span className="detail-value">{candidate.riskCheck.currentDailyRealizedLoss}</span>
+                    </div>
+                  </div>
+                  {candidate.precheck.reasonCodes.length > 0 ? (
+                    <div className="doc-panel doc-panel-warn" style={{ marginTop: 12 }}>
+                      <p className="inline-warning">{candidate.precheck.reasonCodes.join(", ")}</p>
+                    </div>
                   ) : null}
-                  <section className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold text-slate-900">주문 상태 이력</h3>
-                      <span className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                        {statusEventsByRequestId[request.id]?.length ?? 0} events
-                      </span>
+                  {!candidate.riskCheck.passed ? (
+                    <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
+                      <p className="inline-error">{candidate.riskCheck.reasonCodes.join(", ")}</p>
                     </div>
-                    {statusEventsByRequestId[request.id]?.length ? (
-                      <div className="mt-3 grid gap-2">
-                        {statusEventsByRequestId[request.id].map((event) => (
-                          <article
-                            key={event.id}
-                            className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-600"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <strong className="text-slate-900">{event.status}</strong>
-                              <span className="text-xs text-slate-400">
-                                {formatDateTime(event.occurredAt)}
-                              </span>
-                            </div>
-                            <p className="mt-1">
-                              {event.reason ?? "reason 없음"}
-                            </p>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-sm text-slate-500">
-                        상태 이력이 아직 없습니다.
-                      </p>
-                    )}
-                  </section>
-
-                  <form
-                    className="mt-4 grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                    onSubmit={async (event) => {
-                      event.preventDefault();
-                      await handleCreateFill(request.id);
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold text-slate-900">수동 체결 등록</h3>
-                      <span className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                        paper manual
-                      </span>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-2 text-sm text-slate-600">
-                        <span>체결 수량</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={
-                            fillDrafts[request.id]?.quantity ??
-                            String(Math.max(request.remainingQuantity, 1))
-                          }
-                          onChange={(event) =>
-                            setFillDrafts((current) => ({
-                              ...current,
-                              [request.id]: {
-                                quantity: event.target.value,
-                                price:
-                                  current[request.id]?.price ??
-                                  String(request.price),
-                              },
-                            }))
-                          }
-                          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-                        />
-                      </label>
-                      <label className="grid gap-2 text-sm text-slate-600">
-                        <span>체결 가격</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={
-                            fillDrafts[request.id]?.price ?? String(request.price)
-                          }
-                          onChange={(event) =>
-                            setFillDrafts((current) => ({
-                              ...current,
-                              [request.id]: {
-                                quantity:
-                                  current[request.id]?.quantity ??
-                                  String(Math.max(request.remainingQuantity, 1)),
-                                price: event.target.value,
-                              },
-                            }))
-                          }
-                          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-                        />
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="submit"
-                        disabled={
-                          pendingFillRequestId === request.id ||
-                          request.remainingQuantity <= 0
-                        }
-                        className="button-primary"
-                      >
-                        {pendingFillRequestId === request.id
-                          ? "등록 중..."
-                          : request.remainingQuantity <= 0
-                            ? "체결 완료"
-                            : "체결 등록"}
-                      </button>
-                      <p className="text-xs text-slate-500">
-                        filledAt는 현재 시각으로 자동 저장됩니다.
-                      </p>
-                    </div>
-                  </form>
+                  ) : null}
+                  <div className="flex-center" style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      disabled={!canCreate || pendingOrderSignalId === candidate.signalEventId}
+                      onClick={async () => handleCreateOrder(candidate.signalEventId)}
+                      className="button-primary"
+                    >
+                      {pendingOrderSignalId === candidate.signalEventId
+                        ? "생성 중..."
+                        : "paper 주문 생성"}
+                    </button>
+                    <span className="detail-timestamp">
+                      {candidate.alreadyRequested ? "이미 요청됨" : "생성 가능"}
+                    </span>
+                  </div>
                 </article>
-              ))
-            )}
-          </div>
-        </section>
+              );
+            })
+          )}
+        </div>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="doc-panel">
+        <div className="detail-card-header">
+          <h2 className="detail-heading">주문 요청 이력</h2>
+        </div>
+        <div className="stack-list" style={{ marginTop: 16 }}>
+          {orderRequests.length === 0 ? (
+            <p className="section-copy">주문 요청이 아직 없습니다.</p>
+          ) : (
+            orderRequests.map((request) => (
+              <article
+                key={request.id}
+                className="detail-card"
+              >
+                <div className="flex-between">
+                  <div>
+                    <p className="detail-label">
+                      {request.symbol} / {request.side}
+                    </p>
+                    <p className="detail-value">
+                      {request.mode} / current {request.currentStatus} / filled{" "}
+                      {request.filledQuantity} / {request.quantity} / remaining{" "}
+                      {request.remainingQuantity}
+                    </p>
+                  </div>
+                  <span className="detail-badge">
+                    {request.status}
+                  </span>
+                </div>
+                <div className="stack-list" style={{ marginTop: 12 }}>
+                  <div className="detail-row">
+                    <span className="detail-label">요청 시간</span>
+                    <span className="detail-value">{formatDateTime(request.requestedAt)}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">사전검증</span>
+                    <span className="detail-value">{request.precheckPassed ? "통과" : "실패"}</span>
+                  </div>
+                </div>
+                {request.failureReason ? (
+                  <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
+                    <p className="inline-error">{request.failureReason}</p>
+                  </div>
+                ) : null}
+                <section className="detail-card" style={{ marginTop: 16 }}>
+                  <div className="detail-card-header">
+                    <h3 className="detail-label">주문 상태 이력</h3>
+                    <span className="detail-timestamp">
+                      {statusEventsByRequestId[request.id]?.length ?? 0}건
+                    </span>
+                  </div>
+                  {statusEventsByRequestId[request.id]?.length ? (
+                    <div className="stack-list" style={{ marginTop: 12 }}>
+                      {statusEventsByRequestId[request.id].map((event) => (
+                        <article
+                          key={event.id}
+                          className="detail-card"
+                        >
+                          <div className="detail-card-header">
+                            <span className="detail-label">{event.status}</span>
+                            <span className="detail-timestamp">
+                              {formatDateTime(event.occurredAt)}
+                            </span>
+                          </div>
+                          <p className="detail-value" style={{ marginTop: 4 }}>
+                            {event.reason ?? "사유 없음"}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="section-copy">
+                      상태 이력이 아직 없습니다.
+                    </p>
+                  )}
+                </section>
+
+                <form
+                  className="detail-card grid-section"
+                  style={{ marginTop: 16 }}
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    await handleCreateFill(request.id);
+                  }}
+                >
+                  <div className="detail-card-header">
+                    <h3 className="detail-label">수동 체결 등록</h3>
+                    <span className="detail-timestamp">
+                      모의(수동)
+                    </span>
+                  </div>
+                  <div className="form-row">
+                    <label className="form-field">
+                      <span className="form-label">체결 수량</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={
+                          fillDrafts[request.id]?.quantity ??
+                          String(Math.max(request.remainingQuantity, 1))
+                        }
+                        onChange={(event) =>
+                          setFillDrafts((current) => ({
+                            ...current,
+                            [request.id]: {
+                              quantity: event.target.value,
+                              price:
+                                current[request.id]?.price ??
+                                String(request.price),
+                            },
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span className="form-label">체결 가격</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          fillDrafts[request.id]?.price ?? String(request.price)
+                        }
+                        onChange={(event) =>
+                          setFillDrafts((current) => ({
+                            ...current,
+                            [request.id]: {
+                              quantity:
+                                current[request.id]?.quantity ??
+                                String(Math.max(request.remainingQuantity, 1)),
+                              price: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="flex-center">
+                    <button
+                      type="submit"
+                      disabled={
+                        pendingFillRequestId === request.id ||
+                        request.remainingQuantity <= 0
+                      }
+                      className="button-primary"
+                    >
+                      {pendingFillRequestId === request.id
+                        ? "등록 중..."
+                        : request.remainingQuantity <= 0
+                          ? "체결 완료"
+                          : "체결 등록"}
+                    </button>
+                    <span className="detail-value">
+                      filledAt는 현재 시각으로 자동 저장됩니다.
+                    </span>
+                  </div>
+                </form>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="summary-grid summary-grid-columns-2">
         <section className="doc-panel">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">체결 이력</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              fills
-            </span>
+          <div className="detail-card-header">
+            <h2 className="detail-heading">체결 이력</h2>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="stack-list" style={{ marginTop: 16 }}>
             {fills.length === 0 ? (
-              <p className="text-sm text-slate-500">체결 이력이 아직 없습니다.</p>
+              <p className="section-copy">체결 이력이 아직 없습니다.</p>
             ) : (
               fills.map((fill) => (
                 <article
                   key={fill.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                  className="detail-card"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-between">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="detail-label">
                         {fill.symbol} / {fill.side}
                       </p>
-                      <p className="text-sm text-slate-500">
+                      <p className="detail-value">
                         qty {fill.quantity} / price {fill.price} / {fill.source}
                       </p>
                     </div>
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    <span className="detail-timestamp">
                       {formatDateTime(fill.filledAt)}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm text-slate-600">
+                  <p className="section-copy">
                     order {shortId(fill.orderRequestId)}
                   </p>
                 </article>
@@ -1028,29 +1025,26 @@ export function StrategyDetailClient({
         </section>
 
         <section className="doc-panel">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">현재 포지션</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              positions
-            </span>
+          <div className="detail-card-header">
+            <h2 className="detail-heading">현재 포지션</h2>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="stack-list" style={{ marginTop: 16 }}>
             {positions.length === 0 ? (
-              <p className="text-sm text-slate-500">현재 포지션이 없습니다.</p>
+              <p className="section-copy">현재 포지션이 없습니다.</p>
             ) : (
               positions.map((position) => (
                 <article
                   key={position.symbol}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                  className="detail-card"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-between">
                     <div>
-                      <p className="font-semibold text-slate-900">{position.symbol}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="detail-label">{position.symbol}</p>
+                      <p className="detail-value">
                         net {position.netQuantity} / avg {position.avgEntryPrice}
                       </p>
                     </div>
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    <span className="detail-timestamp">
                       {formatDateTime(position.lastFillAt)}
                     </span>
                   </div>
@@ -1061,64 +1055,61 @@ export function StrategyDetailClient({
         </section>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="summary-grid summary-grid-columns-2">
         <section
           id="strategy-activity"
           className="doc-panel"
         >
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">최근 실행 로그</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              execution runs
-            </span>
+          <div className="detail-card-header">
+            <h2 className="detail-heading">최근 실행 로그</h2>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="stack-list" style={{ marginTop: 16 }}>
             {runs.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="section-copy">
                 아직 실행 로그가 없습니다.
               </p>
             ) : (
               runs.map((run) => (
                 <article
                   key={run.runId}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                  className="detail-card"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-between">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="detail-label">
                         {shortId(run.runId)}
                       </p>
-                      <p className="text-sm text-slate-500">
+                      <p className="detail-value">
                         {run.triggerType} / {run.scheduledDate} / v
                         {shortId(run.strategyVersionId)}
                       </p>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <span className="detail-badge">
                       {run.status}
                     </span>
                   </div>
-                  <dl className="mt-3 grid gap-2 text-sm text-slate-600">
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="font-semibold text-slate-900">Symbols</dt>
-                      <dd>{run.symbolCount}</dd>
+                  <div className="stack-list" style={{ marginTop: 12 }}>
+                    <div className="detail-row">
+                      <span className="detail-label">종목 수</span>
+                      <span className="detail-value">{run.symbolCount}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="font-semibold text-slate-900">Signals</dt>
-                      <dd>{run.signalCount}</dd>
+                    <div className="detail-row">
+                      <span className="detail-label">시그널 수</span>
+                      <span className="detail-value">{run.signalCount}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="font-semibold text-slate-900">Started</dt>
-                      <dd>{formatDateTime(run.startedAt) ?? "대기 중"}</dd>
+                    <div className="detail-row">
+                      <span className="detail-label">시작</span>
+                      <span className="detail-value">{formatDateTime(run.startedAt) ?? "대기 중"}</span>
                     </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="font-semibold text-slate-900">Completed</dt>
-                      <dd>{formatDateTime(run.completedAt) ?? "대기 중"}</dd>
+                    <div className="detail-row">
+                      <span className="detail-label">완료</span>
+                      <span className="detail-value">{formatDateTime(run.completedAt) ?? "대기 중"}</span>
                     </div>
-                  </dl>
+                  </div>
                   {run.errorMessage ? (
-                    <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                      {run.errorMessage}
-                    </p>
+                    <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
+                      <p className="inline-error">{run.errorMessage}</p>
+                    </div>
                   ) : null}
                 </article>
               ))
@@ -1127,39 +1118,36 @@ export function StrategyDetailClient({
         </section>
 
         <section className="doc-panel">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-slate-950">최근 시그널 이력</h2>
-            <span className="text-xs uppercase tracking-[0.24em] text-slate-400">
-              signal events
-            </span>
+          <div className="detail-card-header">
+            <h2 className="detail-heading">최근 시그널 이력</h2>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="stack-list" style={{ marginTop: 16 }}>
             {signals.length === 0 ? (
-              <p className="text-sm text-slate-500">
+              <p className="section-copy">
                 아직 시그널 이력이 없습니다.
               </p>
             ) : (
               signals.map((signal) => (
                 <article
                   key={signal.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"
+                  className="detail-card"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-between">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="detail-label">
                         {signal.symbol} / {signal.signalType}
                       </p>
-                      <p className="text-sm text-slate-500">
+                      <p className="detail-value">
                         {signal.tradingDate} / v{shortId(signal.strategyVersionId)}
                       </p>
                     </div>
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                    <span className="detail-timestamp">
                       {formatDateTime(signal.createdAt)}
                     </span>
                   </div>
-                  <p className="mt-3 rounded-2xl border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600 break-all">
+                  <pre className="code-block" style={{ marginTop: 12, wordBreak: "break-all" }}>
                     {JSON.stringify(signal.payload)}
-                  </p>
+                  </pre>
                 </article>
               ))
             )}
@@ -1170,10 +1158,6 @@ export function StrategyDetailClient({
   );
 }
 
-function shortId(value: string) {
-  return value.slice(0, 8);
-}
-
 function PrecheckRow({
   label,
   value,
@@ -1182,27 +1166,11 @@ function PrecheckRow({
   value: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="font-semibold text-slate-900">{label}</dt>
-      <dd>{value ? "true" : "false"}</dd>
+    <div className="detail-row">
+      <span className="detail-label">{precheckLabel[label] ?? label}</span>
+      <span className="detail-value">{value ? "통과" : "미통과"}</span>
     </div>
   );
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
 }
 
 function stringifyNullable(value: number | null) {

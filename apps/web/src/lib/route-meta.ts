@@ -26,15 +26,17 @@ export type RouteMeta = {
 const routeMetaList: RouteMeta[] = [
   {
     href: "/",
-    label: "Overview",
-    description: "부트스트랩 상태와 시스템 규약",
+    label: "Dashboard",
+    description: "운영 대시보드와 현황 요약",
     mode: "docs",
     match: /^\/$/,
     sections: [
-      { id: "overview-summary", label: "요약" },
-      { id: "overview-health", label: "상태" },
-      { id: "overview-contract", label: "운영 규약" },
-      { id: "overview-next", label: "다음 섹션" },
+      { id: "dashboard-summary", label: "운영 요약" },
+      { id: "dashboard-strategies", label: "전략 현황" },
+      { id: "dashboard-fills", label: "최근 체결" },
+      { id: "dashboard-positions", label: "현재 포지션" },
+      { id: "dashboard-errors", label: "최근 오류" },
+      { id: "dashboard-health", label: "시스템 상태" },
     ],
   },
   {
@@ -45,8 +47,6 @@ const routeMetaList: RouteMeta[] = [
     match: /^\/strategies$/,
     sections: [
       { id: "strategies-summary", label: "요약" },
-      { id: "strategies-risk", label: "전역 리스크" },
-      { id: "strategies-broker", label: "브로커 연결" },
       { id: "strategies-registry", label: "전략 레지스트리" },
     ],
   },
@@ -54,7 +54,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/strategies/[strategyId]",
     label: "Strategy Detail",
     description: "전략 실행, 리스크, 주문 현황",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/strategies\/[^/]+$/,
     sections: [
       { id: "strategy-overview", label: "개요" },
@@ -69,7 +69,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/strategies/[strategyId]/edit",
     label: "Strategy Editor",
     description: "전략 편집과 검증",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/strategies\/[^/]+\/edit$/,
     sections: [
       { id: "editor-summary", label: "편집기 개요" },
@@ -82,7 +82,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/strategies/[strategyId]/backtest",
     label: "Backtest Runner",
     description: "백테스트 실행과 데이터 준비",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/strategies\/[^/]+\/backtest$/,
     sections: [
       { id: "backtest-summary", label: "개요" },
@@ -90,6 +90,19 @@ const routeMetaList: RouteMeta[] = [
       { id: "backtest-datasets", label: "데이터 입력" },
       { id: "backtest-coverage", label: "커버리지" },
       { id: "backtest-runs", label: "실행 이력" },
+    ],
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    description: "시스템 설정과 브로커 연결",
+    mode: "docs",
+    match: /^\/settings$/,
+    sections: [
+      { id: "settings-summary", label: "요약" },
+      { id: "settings-broker", label: "브로커 연결" },
+      { id: "settings-risk", label: "전역 리스크" },
+      { id: "settings-system", label: "시스템 상태" },
     ],
   },
   {
@@ -120,7 +133,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/backtests/[runId]",
     label: "Backtest Result",
     description: "백테스트 결과와 차트",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/backtests\/[^/]+$/,
     sections: [
       { id: "run-summary", label: "요약" },
@@ -129,11 +142,46 @@ const routeMetaList: RouteMeta[] = [
       { id: "run-trades", label: "거래 이력" },
     ],
   },
+  {
+    href: "/orders",
+    label: "Orders",
+    description: "전체 주문 및 체결 조회",
+    mode: "docs",
+    match: /^\/orders$/,
+    sections: [
+      { id: "orders-summary", label: "요약" },
+      { id: "orders-requests", label: "주문 요청" },
+      { id: "orders-fills", label: "체결 내역" },
+    ],
+  },
+  {
+    href: "/positions",
+    label: "Positions",
+    description: "전체 포지션 현황",
+    mode: "docs",
+    match: /^\/positions$/,
+    sections: [
+      { id: "positions-summary", label: "포지션 요약" },
+      { id: "positions-detail", label: "전략별 보유" },
+    ],
+  },
+  {
+    href: "/logs",
+    label: "Logs",
+    description: "실행 로그와 오류 추적",
+    mode: "docs",
+    match: /^\/logs$/,
+    sections: [
+      { id: "logs-summary", label: "요약" },
+      { id: "logs-filters", label: "필터" },
+      { id: "logs-timeline", label: "이벤트 타임라인" },
+    ],
+  },
 ];
 
 export function getPrimaryRoutes() {
   return routeMetaList.filter((route) =>
-    ["/", "/strategies", "/universes"].includes(route.href),
+    ["/", "/strategies", "/universes", "/orders", "/positions", "/logs", "/settings"].includes(route.href),
   );
 }
 

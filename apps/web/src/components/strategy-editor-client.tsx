@@ -123,7 +123,7 @@ export function StrategyEditorClient({
   const canSave = validation?.valid === true && !isValidating && !isSaving;
 
   return (
-    <main className="page-shell workbench-page-shell">
+    <main className="page-shell docs-page-shell">
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <section
           id="editor-summary"

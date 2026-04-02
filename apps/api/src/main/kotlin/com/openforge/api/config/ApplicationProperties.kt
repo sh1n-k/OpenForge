@@ -7,4 +7,12 @@ data class ApplicationProperties(
     val environment: String = "local",
     val mode: String = "paper",
     val webOrigin: String = "http://127.0.0.1:3000",
+    val auth: AuthProperties = AuthProperties(),
+)
+
+data class AuthProperties(
+    val password: String = "",
+    val jwtSecret: String = "",
+    val tokenExpiryHours: Long = 24,
+    val refreshExpiryDays: Long = 7,
 )

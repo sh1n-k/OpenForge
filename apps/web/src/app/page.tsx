@@ -1,14 +1,11 @@
-import { ConsoleShell } from "@/components/console-shell";
-import { loadHealthStatus } from "@/lib/health";
+import { DashboardClient } from "@/components/dashboard-client";
+import { loadDashboard, loadSystemRisk } from "@/lib/api";
 
-export default async function Home() {
-  const health = await loadHealthStatus();
+export default async function DashboardPage() {
+  const [dashboard, systemRisk] = await Promise.all([
+    loadDashboard(),
+    loadSystemRisk(),
+  ]);
 
-  return (
-    <ConsoleShell
-      environment={process.env.APP_ENV ?? health.environment}
-      mode={process.env.APP_MODE ?? health.mode}
-      health={health}
-    />
-  );
+  return <DashboardClient dashboard={dashboard} systemRisk={systemRisk} />;
 }

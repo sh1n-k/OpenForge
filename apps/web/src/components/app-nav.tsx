@@ -10,21 +10,17 @@ import {
   getContextCommands,
   getPageSections,
   getPrimaryRoutes,
-  getRouteMeta,
-  getScreenMode,
   isRouteActive,
   type CommandEntry,
   type PageSection,
   type RouteMeta,
-  type ScreenMode,
 } from "@/lib/route-meta";
+import { logout } from "@/lib/api";
 
 export function AppNav({
   pathname,
-  mode,
 }: {
   pathname: string;
-  mode: ScreenMode;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,8 +29,8 @@ export function AppNav({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSession, setPaletteSession] = useState(0);
   const sections = useMemo(() => getPageSections(pathname), [pathname]);
-  const routeMeta = useMemo(() => getRouteMeta(pathname), [pathname]);
   const primaryRoutes = useMemo(() => getPrimaryRoutes(), []);
+  const contextCommands = useMemo(() => getContextCommands(pathname), [pathname]);
   const commands = useMemo(() => getCommandEntries(pathname), [pathname]);
   const normalizedSearch = search.trim().toLowerCase();
   const filteredPrimaryRoutes = filterPrimaryItems(primaryRoutes, normalizedSearch);
@@ -67,29 +63,6 @@ export function AppNav({
     router.push(command.href);
   }
 
-  if (mode === "workbench") {
-    return (
-      <>
-        <WorkbenchChrome
-          pathname={pathname}
-          routeMeta={routeMeta}
-          primaryRoutes={primaryRoutes}
-          isNavOpen={navOpen}
-          onOpenNav={() => setNavOpen(true)}
-          onCloseNav={() => setNavOpen(false)}
-          onOpenPalette={openPalette}
-        />
-        <CommandPalette
-          key={`workbench-palette-${paletteSession}`}
-          commands={commands}
-          isOpen={paletteOpen}
-          onClose={() => setPaletteOpen(false)}
-          onSelect={handleSelectCommand}
-        />
-      </>
-    );
-  }
-
   return (
     <>
       <MobileNav
@@ -106,6 +79,7 @@ export function AppNav({
         inputRef={inputRef}
         primaryRoutes={filteredPrimaryRoutes}
         sections={filteredSections}
+        contextCommands={contextCommands}
       />
       {navOpen ? (
         <div className="doc-mobile-overlay">
@@ -130,6 +104,7 @@ export function AppNav({
               inputRef={inputRef}
               primaryRoutes={filteredPrimaryRoutes}
               sections={filteredSections}
+              contextCommands={contextCommands}
               onNavigate={() => setNavOpen(false)}
             />
           </div>
@@ -153,6 +128,7 @@ function DocsSidebar({
   inputRef,
   primaryRoutes,
   sections,
+  contextCommands,
 }: {
   pathname: string;
   search: string;
@@ -160,6 +136,7 @@ function DocsSidebar({
   inputRef: RefObject<HTMLInputElement | null>;
   primaryRoutes: RouteMeta[];
   sections: PageSection[];
+  contextCommands: CommandEntry[];
 }) {
   return (
     <aside
@@ -173,6 +150,7 @@ function DocsSidebar({
         inputRef={inputRef}
         primaryRoutes={primaryRoutes}
         sections={sections}
+        contextCommands={contextCommands}
         onNavigate={() => {}}
       />
     </aside>
@@ -186,6 +164,7 @@ function SidebarContent({
   inputRef,
   primaryRoutes,
   sections,
+  contextCommands,
   onNavigate,
 }: {
   pathname: string;
@@ -194,6 +173,7 @@ function SidebarContent({
   inputRef: RefObject<HTMLInputElement | null>;
   primaryRoutes: RouteMeta[];
   sections: PageSection[];
+  contextCommands: CommandEntry[];
   onNavigate: () => void;
 }) {
   const showSections = getPageSections(pathname).length >= 3;
@@ -208,7 +188,7 @@ function SidebarContent({
           OpenForge
         </Link>
         <p className="doc-sidebar-copy">
-          자동매매 운영 콘솔을 문서처럼 탐색할 수 있도록 정리한 정보 구조입니다.
+          개인용 자동매매 운영 콘솔
         </p>
       </div>
 
@@ -247,6 +227,25 @@ function SidebarContent({
         </div>
       </nav>
 
+      {contextCommands.length > 0 ? (
+        <nav className="doc-nav-group">
+          <p className="doc-nav-overline">Context</p>
+          <div className="doc-nav-list">
+            {contextCommands.map((cmd) => (
+              <Link
+                key={cmd.id}
+                href={cmd.href}
+                className={navLinkClassName(cmd.href === pathname)}
+                onClick={onNavigate}
+              >
+                <span className="doc-nav-title">{cmd.label}</span>
+                <span className="doc-nav-description">{cmd.description}</span>
+              </Link>
+            ))}
+          </div>
+        </nav>
+      ) : null}
+
       {showSections ? (
         <nav className="doc-nav-group">
           <p className="doc-nav-overline">On This Page</p>
@@ -268,161 +267,11 @@ function SidebarContent({
           </div>
         </nav>
       ) : null}
+
+      <div className="doc-sidebar-footer">
+        <LogoutButton />
+      </div>
     </div>
-  );
-}
-
-function WorkbenchChrome({
-  pathname,
-  routeMeta,
-  primaryRoutes,
-  isNavOpen,
-  onOpenNav,
-  onCloseNav,
-  onOpenPalette,
-}: {
-  pathname: string;
-  routeMeta?: RouteMeta;
-  primaryRoutes: RouteMeta[];
-  isNavOpen: boolean;
-  onOpenNav: () => void;
-  onCloseNav: () => void;
-  onOpenPalette: () => void;
-}) {
-  const sections = getPageSections(pathname);
-  const contextRoutes = getContextCommands(pathname);
-
-  return (
-    <>
-      <header className="workbench-chrome">
-        <div className="workbench-chrome-row">
-          <div className="page-actions">
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={onOpenNav}
-              aria-expanded={isNavOpen}
-              aria-controls="workbench-nav"
-            >
-              탐색
-            </button>
-            <Link
-              href="/"
-              className="doc-brand-link"
-            >
-              OpenForge
-            </Link>
-          </div>
-
-          <div className="page-actions">
-            <CommandPaletteTrigger onOpen={onOpenPalette} />
-          </div>
-        </div>
-
-        <div className="workbench-chrome-row">
-          <div className="workbench-heading">
-            <p className="page-eyebrow">Workbench</p>
-            <div className="workbench-title-row">
-              <h1 className="workbench-title">{routeMeta?.label ?? "Workbench"}</h1>
-              <span className="status-chip status-chip-info">
-                {getScreenMode(pathname)}
-              </span>
-            </div>
-            <p className="section-copy">
-              {routeMeta?.description ?? "작업 중심 화면"}
-            </p>
-          </div>
-
-          <nav className="workbench-quick-links" aria-label="핵심 이동">
-            {primaryRoutes.map((route) => (
-              <Link
-                key={route.href}
-                href={route.href}
-                className={navChipClassName(isRouteActive(pathname, route.href))}
-              >
-                {route.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
-
-      {isNavOpen ? (
-        <div className="workbench-drawer-overlay">
-          <aside
-            id="workbench-nav"
-            className="workbench-drawer"
-          >
-            <div className="doc-mobile-drawer-head">
-              <p className="doc-nav-overline">Workbench Navigation</p>
-              <button
-                type="button"
-                className="button-ghost"
-                onClick={onCloseNav}
-              >
-                닫기
-              </button>
-            </div>
-
-            <div className="doc-sidebar-scroll">
-              <nav className="doc-nav-group">
-                <p className="doc-nav-overline">Primary</p>
-                <div className="doc-nav-list">
-                  {primaryRoutes.map((route) => (
-                    <Link
-                      key={route.href}
-                      href={route.href}
-                      className={navLinkClassName(isRouteActive(pathname, route.href))}
-                      onClick={onCloseNav}
-                    >
-                      <span className="doc-nav-title">{route.label}</span>
-                      <span className="doc-nav-description">{route.description}</span>
-                    </Link>
-                  ))}
-                </div>
-              </nav>
-
-              {contextRoutes.length > 0 ? (
-                <nav className="doc-nav-group">
-                  <p className="doc-nav-overline">Context</p>
-                  <div className="doc-nav-list">
-                    {contextRoutes.map((route) => (
-                      <Link
-                        key={route.id}
-                        href={route.href}
-                        className={navLinkClassName(route.href === pathname)}
-                        onClick={onCloseNav}
-                      >
-                        <span className="doc-nav-title">{route.label}</span>
-                        <span className="doc-nav-description">{route.description}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </nav>
-              ) : null}
-
-              {sections.length > 0 ? (
-                <nav className="doc-nav-group">
-                  <p className="doc-nav-overline">On This Page</p>
-                  <div className="doc-nav-list">
-                    {sections.map((section) => (
-                      <a
-                        key={section.id}
-                        href={`${pathname}#${section.id}`}
-                        className="doc-nav-link doc-nav-link-secondary"
-                        onClick={onCloseNav}
-                      >
-                        <span className="doc-nav-title">{section.label}</span>
-                      </a>
-                    ))}
-                  </div>
-                </nav>
-              ) : null}
-            </div>
-          </aside>
-        </div>
-      ) : null}
-    </>
   );
 }
 
@@ -504,8 +353,23 @@ function navLinkClassName(isActive: boolean) {
     .join(" ");
 }
 
-function navChipClassName(isActive: boolean) {
-  return ["workbench-chip", isActive ? "workbench-chip-active" : ""]
-    .filter(Boolean)
-    .join(" ");
+function LogoutButton() {
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch {
+      // proceed to login even if the API call fails
+    }
+    window.location.href = "/login";
+  }
+
+  return (
+    <button
+      type="button"
+      className="button-ghost"
+      onClick={handleLogout}
+    >
+      로그아웃
+    </button>
+  );
 }

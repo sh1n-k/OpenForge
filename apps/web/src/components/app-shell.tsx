@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
-import { getScreenMode } from "@/lib/route-meta";
 
 export function AppShell({
   children,
@@ -10,11 +9,15 @@ export function AppShell({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const mode = getScreenMode(pathname);
+
+  // Login page renders without the navigation shell
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
   return (
-    <div className={`app-shell app-shell-${mode}`}>
-      <AppNav pathname={pathname} mode={mode} />
+    <div className="app-shell app-shell-docs">
+      <AppNav pathname={pathname} />
       <div className="app-main">{children}</div>
     </div>
   );
