@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition } from "react";
+import { startTransition, useState } from "react";
 import {
   archiveStrategy,
   cloneStrategy,
@@ -37,6 +37,27 @@ type OverviewHeaderProps = {
 
 export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderProps) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClone() {
+    try {
+      setError(null);
+      await cloneStrategy(strategy.id);
+      startTransition(() => router.push("/strategies"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "전략 복제에 실패했습니다.");
+    }
+  }
+
+  async function handleArchive() {
+    try {
+      setError(null);
+      await archiveStrategy(strategy.id);
+      startTransition(() => router.push("/strategies"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "전략 보관에 실패했습니다.");
+    }
+  }
 
   return (
     <section
@@ -87,6 +108,12 @@ export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderPr
         </div>
       </div>
 
+      {error ? (
+        <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
+          {error}
+        </div>
+      ) : null}
+
       <div className="page-actions" style={{ marginTop: 16 }}>
         <Link
           href={`/strategies/${strategy.id}/backtest`}
@@ -102,20 +129,14 @@ export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderPr
         </Link>
         <button
           type="button"
-          onClick={async () => {
-            await cloneStrategy(strategy.id);
-            startTransition(() => router.push("/strategies"));
-          }}
+          onClick={handleClone}
           className="button-secondary"
         >
           복제
         </button>
         <button
           type="button"
-          onClick={async () => {
-            await archiveStrategy(strategy.id);
-            startTransition(() => router.push("/strategies"));
-          }}
+          onClick={handleArchive}
           className="button-danger"
         >
           보관
