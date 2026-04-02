@@ -14,21 +14,15 @@ class UniverseSymbolEntity(
     @Id
     @Column(columnDefinition = "uuid")
     var id: UUID = UUID.randomUUID(),
-
     @Column(name = "universe_id", columnDefinition = "uuid", nullable = false)
     var universeId: UUID,
-
     @Column(nullable = false, length = 32)
     var symbol: String,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var market: MarketType = MarketType.DOMESTIC,
-
     @Column(name = "display_name", nullable = false, length = 120)
     var displayName: String,
-
     @Column(name = "sort_order", nullable = false)
     var sortOrder: Int = 0,
 )
-

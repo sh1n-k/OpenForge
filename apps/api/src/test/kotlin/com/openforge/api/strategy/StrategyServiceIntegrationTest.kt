@@ -6,7 +6,6 @@ import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.StrategyEntity
 import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyType
-import com.openforge.api.strategy.domain.StrategyValidationStatus
 import com.openforge.api.strategy.domain.StrategyVersionEntity
 import com.openforge.api.strategy.domain.StrategyVersionRepository
 import com.openforge.api.strategy.web.CreateStrategyRequest
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
 class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
-
     @Autowired
     lateinit var strategyService: StrategyService
 
@@ -34,27 +32,30 @@ class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Test
     fun `appends version with sequential number`() {
-        val created = strategyService.createStrategy(
-            CreateStrategyRequest(
-                name = "Versioned Strategy",
-                description = null,
-                strategyType = StrategyType.CODE,
-                initialPayload = StrategyPayloadRequest(
-                    payloadFormat = PayloadFormat.CODE_TEXT,
-                    payload = validCodePayload("Versioned Strategy", 5),
-                    changeSummary = "initial",
+        val created =
+            strategyService.createStrategy(
+                CreateStrategyRequest(
+                    name = "Versioned Strategy",
+                    description = null,
+                    strategyType = StrategyType.CODE,
+                    initialPayload =
+                        StrategyPayloadRequest(
+                            payloadFormat = PayloadFormat.CODE_TEXT,
+                            payload = validCodePayload("Versioned Strategy", 5),
+                            changeSummary = "initial",
+                        ),
                 ),
-            ),
-        )
+            )
 
-        val second = strategyService.appendStrategyVersion(
-            created.id,
-            StrategyPayloadRequest(
-                payloadFormat = PayloadFormat.CODE_TEXT,
-                payload = validCodePayload("Versioned Strategy", 7),
-                changeSummary = "second",
-            ),
-        )
+        val second =
+            strategyService.appendStrategyVersion(
+                created.id,
+                StrategyPayloadRequest(
+                    payloadFormat = PayloadFormat.CODE_TEXT,
+                    payload = validCodePayload("Versioned Strategy", 7),
+                    changeSummary = "second",
+                ),
+            )
 
         assertEquals(2, second.versionNumber)
         assertEquals("valid", second.validationStatus.value)
@@ -69,18 +70,20 @@ class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
             listOf(),
         )
 
-        val created = strategyService.createStrategy(
-            CreateStrategyRequest(
-                name = "Clone Source",
-                description = "src",
-                strategyType = StrategyType.BUILDER,
-                initialPayload = StrategyPayloadRequest(
-                    payloadFormat = PayloadFormat.BUILDER_JSON,
-                    payload = validBuilderPayload("Clone Source", listOf("sma_fast" to 5)),
-                    changeSummary = "initial",
+        val created =
+            strategyService.createStrategy(
+                CreateStrategyRequest(
+                    name = "Clone Source",
+                    description = "src",
+                    strategyType = StrategyType.BUILDER,
+                    initialPayload =
+                        StrategyPayloadRequest(
+                            payloadFormat = PayloadFormat.BUILDER_JSON,
+                            payload = validBuilderPayload("Clone Source", listOf("sma_fast" to 5)),
+                            changeSummary = "initial",
+                        ),
                 ),
-            ),
-        )
+            )
 
         strategyService.replaceStrategyUniverses(created.id, listOf(universe.id))
         strategyService.appendStrategyVersion(
@@ -106,24 +109,27 @@ class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Test
     fun `marks invalid legacy payload on lazy normalization`() {
-        val strategy = strategyRepository.save(
-            StrategyEntity(
-                name = "Legacy Builder",
-                description = "legacy",
-                strategyType = StrategyType.BUILDER,
-            ),
-        )
-        val version = strategyVersionRepository.save(
-            StrategyVersionEntity(
-                strategyId = strategy.id,
-                versionNumber = 1,
-                payloadFormat = PayloadFormat.BUILDER_JSON,
-                payload = mapOf(
-                    "builderState" to mapOf("nodes" to emptyList<String>()),
-                    "metadata" to mapOf("name" to "Legacy Builder"),
+        val strategy =
+            strategyRepository.save(
+                StrategyEntity(
+                    name = "Legacy Builder",
+                    description = "legacy",
+                    strategyType = StrategyType.BUILDER,
                 ),
-            ),
-        )
+            )
+        val version =
+            strategyVersionRepository.save(
+                StrategyVersionEntity(
+                    strategyId = strategy.id,
+                    versionNumber = 1,
+                    payloadFormat = PayloadFormat.BUILDER_JSON,
+                    payload =
+                        mapOf(
+                            "builderState" to mapOf("nodes" to emptyList<String>()),
+                            "metadata" to mapOf("name" to "Legacy Builder"),
+                        ),
+                ),
+            )
         strategy.latestVersionId = version.id
         strategyRepository.save(strategy)
 
@@ -133,36 +139,47 @@ class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
         assertTrue(detail.latestValidationErrors.isNotEmpty())
     }
 
-    private fun validBuilderPayload(name: String, indicators: List<Pair<String, Int>>) = mapOf(
-        "builderState" to mapOf(
-            "metadata" to mapOf(
-                "id" to name.lowercase().replace(" ", "_"),
-                "name" to name,
-                "description" to "builder",
-                "category" to "custom",
-                "author" to "OpenForge",
-                "tags" to listOf("builder"),
+    private fun validBuilderPayload(
+        name: String,
+        indicators: List<Pair<String, Int>>,
+    ) = mapOf(
+        "builderState" to
+            mapOf(
+                "metadata" to
+                    mapOf(
+                        "id" to name.lowercase().replace(" ", "_"),
+                        "name" to name,
+                        "description" to "builder",
+                        "category" to "custom",
+                        "author" to "OpenForge",
+                        "tags" to listOf("builder"),
+                    ),
+                "indicators" to
+                    indicators.map { (alias, period) ->
+                        mapOf(
+                            "indicatorId" to if (alias.startsWith("ema")) "ema" else "sma",
+                            "alias" to alias,
+                            "params" to mapOf("period" to period),
+                            "output" to "value",
+                        )
+                    },
+                "entry" to mapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
+                "exit" to mapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
+                "risk" to
+                    mapOf(
+                        "stopLoss" to mapOf("enabled" to false, "percent" to 0),
+                        "takeProfit" to mapOf("enabled" to false, "percent" to 0),
+                        "trailingStop" to mapOf("enabled" to false, "percent" to 0),
+                    ),
             ),
-            "indicators" to indicators.map { (alias, period) ->
-                mapOf(
-                    "indicatorId" to if (alias.startsWith("ema")) "ema" else "sma",
-                    "alias" to alias,
-                    "params" to mapOf("period" to period),
-                    "output" to "value",
-                )
-            },
-            "entry" to mapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
-            "exit" to mapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
-            "risk" to mapOf(
-                "stopLoss" to mapOf("enabled" to false, "percent" to 0),
-                "takeProfit" to mapOf("enabled" to false, "percent" to 0),
-                "trailingStop" to mapOf("enabled" to false, "percent" to 0),
-            ),
-        ),
     )
 
-    private fun validCodePayload(name: String, period: Int) = mapOf(
-        "source" to """
+    private fun validCodePayload(
+        name: String,
+        period: Int,
+    ) = mapOf(
+        "source" to
+            """
             version: "1.0"
             metadata:
               name: "$name"
@@ -194,7 +211,7 @@ class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
               trailing_stop:
                 enabled: false
                 percent: 0
-        """.trimIndent(),
+            """.trimIndent(),
         "sourceKind" to "openforge_yaml",
     )
 }

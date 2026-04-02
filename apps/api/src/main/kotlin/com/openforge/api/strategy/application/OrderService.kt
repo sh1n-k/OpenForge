@@ -45,21 +45,25 @@ class OrderService(
     private val orderTrackingService: OrderTrackingService,
     private val marketTimeProvider: MarketTimeProvider,
 ) {
-
-    fun listOrderCandidates(strategyId: UUID, limit: Int): List<OrderCandidateResponse> {
+    fun listOrderCandidates(
+        strategyId: UUID,
+        limit: Int,
+    ): List<OrderCandidateResponse> {
         val strategy = getActiveStrategy(strategyId)
-        val signals = signalEventRepository.findAllByStrategyIdOrderByCreatedAtDesc(
-            strategy.id,
-            PageRequest.of(0, normalizeLimit(limit, 50)),
-        )
+        val signals =
+            signalEventRepository.findAllByStrategyIdOrderByCreatedAtDesc(
+                strategy.id,
+                PageRequest.of(0, normalizeLimit(limit, 50)),
+            )
         if (signals.isEmpty()) {
             return emptyList()
         }
 
-        val existingRequests = orderRequestRepository.findAllByStrategyIdAndSignalEventIdIn(
-            strategy.id,
-            signals.map { it.id },
-        )
+        val existingRequests =
+            orderRequestRepository.findAllByStrategyIdAndSignalEventIdIn(
+                strategy.id,
+                signals.map { it.id },
+            )
         val existingKeys = existingRequests.associateBy { candidateKey(it.signalEventId, it.side, it.mode) }
         val referenceTime = marketTimeProvider.now()
 
@@ -69,23 +73,26 @@ class OrderService(
             val quantity = DEFAULT_QUANTITY
             val price = priceFor(signal)
             val alreadyRequested = existingKeys.containsKey(candidateKey(signal.id, side, mode))
-            val precheck = orderPrecheckService.precheck(
-                strategy = strategy,
-                mode = mode,
-                quantity = quantity,
-                price = price,
-                referenceTime = referenceTime,
-                alreadyRequested = alreadyRequested,
-            )
-            val riskCheck = riskControlService.evaluateOrder(
-                strategy = strategy,
-                symbol = signal.symbol,
-                side = side,
-                quantity = quantity,
-                price = price ?: BigDecimal.ZERO,
-                mode = mode,
-                referenceTime = referenceTime,
-            ).response
+            val precheck =
+                orderPrecheckService.precheck(
+                    strategy = strategy,
+                    mode = mode,
+                    quantity = quantity,
+                    price = price,
+                    referenceTime = referenceTime,
+                    alreadyRequested = alreadyRequested,
+                )
+            val riskCheck =
+                riskControlService
+                    .evaluateOrder(
+                        strategy = strategy,
+                        symbol = signal.symbol,
+                        side = side,
+                        quantity = quantity,
+                        price = price ?: BigDecimal.ZERO,
+                        mode = mode,
+                        referenceTime = referenceTime,
+                    ).response
 
             OrderCandidateResponse(
                 signalEventId = signal.id,
@@ -104,24 +111,35 @@ class OrderService(
         }
     }
 
-    fun listOrderRequests(strategyId: UUID, limit: Int): List<OrderRequestResponse> {
+    fun listOrderRequests(
+        strategyId: UUID,
+        limit: Int,
+    ): List<OrderRequestResponse> {
         getActiveStrategy(strategyId)
-        return orderRequestRepository.findAllByStrategyIdOrderByRequestedAtDesc(
-            strategyId,
-            PageRequest.of(0, normalizeLimit(limit, 20)),
-        ).map { entity ->
-            val symbol = signalEventRepository.findById(entity.signalEventId).orElseThrow {
-                ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
-            }.symbol
-            orderTrackingService.toOrderRequestResponse(entity, symbol)
-        }
+        return orderRequestRepository
+            .findAllByStrategyIdOrderByRequestedAtDesc(
+                strategyId,
+                PageRequest.of(0, normalizeLimit(limit, 20)),
+            ).map { entity ->
+                val symbol =
+                    signalEventRepository
+                        .findById(entity.signalEventId)
+                        .orElseThrow {
+                            ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
+                        }.symbol
+                orderTrackingService.toOrderRequestResponse(entity, symbol)
+            }
     }
 
-    fun createOrderRequest(strategyId: UUID, request: CreateOrderRequest): OrderRequestResponse {
+    fun createOrderRequest(
+        strategyId: UUID,
+        request: CreateOrderRequest,
+    ): OrderRequestResponse {
         val strategy = getActiveStrategy(strategyId)
-        val signal = signalEventRepository.findById(request.signalEventId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${request.signalEventId}")
-        }
+        val signal =
+            signalEventRepository.findById(request.signalEventId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${request.signalEventId}")
+            }
         if (signal.strategyId != strategy.id) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Signal event does not belong to the requested strategy")
         }
@@ -147,14 +165,15 @@ class OrderService(
         val quantity = DEFAULT_QUANTITY
         val price = priceFor(signal)
         val requestedAt = marketTimeProvider.now()
-        val precheck = orderPrecheckService.precheck(
-            strategy = strategy,
-            mode = request.mode,
-            quantity = quantity,
-            price = price,
-            referenceTime = requestedAt,
-            alreadyRequested = false,
-        )
+        val precheck =
+            orderPrecheckService.precheck(
+                strategy = strategy,
+                mode = request.mode,
+                quantity = quantity,
+                price = price,
+                referenceTime = requestedAt,
+                alreadyRequested = false,
+            )
 
         return try {
             if (!precheck.passed) {
@@ -169,15 +188,16 @@ class OrderService(
                     requestedAt = requestedAt.toOffsetDateTime(),
                 )
             } else {
-                val riskCheck = riskControlService.evaluateOrder(
-                    strategy = strategy,
-                    symbol = signal.symbol,
-                    side = side,
-                    quantity = quantity,
-                    price = price!!,
-                    mode = request.mode,
-                    referenceTime = requestedAt,
-                )
+                val riskCheck =
+                    riskControlService.evaluateOrder(
+                        strategy = strategy,
+                        symbol = signal.symbol,
+                        side = side,
+                        quantity = quantity,
+                        price = price!!,
+                        mode = request.mode,
+                        referenceTime = requestedAt,
+                    )
                 if (!riskCheck.response.passed) {
                     paperOrderService.saveRejectedRisk(
                         strategy = strategy,
@@ -208,13 +228,15 @@ class OrderService(
         }
     }
 
-    private fun getActiveStrategy(strategyId: UUID): StrategyEntity = strategyRepository.findByIdAndIsArchivedFalse(strategyId)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
+    private fun getActiveStrategy(strategyId: UUID): StrategyEntity =
+        strategyRepository.findByIdAndIsArchivedFalse(strategyId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
 
-    private fun sideFor(signalType: StrategySignalType): OrderSide = when (signalType) {
-        StrategySignalType.ENTRY -> OrderSide.BUY
-        StrategySignalType.EXIT -> OrderSide.SELL
-    }
+    private fun sideFor(signalType: StrategySignalType): OrderSide =
+        when (signalType) {
+            StrategySignalType.ENTRY -> OrderSide.BUY
+            StrategySignalType.EXIT -> OrderSide.SELL
+        }
 
     private fun priceFor(signal: StrategySignalEventEntity): BigDecimal? {
         val raw = signal.payload["close"] ?: return null
@@ -225,17 +247,26 @@ class OrderService(
         }
     }
 
-    private fun toOrderRequestResponse(entity: StrategyOrderRequestEntity): OrderRequestResponse = orderTrackingService.toOrderRequestResponse(
-        entity,
-        signalEventRepository.findById(entity.signalEventId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
-        }.symbol,
-    )
+    private fun toOrderRequestResponse(entity: StrategyOrderRequestEntity): OrderRequestResponse =
+        orderTrackingService.toOrderRequestResponse(
+            entity,
+            signalEventRepository
+                .findById(entity.signalEventId)
+                .orElseThrow {
+                    ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
+                }.symbol,
+        )
 
-    private fun candidateKey(signalEventId: UUID, side: OrderSide, mode: OrderMode): String =
-        "$signalEventId:${side.value}:${mode.value}"
+    private fun candidateKey(
+        signalEventId: UUID,
+        side: OrderSide,
+        mode: OrderMode,
+    ): String = "$signalEventId:${side.value}:${mode.value}"
 
-    private fun normalizeLimit(value: Int, defaultValue: Int): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(
+        value: Int,
+        defaultValue: Int,
+    ): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
 
     companion object {
         private const val DEFAULT_QUANTITY = 1L
@@ -244,8 +275,7 @@ class OrderService(
 }
 
 @Service
-class OrderPrecheckService(
-) {
+class OrderPrecheckService {
     fun precheck(
         strategy: StrategyEntity,
         mode: OrderMode,
@@ -260,14 +290,15 @@ class OrderPrecheckService(
         val quantityValid = quantity > 0
         val priceValid = price != null && price > BigDecimal.ZERO
 
-        val reasonCodes = buildList {
-            if (!marketHours) add("market_hours")
-            if (!strategyStatus) add("strategy_status")
-            if (duplicateOrder) add("duplicate_order")
-            if (!quantityValid) add("quantity_invalid")
-            if (!priceValid) add("price_invalid")
-            if (mode == OrderMode.LIVE) add("mode_not_implemented")
-        }
+        val reasonCodes =
+            buildList {
+                if (!marketHours) add("market_hours")
+                if (!strategyStatus) add("strategy_status")
+                if (duplicateOrder) add("duplicate_order")
+                if (!quantityValid) add("quantity_invalid")
+                if (!priceValid) add("price_invalid")
+                if (mode == OrderMode.LIVE) add("mode_not_implemented")
+            }
 
         return OrderPrecheckResponse(
             passed = reasonCodes.isEmpty(),
@@ -327,24 +358,25 @@ class PaperOrderService(
         precheck: OrderPrecheckResponse,
         requestedAt: OffsetDateTime,
     ): StrategyOrderRequestEntity {
-        val saved = orderRequestRepository.save(
-            StrategyOrderRequestEntity(
-            strategyId = strategy.id,
-            strategyVersionId = signal.strategyVersionId,
-            signalEventId = signal.id,
-            executionRunId = signal.runId,
-            mode = mode,
-            side = side,
-            orderType = OrderType.LIMIT,
-            quantity = quantity,
-            price = price,
-            status = OrderRequestStatus.REQUESTED,
-            precheckPassed = true,
-            precheckSummary = precheck.toSummaryMap(),
-            failureReason = null,
-            requestedAt = requestedAt,
-        ),
-        )
+        val saved =
+            orderRequestRepository.save(
+                StrategyOrderRequestEntity(
+                    strategyId = strategy.id,
+                    strategyVersionId = signal.strategyVersionId,
+                    signalEventId = signal.id,
+                    executionRunId = signal.runId,
+                    mode = mode,
+                    side = side,
+                    orderType = OrderType.LIMIT,
+                    quantity = quantity,
+                    price = price,
+                    status = OrderRequestStatus.REQUESTED,
+                    precheckPassed = true,
+                    precheckSummary = precheck.toSummaryMap(),
+                    failureReason = null,
+                    requestedAt = requestedAt,
+                ),
+            )
         orderTrackingService.appendRequested(saved)
         return saved
     }
@@ -359,24 +391,25 @@ class PaperOrderService(
         precheck: OrderPrecheckResponse,
         requestedAt: OffsetDateTime,
     ): StrategyOrderRequestEntity {
-        val saved = orderRequestRepository.save(
-            StrategyOrderRequestEntity(
-            strategyId = strategy.id,
-            strategyVersionId = signal.strategyVersionId,
-            signalEventId = signal.id,
-            executionRunId = signal.runId,
-            mode = mode,
-            side = side,
-            orderType = OrderType.LIMIT,
-            quantity = quantity,
-            price = price,
-            status = OrderRequestStatus.REJECTED_PRECHECK,
-            precheckPassed = false,
-            precheckSummary = precheck.toSummaryMap(),
-            failureReason = precheck.reasonCodes.joinToString(","),
-            requestedAt = requestedAt,
-        ),
-        )
+        val saved =
+            orderRequestRepository.save(
+                StrategyOrderRequestEntity(
+                    strategyId = strategy.id,
+                    strategyVersionId = signal.strategyVersionId,
+                    signalEventId = signal.id,
+                    executionRunId = signal.runId,
+                    mode = mode,
+                    side = side,
+                    orderType = OrderType.LIMIT,
+                    quantity = quantity,
+                    price = price,
+                    status = OrderRequestStatus.REJECTED_PRECHECK,
+                    precheckPassed = false,
+                    precheckSummary = precheck.toSummaryMap(),
+                    failureReason = precheck.reasonCodes.joinToString(","),
+                    requestedAt = requestedAt,
+                ),
+            )
         orderTrackingService.appendRejectedPrecheck(saved)
         return saved
     }
@@ -392,24 +425,25 @@ class PaperOrderService(
         riskCheck: RiskEvaluationResult,
         requestedAt: OffsetDateTime,
     ): StrategyOrderRequestEntity {
-        val saved = orderRequestRepository.save(
-            StrategyOrderRequestEntity(
-                strategyId = strategy.id,
-                strategyVersionId = signal.strategyVersionId,
-                signalEventId = signal.id,
-                executionRunId = signal.runId,
-                mode = mode,
-                side = side,
-                orderType = OrderType.LIMIT,
-                quantity = quantity,
-                price = price,
-                status = OrderRequestStatus.REJECTED_RISK,
-                precheckPassed = precheck.passed,
-                precheckSummary = precheck.toSummaryMap(),
-                failureReason = riskCheck.response.reasonCodes.joinToString(","),
-                requestedAt = requestedAt,
-            ),
-        )
+        val saved =
+            orderRequestRepository.save(
+                StrategyOrderRequestEntity(
+                    strategyId = strategy.id,
+                    strategyVersionId = signal.strategyVersionId,
+                    signalEventId = signal.id,
+                    executionRunId = signal.runId,
+                    mode = mode,
+                    side = side,
+                    orderType = OrderType.LIMIT,
+                    quantity = quantity,
+                    price = price,
+                    status = OrderRequestStatus.REJECTED_RISK,
+                    precheckPassed = precheck.passed,
+                    precheckSummary = precheck.toSummaryMap(),
+                    failureReason = riskCheck.response.reasonCodes.joinToString(","),
+                    requestedAt = requestedAt,
+                ),
+            )
         orderTrackingService.appendRejectedRisk(saved)
         riskControlService.recordBlockedOrder(
             strategyId = strategy.id,
@@ -420,13 +454,14 @@ class PaperOrderService(
         return saved
     }
 
-    private fun OrderPrecheckResponse.toSummaryMap(): Map<String, Any?> = linkedMapOf(
-        "passed" to passed,
-        "marketHours" to marketHours,
-        "strategyStatus" to strategyStatus,
-        "duplicateOrder" to duplicateOrder,
-        "quantityValid" to quantityValid,
-        "priceValid" to priceValid,
-        "reasonCodes" to reasonCodes,
-    )
+    private fun OrderPrecheckResponse.toSummaryMap(): Map<String, Any?> =
+        linkedMapOf(
+            "passed" to passed,
+            "marketHours" to marketHours,
+            "strategyStatus" to strategyStatus,
+            "duplicateOrder" to duplicateOrder,
+            "quantityValid" to quantityValid,
+            "priceValid" to priceValid,
+            "reasonCodes" to reasonCodes,
+        )
 }

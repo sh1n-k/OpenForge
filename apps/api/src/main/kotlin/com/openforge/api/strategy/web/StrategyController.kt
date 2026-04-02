@@ -26,7 +26,6 @@ class StrategyController(
     private val orderTrackingService: OrderTrackingService,
     private val riskControlService: RiskControlService,
 ) {
-
     @PostMapping("/validate")
     fun validate(
         @Valid @RequestBody request: StrategyValidateRequest,

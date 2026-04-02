@@ -6,14 +6,14 @@ import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyType
-import com.openforge.api.strategy.domain.StrategyValidationStatus
 import com.openforge.api.strategy.domain.StrategyUniverseEntity
 import com.openforge.api.strategy.domain.StrategyUniverseRepository
+import com.openforge.api.strategy.domain.StrategyValidationStatus
 import com.openforge.api.strategy.domain.StrategyVersionEntity
 import com.openforge.api.strategy.domain.StrategyVersionRepository
+import com.openforge.api.strategy.domain.UniverseRepository
 import com.openforge.api.strategy.editor.StrategyEditorService
 import com.openforge.api.strategy.editor.StrategyValidationMessage
-import com.openforge.api.strategy.domain.UniverseRepository
 import com.openforge.api.strategy.web.CreateStrategyRequest
 import com.openforge.api.strategy.web.StrategyDetailResponse
 import com.openforge.api.strategy.web.StrategyPayloadRequest
@@ -41,15 +41,15 @@ class StrategyService(
     private val strategyExecutionConfigRepository: StrategyExecutionConfigRepository,
     private val strategyEditorService: StrategyEditorService,
 ) {
-
     fun validate(request: StrategyValidateRequest): StrategyValidateResponse {
-        val result = strategyEditorService.validate(
-            com.openforge.api.strategy.editor.StrategyValidateCommand(
-                strategyType = request.strategyType,
-                payloadFormat = request.payloadFormat,
-                payload = request.payload,
-            ),
-        )
+        val result =
+            strategyEditorService.validate(
+                com.openforge.api.strategy.editor.StrategyValidateCommand(
+                    strategyType = request.strategyType,
+                    payloadFormat = request.payloadFormat,
+                    payload = request.payload,
+                ),
+            )
         return StrategyValidateResponse(
             valid = result.valid,
             normalizedSpec = result.normalizedSpec,
@@ -60,21 +60,23 @@ class StrategyService(
         )
     }
 
-    fun listStrategies(): List<StrategySummaryResponse> = strategyRepository
-        .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
-        .map(::toSummary)
+    fun listStrategies(): List<StrategySummaryResponse> =
+        strategyRepository
+            .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
+            .map(::toSummary)
 
     fun createStrategy(request: CreateStrategyRequest): StrategyDetailResponse {
         ensureUniqueStrategyName(request.name, null)
 
-        val strategy = strategyRepository.save(
-            StrategyEntity(
-                name = request.name.trim(),
-                description = request.description?.trim()?.ifBlank { null },
-                strategyType = request.strategyType,
-                status = StrategyStatus.DRAFT,
-            ),
-        )
+        val strategy =
+            strategyRepository.save(
+                StrategyEntity(
+                    name = request.name.trim(),
+                    description = request.description?.trim()?.ifBlank { null },
+                    strategyType = request.strategyType,
+                    status = StrategyStatus.DRAFT,
+                ),
+            )
 
         val version = createVersion(strategy.id, request.initialPayload)
         strategy.latestVersionId = version.id
@@ -86,23 +88,26 @@ class StrategyService(
 
     fun getStrategy(strategyId: UUID): StrategyDetailResponse {
         val strategy = getActiveStrategy(strategyId)
-        val versions = strategyVersionRepository.findAllByStrategyIdOrderByVersionNumberDesc(strategy.id)
-            .map { ensureValidation(it, strategy.strategyType) }
+        val versions =
+            strategyVersionRepository
+                .findAllByStrategyIdOrderByVersionNumberDesc(strategy.id)
+                .map { ensureValidation(it, strategy.strategyType) }
         val linkedUniverseIds = strategyUniverseRepository.findAllByStrategyId(strategy.id).map { it.universeId }
-        val universes = if (linkedUniverseIds.isEmpty()) {
-            emptyList()
-        } else {
-            universeRepository.findAllById(linkedUniverseIds)
-                .filter { !it.isArchived }
-                .map {
-                    UniverseReferenceResponse(
-                        id = it.id,
-                        name = it.name,
-                        description = it.description,
-                    )
-                }
-                .sortedBy { it.name.lowercase() }
-        }
+        val universes =
+            if (linkedUniverseIds.isEmpty()) {
+                emptyList()
+            } else {
+                universeRepository
+                    .findAllById(linkedUniverseIds)
+                    .filter { !it.isArchived }
+                    .map {
+                        UniverseReferenceResponse(
+                            id = it.id,
+                            name = it.name,
+                            description = it.description,
+                        )
+                    }.sortedBy { it.name.lowercase() }
+            }
 
         return StrategyDetailResponse(
             id = strategy.id,
@@ -115,8 +120,18 @@ class StrategyService(
             versionCount = versions.size.toLong(),
             universeCount = universes.size.toLong(),
             latestValidationStatus = versions.firstOrNull()?.validationStatus,
-            latestValidationErrors = versions.firstOrNull()?.validationErrors?.map(::toMessageResponse).orEmpty(),
-            latestValidationWarnings = versions.firstOrNull()?.validationWarnings?.map(::toMessageResponse).orEmpty(),
+            latestValidationErrors =
+                versions
+                    .firstOrNull()
+                    ?.validationErrors
+                    ?.map(::toMessageResponse)
+                    .orEmpty(),
+            latestValidationWarnings =
+                versions
+                    .firstOrNull()
+                    ?.validationWarnings
+                    ?.map(::toMessageResponse)
+                    .orEmpty(),
             latestVersion = versions.firstOrNull()?.let(::toVersionResponse),
             universes = universes,
             createdAt = strategy.createdAt,
@@ -124,7 +139,10 @@ class StrategyService(
         )
     }
 
-    fun updateStrategy(strategyId: UUID, request: UpdateStrategyRequest): StrategyDetailResponse {
+    fun updateStrategy(
+        strategyId: UUID,
+        request: UpdateStrategyRequest,
+    ): StrategyDetailResponse {
         val strategy = getActiveStrategy(strategyId)
 
         request.name?.trim()?.let { name ->
@@ -152,7 +170,10 @@ class StrategyService(
         return getStrategy(strategy.id)
     }
 
-    fun appendStrategyVersion(strategyId: UUID, request: StrategyPayloadRequest): StrategyVersionResponse {
+    fun appendStrategyVersion(
+        strategyId: UUID,
+        request: StrategyPayloadRequest,
+    ): StrategyVersionResponse {
         val strategy = getActiveStrategy(strategyId)
 
         val version = createVersion(strategy.id, request)
@@ -178,36 +199,40 @@ class StrategyService(
 
     fun cloneStrategy(strategyId: UUID): StrategyDetailResponse {
         val source = getActiveStrategy(strategyId)
-        val latestVersion = source.latestVersionId?.let { strategyVersionRepository.findById(it).orElse(null) }
-            ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy does not have a latest version")
+        val latestVersion =
+            source.latestVersionId?.let { strategyVersionRepository.findById(it).orElse(null) }
+                ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy does not have a latest version")
         val validatedLatestVersion = ensureValidation(latestVersion, source.strategyType)
 
-        val clone = strategyRepository.save(
-            StrategyEntity(
-                name = nextCopyName(source.name),
-                description = source.description,
-                strategyType = source.strategyType,
-                status = StrategyStatus.DRAFT,
-            ),
-        )
+        val clone =
+            strategyRepository.save(
+                StrategyEntity(
+                    name = nextCopyName(source.name),
+                    description = source.description,
+                    strategyType = source.strategyType,
+                    status = StrategyStatus.DRAFT,
+                ),
+            )
 
-        val clonedNormalizedSpec = validatedLatestVersion.normalizedSpec
-            ?.let { renameNormalizedSpec(it, clone.name) }
+        val clonedNormalizedSpec =
+            validatedLatestVersion.normalizedSpec
+                ?.let { renameNormalizedSpec(it, clone.name) }
         val clonedPayload = clonePayload(validatedLatestVersion, clonedNormalizedSpec, clone.name)
 
-        val cloneVersion = strategyVersionRepository.save(
-            StrategyVersionEntity(
-                strategyId = clone.id,
-                versionNumber = 1,
-                payloadFormat = validatedLatestVersion.payloadFormat,
-                payload = clonedPayload,
-                normalizedSpec = clonedNormalizedSpec,
-                validationStatus = validatedLatestVersion.validationStatus,
-                validationErrors = deepCopyMessages(validatedLatestVersion.validationErrors),
-                validationWarnings = deepCopyMessages(validatedLatestVersion.validationWarnings),
-                changeSummary = "Cloned from ${source.name}",
-            ),
-        )
+        val cloneVersion =
+            strategyVersionRepository.save(
+                StrategyVersionEntity(
+                    strategyId = clone.id,
+                    versionNumber = 1,
+                    payloadFormat = validatedLatestVersion.payloadFormat,
+                    payload = clonedPayload,
+                    normalizedSpec = clonedNormalizedSpec,
+                    validationStatus = validatedLatestVersion.validationStatus,
+                    validationErrors = deepCopyMessages(validatedLatestVersion.validationErrors),
+                    validationWarnings = deepCopyMessages(validatedLatestVersion.validationWarnings),
+                    changeSummary = "Cloned from ${source.name}",
+                ),
+            )
 
         clone.latestVersionId = cloneVersion.id
         syncStrategyMetadataFromVersion(clone, cloneVersion)
@@ -234,14 +259,18 @@ class StrategyService(
         strategyRepository.save(strategy)
     }
 
-    fun replaceStrategyUniverses(strategyId: UUID, universeIds: List<UUID>): StrategyDetailResponse {
+    fun replaceStrategyUniverses(
+        strategyId: UUID,
+        universeIds: List<UUID>,
+    ): StrategyDetailResponse {
         val strategy = getActiveStrategy(strategyId)
         val uniqueUniverseIds = universeIds.distinct()
-        val universes = if (uniqueUniverseIds.isEmpty()) {
-            emptyList()
-        } else {
-            universeRepository.findAllById(uniqueUniverseIds).filter { !it.isArchived }
-        }
+        val universes =
+            if (uniqueUniverseIds.isEmpty()) {
+                emptyList()
+            } else {
+                universeRepository.findAllById(uniqueUniverseIds).filter { !it.isArchived }
+            }
 
         if (universes.size != uniqueUniverseIds.size) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe contains archived or missing entries")
@@ -258,15 +287,19 @@ class StrategyService(
         return getStrategy(strategy.id)
     }
 
-    private fun createVersion(strategyId: UUID, request: StrategyPayloadRequest): StrategyVersionEntity {
+    private fun createVersion(
+        strategyId: UUID,
+        request: StrategyPayloadRequest,
+    ): StrategyVersionEntity {
         val strategy = getActiveStrategy(strategyId)
-        val validation = strategyEditorService.validateOrThrow(
-            com.openforge.api.strategy.editor.StrategyValidateCommand(
-                strategyType = strategy.strategyType,
-                payloadFormat = request.payloadFormat,
-                payload = request.payload,
-            ),
-        )
+        val validation =
+            strategyEditorService.validateOrThrow(
+                com.openforge.api.strategy.editor.StrategyValidateCommand(
+                    strategyType = strategy.strategyType,
+                    payloadFormat = request.payloadFormat,
+                    payload = request.payload,
+                ),
+            )
         val nextVersion = (strategyVersionRepository.findTopByStrategyIdOrderByVersionNumberDesc(strategyId)?.versionNumber ?: 0) + 1
         return strategyVersionRepository.save(
             StrategyVersionEntity(
@@ -293,18 +326,24 @@ class StrategyService(
         return candidate
     }
 
-    private fun ensureUniqueStrategyName(name: String, excludeId: UUID?) {
+    private fun ensureUniqueStrategyName(
+        name: String,
+        excludeId: UUID?,
+    ) {
         if (strategyRepository.existsActiveByName(name.trim(), excludeId)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "An active strategy with the same name already exists")
         }
     }
 
-    private fun getActiveStrategy(strategyId: UUID): StrategyEntity = strategyRepository.findByIdAndIsArchivedFalse(strategyId)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
+    private fun getActiveStrategy(strategyId: UUID): StrategyEntity =
+        strategyRepository.findByIdAndIsArchivedFalse(strategyId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
 
     private fun toSummary(strategy: StrategyEntity): StrategySummaryResponse {
-        val latestVersion = strategy.latestVersionId?.let { strategyVersionRepository.findById(it).orElse(null) }
-            ?.let { ensureValidation(it, strategy.strategyType) }
+        val latestVersion =
+            strategy.latestVersionId
+                ?.let { strategyVersionRepository.findById(it).orElse(null) }
+                ?.let { ensureValidation(it, strategy.strategyType) }
         return StrategySummaryResponse(
             id = strategy.id,
             name = strategy.name,
@@ -319,17 +358,18 @@ class StrategyService(
         )
     }
 
-    private fun toVersionResponse(version: StrategyVersionEntity): StrategyVersionResponse = StrategyVersionResponse(
-        id = version.id,
-        versionNumber = version.versionNumber,
-        payloadFormat = version.payloadFormat,
-        payload = version.payload,
-        validationStatus = version.validationStatus,
-        validationErrors = version.validationErrors.map(::toMessageResponse),
-        validationWarnings = version.validationWarnings.map(::toMessageResponse),
-        changeSummary = version.changeSummary,
-        createdAt = version.createdAt,
-    )
+    private fun toVersionResponse(version: StrategyVersionEntity): StrategyVersionResponse =
+        StrategyVersionResponse(
+            id = version.id,
+            versionNumber = version.versionNumber,
+            payloadFormat = version.payloadFormat,
+            payload = version.payload,
+            validationStatus = version.validationStatus,
+            validationErrors = version.validationErrors.map(::toMessageResponse),
+            validationWarnings = version.validationWarnings.map(::toMessageResponse),
+            changeSummary = version.changeSummary,
+            createdAt = version.createdAt,
+        )
 
     private fun ensureValidation(
         version: StrategyVersionEntity,
@@ -340,13 +380,14 @@ class StrategyService(
         }
 
         val result = strategyEditorService.validateStoredPayload(strategyType, version.payloadFormat, version.payload)
-        version.validationStatus = if (result.valid) {
-            StrategyValidationStatus.VALID
-        } else if (version.normalizedSpec == null) {
-            StrategyValidationStatus.INVALID_LEGACY_DRAFT
-        } else {
-            StrategyValidationStatus.INVALID
-        }
+        version.validationStatus =
+            if (result.valid) {
+                StrategyValidationStatus.VALID
+            } else if (version.normalizedSpec == null) {
+                StrategyValidationStatus.INVALID_LEGACY_DRAFT
+            } else {
+                StrategyValidationStatus.INVALID
+            }
         version.normalizedSpec = result.normalizedSpec?.let(::deepCopyPayload)
         version.validationErrors = result.errors.map(::toMessageMap)
         version.validationWarnings = result.warnings.map(::toMessageMap)
@@ -371,90 +412,109 @@ class StrategyService(
         version: StrategyVersionEntity,
         clonedNormalizedSpec: Map<String, Any?>?,
         cloneName: String,
-    ): Map<String, Any?> = when (version.payloadFormat) {
-        PayloadFormat.BUILDER_JSON -> {
-            val payload = deepCopyPayload(version.payload).toMutableMap()
-            val builderState = (payload["builderState"] as? Map<*, *>)?.entries
-                ?.associate { it.key.toString() to deepCopyValue(it.value) }
-                ?.toMutableMap()
-                ?: linkedMapOf()
-            val metadata = (builderState["metadata"] as? Map<*, *>)?.entries
-                ?.associate { it.key.toString() to deepCopyValue(it.value) }
-                ?.toMutableMap()
-                ?: linkedMapOf()
-            metadata["name"] = cloneName
-            metadata["id"] = slugify(cloneName)
-            builderState["metadata"] = metadata
-            payload["builderState"] = builderState
-            payload.toMap(LinkedHashMap())
-        }
+    ): Map<String, Any?> =
+        when (version.payloadFormat) {
+            PayloadFormat.BUILDER_JSON -> {
+                val payload = deepCopyPayload(version.payload).toMutableMap()
+                val builderState =
+                    (payload["builderState"] as? Map<*, *>)
+                        ?.entries
+                        ?.associate { it.key.toString() to deepCopyValue(it.value) }
+                        ?.toMutableMap()
+                        ?: linkedMapOf()
+                val metadata =
+                    (builderState["metadata"] as? Map<*, *>)
+                        ?.entries
+                        ?.associate { it.key.toString() to deepCopyValue(it.value) }
+                        ?.toMutableMap()
+                        ?: linkedMapOf()
+                metadata["name"] = cloneName
+                metadata["id"] = slugify(cloneName)
+                builderState["metadata"] = metadata
+                payload["builderState"] = builderState
+                payload.toMap(LinkedHashMap())
+            }
 
-        PayloadFormat.CODE_TEXT -> linkedMapOf(
-            "source" to strategyEditorService.renderNormalizedSpec(clonedNormalizedSpec ?: emptyMap()),
-            "sourceKind" to "openforge_yaml",
-        )
-    }
+            PayloadFormat.CODE_TEXT ->
+                linkedMapOf(
+                    "source" to strategyEditorService.renderNormalizedSpec(clonedNormalizedSpec ?: emptyMap()),
+                    "sourceKind" to "openforge_yaml",
+                )
+        }
 
     private fun renameNormalizedSpec(
         normalizedSpec: Map<String, Any?>,
         cloneName: String,
     ): Map<String, Any?> {
         val copy = deepCopyPayload(normalizedSpec).toMutableMap()
-        val metadata = (copy["metadata"] as? Map<*, *>)?.entries
-            ?.associate { it.key.toString() to deepCopyValue(it.value) }
-            ?.toMutableMap()
-            ?: linkedMapOf()
+        val metadata =
+            (copy["metadata"] as? Map<*, *>)
+                ?.entries
+                ?.associate { it.key.toString() to deepCopyValue(it.value) }
+                ?.toMutableMap()
+                ?: linkedMapOf()
         metadata["name"] = cloneName
         copy["metadata"] = metadata
 
-        val strategy = (copy["strategy"] as? Map<*, *>)?.entries
-            ?.associate { it.key.toString() to deepCopyValue(it.value) }
-            ?.toMutableMap()
-            ?: linkedMapOf()
+        val strategy =
+            (copy["strategy"] as? Map<*, *>)
+                ?.entries
+                ?.associate { it.key.toString() to deepCopyValue(it.value) }
+                ?.toMutableMap()
+                ?: linkedMapOf()
         strategy["id"] = slugify(cloneName)
         copy["strategy"] = strategy
         return copy.toMap(LinkedHashMap())
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun deepCopyPayload(payload: Map<String, Any?>): Map<String, Any?> = payload
-        .mapValues { (_, value) -> deepCopyValue(value) }
-        .toMap(LinkedHashMap())
+    private fun deepCopyPayload(payload: Map<String, Any?>): Map<String, Any?> =
+        payload
+            .mapValues { (_, value) -> deepCopyValue(value) }
+            .toMap(LinkedHashMap())
 
-    private fun deepCopyMessages(messages: List<Map<String, String>>): List<Map<String, String>> = messages.map {
-        linkedMapOf(
-            "category" to (it["category"] ?: ""),
-            "message" to (it["message"] ?: ""),
-        )
-    }
+    private fun deepCopyMessages(messages: List<Map<String, String>>): List<Map<String, String>> =
+        messages.map {
+            linkedMapOf(
+                "category" to (it["category"] ?: ""),
+                "message" to (it["message"] ?: ""),
+            )
+        }
 
     @Suppress("UNCHECKED_CAST")
-    private fun deepCopyValue(value: Any?): Any? = when (value) {
-        is Map<*, *> -> value.entries.associate { (key, nestedValue) ->
-            key.toString() to deepCopyValue(nestedValue)
-        }.toMap(LinkedHashMap())
-        is List<*> -> value.map(::deepCopyValue)
-        else -> value
-    }
+    private fun deepCopyValue(value: Any?): Any? =
+        when (value) {
+            is Map<*, *> ->
+                value.entries
+                    .associate { (key, nestedValue) ->
+                        key.toString() to deepCopyValue(nestedValue)
+                    }.toMap(LinkedHashMap())
+            is List<*> -> value.map(::deepCopyValue)
+            else -> value
+        }
 
-    private fun slugify(value: String): String = value
-        .lowercase()
-        .replace(Regex("[^a-z0-9]+"), "_")
-        .trim('_')
-        .ifBlank { "strategy" }
+    private fun slugify(value: String): String =
+        value
+            .lowercase()
+            .replace(Regex("[^a-z0-9]+"), "_")
+            .trim('_')
+            .ifBlank { "strategy" }
 
-    private fun toMessageMap(message: StrategyValidationMessage): Map<String, String> = linkedMapOf(
-        "category" to message.category,
-        "message" to message.message,
-    )
+    private fun toMessageMap(message: StrategyValidationMessage): Map<String, String> =
+        linkedMapOf(
+            "category" to message.category,
+            "message" to message.message,
+        )
 
-    private fun toMessageResponse(message: StrategyValidationMessage): StrategyValidationMessageResponse = StrategyValidationMessageResponse(
-        category = message.category,
-        message = message.message,
-    )
+    private fun toMessageResponse(message: StrategyValidationMessage): StrategyValidationMessageResponse =
+        StrategyValidationMessageResponse(
+            category = message.category,
+            message = message.message,
+        )
 
-    private fun toMessageResponse(message: Map<String, String>): StrategyValidationMessageResponse = StrategyValidationMessageResponse(
-        category = message["category"].orEmpty(),
-        message = message["message"].orEmpty(),
-    )
+    private fun toMessageResponse(message: Map<String, String>): StrategyValidationMessageResponse =
+        StrategyValidationMessageResponse(
+            category = message["category"].orEmpty(),
+            message = message["message"].orEmpty(),
+        )
 }

@@ -38,7 +38,6 @@ class OrderTrackingService(
     private val orderFillRepository: StrategyOrderFillRepository,
     private val signalEventRepository: StrategySignalEventRepository,
 ) {
-
     data class PositionProjection(
         val symbol: String,
         val netQuantity: Long,
@@ -55,21 +54,30 @@ class OrderTrackingService(
         val currentStatus: OrderLifecycleStatus,
     )
 
-    fun listOrderStatusEvents(strategyId: UUID, orderRequestId: UUID, limit: Int): List<OrderStatusEventResponse> {
+    fun listOrderStatusEvents(
+        strategyId: UUID,
+        orderRequestId: UUID,
+        limit: Int,
+    ): List<OrderStatusEventResponse> {
         getStrategy(strategyId)
         getOrderRequest(strategyId, orderRequestId)
-        return orderStatusEventRepository.findAllByOrderRequestIdOrderByOccurredAtDesc(
-            orderRequestId,
-            PageRequest.of(0, normalizeLimit(limit, 50)),
-        ).map(::toOrderStatusEventResponse)
+        return orderStatusEventRepository
+            .findAllByOrderRequestIdOrderByOccurredAtDesc(
+                orderRequestId,
+                PageRequest.of(0, normalizeLimit(limit, 50)),
+            ).map(::toOrderStatusEventResponse)
     }
 
-    fun listFills(strategyId: UUID, limit: Int): List<OrderFillResponse> {
+    fun listFills(
+        strategyId: UUID,
+        limit: Int,
+    ): List<OrderFillResponse> {
         getStrategy(strategyId)
-        return orderFillRepository.findAllByStrategyIdOrderByFilledAtDesc(
-            strategyId,
-            PageRequest.of(0, normalizeLimit(limit, 50)),
-        ).map(::toOrderFillResponse)
+        return orderFillRepository
+            .findAllByStrategyIdOrderByFilledAtDesc(
+                strategyId,
+                PageRequest.of(0, normalizeLimit(limit, 50)),
+            ).map(::toOrderFillResponse)
     }
 
     fun listPositions(strategyId: UUID): List<StrategyPositionResponse> {
@@ -77,46 +85,54 @@ class OrderTrackingService(
         return projectPositions(strategyId)
     }
 
-    fun currentPositionProjections(strategyId: UUID): List<PositionProjection> = projectPositionState(strategyId)
-        .values
-        .filter { it.netQuantity > 0L }
-        .sortedBy { it.symbol }
-        .map {
-            PositionProjection(
-                symbol = it.symbol,
-                netQuantity = it.netQuantity,
-                avgEntryPrice = it.avgEntryPrice,
-                lastFillAt = it.lastFillAt,
-            )
-        }
-
-    fun openBuyOrderProjections(strategyId: UUID): List<OpenOrderProjection> = orderRequestRepository.findAllByStrategyId(strategyId)
-        .map { orderRequest ->
-            val filledQuantity = orderFillRepository.findAllByOrderRequestIdOrderByFilledAtAsc(orderRequest.id).sumOf { it.quantity }
-            val currentStatus = currentStatus(orderRequest)
-            OpenOrderProjection(
-                orderRequestId = orderRequest.id,
-                symbol = symbolFor(orderRequest),
-                side = orderRequest.side,
-                remainingQuantity = (orderRequest.quantity - filledQuantity).coerceAtLeast(0),
-                price = orderRequest.price,
-                currentStatus = currentStatus,
-            )
-        }
-        .filter {
-            it.side == OrderSide.BUY &&
-                it.remainingQuantity > 0 &&
-                it.currentStatus in setOf(
-                    OrderLifecycleStatus.REQUESTED,
-                    OrderLifecycleStatus.ACCEPTED,
-                    OrderLifecycleStatus.PARTIALLY_FILLED,
+    fun currentPositionProjections(strategyId: UUID): List<PositionProjection> =
+        projectPositionState(strategyId)
+            .values
+            .filter { it.netQuantity > 0L }
+            .sortedBy { it.symbol }
+            .map {
+                PositionProjection(
+                    symbol = it.symbol,
+                    netQuantity = it.netQuantity,
+                    avgEntryPrice = it.avgEntryPrice,
+                    lastFillAt = it.lastFillAt,
                 )
-        }
+            }
 
-    fun currentDailyRealizedLoss(strategyId: UUID, tradingDate: LocalDate): BigDecimal {
-        val realized = orderFillRepository.findAllByStrategyIdOrderByFilledAtAsc(strategyId)
-            .filter { it.filledAt.toLocalDate() == tradingDate }
-            .sumOf { it.realizedPnl }
+    fun openBuyOrderProjections(strategyId: UUID): List<OpenOrderProjection> =
+        orderRequestRepository
+            .findAllByStrategyId(strategyId)
+            .map { orderRequest ->
+                val filledQuantity = orderFillRepository.findAllByOrderRequestIdOrderByFilledAtAsc(orderRequest.id).sumOf { it.quantity }
+                val currentStatus = currentStatus(orderRequest)
+                OpenOrderProjection(
+                    orderRequestId = orderRequest.id,
+                    symbol = symbolFor(orderRequest),
+                    side = orderRequest.side,
+                    remainingQuantity = (orderRequest.quantity - filledQuantity).coerceAtLeast(0),
+                    price = orderRequest.price,
+                    currentStatus = currentStatus,
+                )
+            }.filter {
+                it.side == OrderSide.BUY &&
+                    it.remainingQuantity > 0 &&
+                    it.currentStatus in
+                    setOf(
+                        OrderLifecycleStatus.REQUESTED,
+                        OrderLifecycleStatus.ACCEPTED,
+                        OrderLifecycleStatus.PARTIALLY_FILLED,
+                    )
+            }
+
+    fun currentDailyRealizedLoss(
+        strategyId: UUID,
+        tradingDate: LocalDate,
+    ): BigDecimal {
+        val realized =
+            orderFillRepository
+                .findAllByStrategyIdOrderByFilledAtAsc(strategyId)
+                .filter { it.filledAt.toLocalDate() == tradingDate }
+                .sumOf { it.realizedPnl }
         return if (realized < BigDecimal.ZERO) {
             realized.abs().scaled()
         } else {
@@ -154,31 +170,35 @@ class OrderTrackingService(
         }
 
         val positionBeforeFill = projectPositionState(strategyId)[symbol]
-        val realizedPnl = if (orderRequest.side == OrderSide.SELL) {
-            val averageEntryPrice = positionBeforeFill?.avgEntryPrice ?: BigDecimal.ZERO.scaled()
-            request.price.toBigDecimal().scaled()
-                .subtract(averageEntryPrice)
-                .multiply(BigDecimal.valueOf(request.quantity))
-                .scaled()
-        } else {
-            BigDecimal.ZERO.scaled()
-        }
+        val realizedPnl =
+            if (orderRequest.side == OrderSide.SELL) {
+                val averageEntryPrice = positionBeforeFill?.avgEntryPrice ?: BigDecimal.ZERO.scaled()
+                request.price
+                    .toBigDecimal()
+                    .scaled()
+                    .subtract(averageEntryPrice)
+                    .multiply(BigDecimal.valueOf(request.quantity))
+                    .scaled()
+            } else {
+                BigDecimal.ZERO.scaled()
+            }
 
-        val fillEntity = orderFillRepository.save(
-            StrategyOrderFillEntity(
-                orderRequestId = orderRequest.id,
-                strategyId = orderRequest.strategyId,
-                strategyVersionId = orderRequest.strategyVersionId,
-                symbol = symbol,
-                side = orderRequest.side,
-                quantity = request.quantity,
-                price = request.price.toBigDecimal().scaled(),
-                realizedPnl = realizedPnl,
-                filledAt = request.filledAt,
-                source = OrderFillSource.PAPER_MANUAL,
-                payload = mapOf("source" to OrderFillSource.PAPER_MANUAL.value),
-            ),
-        )
+        val fillEntity =
+            orderFillRepository.save(
+                StrategyOrderFillEntity(
+                    orderRequestId = orderRequest.id,
+                    strategyId = orderRequest.strategyId,
+                    strategyVersionId = orderRequest.strategyVersionId,
+                    symbol = symbol,
+                    side = orderRequest.side,
+                    quantity = request.quantity,
+                    price = request.price.toBigDecimal().scaled(),
+                    realizedPnl = realizedPnl,
+                    filledAt = request.filledAt,
+                    source = OrderFillSource.PAPER_MANUAL,
+                    payload = mapOf("source" to OrderFillSource.PAPER_MANUAL.value),
+                ),
+            )
 
         if (existingFills.isEmpty()) {
             appendStatusEvent(
@@ -186,32 +206,36 @@ class OrderTrackingService(
                 status = OrderLifecycleStatus.ACCEPTED,
                 reason = "paper fill received",
                 occurredAt = request.filledAt.minusNanos(1_000),
-                payload = mapOf(
-                    "filledQuantity" to request.quantity,
-                    "price" to fillEntity.price.toDouble(),
-                    "source" to fillEntity.source.value,
-                ),
+                payload =
+                    mapOf(
+                        "filledQuantity" to request.quantity,
+                        "price" to fillEntity.price.toDouble(),
+                        "source" to fillEntity.source.value,
+                    ),
             )
         }
 
         appendStatusEvent(
             orderRequestId = orderRequest.id,
-            status = if (newFilledQuantity == orderRequest.quantity) {
-                OrderLifecycleStatus.FILLED
-            } else {
-                OrderLifecycleStatus.PARTIALLY_FILLED
-            },
-            reason = if (newFilledQuantity == orderRequest.quantity) {
-                "order fully filled"
-            } else {
-                "order partially filled"
-            },
+            status =
+                if (newFilledQuantity == orderRequest.quantity) {
+                    OrderLifecycleStatus.FILLED
+                } else {
+                    OrderLifecycleStatus.PARTIALLY_FILLED
+                },
+            reason =
+                if (newFilledQuantity == orderRequest.quantity) {
+                    "order fully filled"
+                } else {
+                    "order partially filled"
+                },
             occurredAt = request.filledAt,
-            payload = mapOf(
-                "filledQuantity" to newFilledQuantity,
-                "remainingQuantity" to (orderRequest.quantity - newFilledQuantity),
-                "source" to fillEntity.source.value,
-            ),
+            payload =
+                mapOf(
+                    "filledQuantity" to newFilledQuantity,
+                    "remainingQuantity" to (orderRequest.quantity - newFilledQuantity),
+                    "source" to fillEntity.source.value,
+                ),
         )
 
         return toOrderFillResponse(fillEntity)
@@ -247,12 +271,13 @@ class OrderTrackingService(
             status = OrderLifecycleStatus.REQUESTED,
             reason = null,
             occurredAt = orderRequest.requestedAt,
-            payload = mapOf(
-                "mode" to orderRequest.mode.value,
-                "side" to orderRequest.side.value,
-                "quantity" to orderRequest.quantity,
-                "price" to orderRequest.price.toDouble(),
-            ),
+            payload =
+                mapOf(
+                    "mode" to orderRequest.mode.value,
+                    "side" to orderRequest.side.value,
+                    "quantity" to orderRequest.quantity,
+                    "price" to orderRequest.price.toDouble(),
+                ),
         )
     }
 
@@ -262,11 +287,12 @@ class OrderTrackingService(
             status = OrderLifecycleStatus.REJECTED,
             reason = orderRequest.failureReason,
             occurredAt = orderRequest.requestedAt,
-            payload = mapOf(
-                "mode" to orderRequest.mode.value,
-                "side" to orderRequest.side.value,
-                "reason" to orderRequest.failureReason,
-            ),
+            payload =
+                mapOf(
+                    "mode" to orderRequest.mode.value,
+                    "side" to orderRequest.side.value,
+                    "reason" to orderRequest.failureReason,
+                ),
         )
     }
 
@@ -276,18 +302,23 @@ class OrderTrackingService(
             status = OrderLifecycleStatus.REJECTED,
             reason = orderRequest.failureReason,
             occurredAt = orderRequest.requestedAt,
-            payload = mapOf(
-                "mode" to orderRequest.mode.value,
-                "side" to orderRequest.side.value,
-                "reason" to orderRequest.failureReason,
-            ),
+            payload =
+                mapOf(
+                    "mode" to orderRequest.mode.value,
+                    "side" to orderRequest.side.value,
+                    "reason" to orderRequest.failureReason,
+                ),
         )
     }
 
-    private fun getStrategy(strategyId: UUID) = strategyRepository.findByIdAndIsArchivedFalse(strategyId)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
+    private fun getStrategy(strategyId: UUID) =
+        strategyRepository.findByIdAndIsArchivedFalse(strategyId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
 
-    private fun getOrderRequest(strategyId: UUID, orderRequestId: UUID): StrategyOrderRequestEntity =
+    private fun getOrderRequest(
+        strategyId: UUID,
+        orderRequestId: UUID,
+    ): StrategyOrderRequestEntity =
         orderRequestRepository.findByIdAndStrategyId(orderRequestId, strategyId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Order request not found: $orderRequestId")
 
@@ -322,18 +353,19 @@ class OrderTrackingService(
                 -> OrderLifecycleStatus.REJECTED
             }
 
-    private fun projectPositions(strategyId: UUID): List<StrategyPositionResponse> = projectPositionState(strategyId)
-        .values
-        .filter { it.netQuantity > 0L }
-        .sortedBy { it.symbol }
-        .map {
-            StrategyPositionResponse(
-                symbol = it.symbol,
-                netQuantity = it.netQuantity,
-                avgEntryPrice = it.avgEntryPrice.toDouble(),
-                lastFillAt = it.lastFillAt,
-            )
-        }
+    private fun projectPositions(strategyId: UUID): List<StrategyPositionResponse> =
+        projectPositionState(strategyId)
+            .values
+            .filter { it.netQuantity > 0L }
+            .sortedBy { it.symbol }
+            .map {
+                StrategyPositionResponse(
+                    symbol = it.symbol,
+                    netQuantity = it.netQuantity,
+                    avgEntryPrice = it.avgEntryPrice.toDouble(),
+                    lastFillAt = it.lastFillAt,
+                )
+            }
 
     private fun projectPositionState(strategyId: UUID): Map<String, PositionState> {
         val states = linkedMapOf<String, PositionState>()
@@ -342,14 +374,16 @@ class OrderTrackingService(
             when (fill.side) {
                 OrderSide.BUY -> {
                     val nextQuantity = current.netQuantity + fill.quantity
-                    val totalCost = current.avgEntryPrice * BigDecimal.valueOf(current.netQuantity) +
-                        fill.price * BigDecimal.valueOf(fill.quantity)
+                    val totalCost =
+                        current.avgEntryPrice * BigDecimal.valueOf(current.netQuantity) +
+                            fill.price * BigDecimal.valueOf(fill.quantity)
                     current.netQuantity = nextQuantity
-                    current.avgEntryPrice = if (nextQuantity == 0L) {
-                        BigDecimal.ZERO.scaled()
-                    } else {
-                        totalCost.divide(BigDecimal.valueOf(nextQuantity), 6, RoundingMode.HALF_UP).scaled()
-                    }
+                    current.avgEntryPrice =
+                        if (nextQuantity == 0L) {
+                            BigDecimal.ZERO.scaled()
+                        } else {
+                            totalCost.divide(BigDecimal.valueOf(nextQuantity), 6, RoundingMode.HALF_UP).scaled()
+                        }
                 }
 
                 OrderSide.SELL -> {
@@ -367,38 +401,44 @@ class OrderTrackingService(
         return states
     }
 
-    private fun toOrderStatusEventResponse(entity: StrategyOrderStatusEventEntity): OrderStatusEventResponse = OrderStatusEventResponse(
-        id = entity.id,
-        orderRequestId = entity.orderRequestId,
-        status = entity.status,
-        reason = entity.reason,
-        occurredAt = entity.occurredAt,
-        payload = entity.payload,
-    )
+    private fun toOrderStatusEventResponse(entity: StrategyOrderStatusEventEntity): OrderStatusEventResponse =
+        OrderStatusEventResponse(
+            id = entity.id,
+            orderRequestId = entity.orderRequestId,
+            status = entity.status,
+            reason = entity.reason,
+            occurredAt = entity.occurredAt,
+            payload = entity.payload,
+        )
 
-    private fun toOrderFillResponse(entity: StrategyOrderFillEntity): OrderFillResponse = OrderFillResponse(
-        id = entity.id,
-        orderRequestId = entity.orderRequestId,
-        symbol = entity.symbol,
-        side = entity.side,
-        quantity = entity.quantity,
-        price = entity.price.toDouble(),
-        filledAt = entity.filledAt,
-        source = entity.source,
-    )
+    private fun toOrderFillResponse(entity: StrategyOrderFillEntity): OrderFillResponse =
+        OrderFillResponse(
+            id = entity.id,
+            orderRequestId = entity.orderRequestId,
+            symbol = entity.symbol,
+            side = entity.side,
+            quantity = entity.quantity,
+            price = entity.price.toDouble(),
+            filledAt = entity.filledAt,
+            source = entity.source,
+        )
 
     private fun BigDecimal.scaled(): BigDecimal = setScale(6, RoundingMode.HALF_UP)
 
-    private fun symbolFor(orderRequest: StrategyOrderRequestEntity): String = signalEventRepository.findById(orderRequest.signalEventId)
-        .orElseThrow {
-            ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "Signal event not found for order request: ${orderRequest.signalEventId}",
-            )
-        }
-        .symbol
+    private fun symbolFor(orderRequest: StrategyOrderRequestEntity): String =
+        signalEventRepository
+            .findById(orderRequest.signalEventId)
+            .orElseThrow {
+                ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Signal event not found for order request: ${orderRequest.signalEventId}",
+                )
+            }.symbol
 
-    private fun normalizeLimit(value: Int, defaultValue: Int): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(
+        value: Int,
+        defaultValue: Int,
+    ): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
 
     private data class PositionState(
         val symbol: String,

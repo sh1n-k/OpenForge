@@ -20,7 +20,6 @@ import java.time.ZonedDateTime
 import java.util.UUID
 
 class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
-
     @Autowired
     lateinit var mockMvc: MockMvc
 
@@ -39,36 +38,39 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
         val prepared = prepareSignalContext(name = "Global Kill", symbol = "AAA", signalType = "ENTRY", close = 12.0)
         marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
 
-        mockMvc.perform(
-            put("/api/v1/system/risk/kill-switch")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("enabled" to true))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                put("/api/v1/system/risk/kill-switch")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("enabled" to true))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.killSwitchEnabled").value(true))
 
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].riskCheck.passed").value(false))
             .andExpect(jsonPath("$[0].riskCheck.reasonCodes[0]").value("global_kill_switch"))
 
-        mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to prepared.signalEventId, "mode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to prepared.signalEventId, "mode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("rejected_risk"))
             .andExpect(jsonPath("$.failureReason").value(containsString("global_kill_switch")))
 
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/risk/events?limit=50"))
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}/risk/events?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$", hasSize<Any>(1)))
             .andExpect(jsonPath("$[0].scope").value("global"))
             .andExpect(jsonPath("$[0].eventType").value("order_blocked"))
             .andExpect(jsonPath("$[0].reasonCode").value("global_kill_switch"))
 
-        mockMvc.perform(get("/api/v1/system/risk/events?limit=20"))
+        mockMvc
+            .perform(get("/api/v1/system/risk/events?limit=20"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$", hasSize<Any>(1)))
             .andExpect(jsonPath("$[0].eventType").value("risk_global_kill_switch_changed"))
@@ -79,34 +81,35 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
         val prepared = prepareSignalContext(name = "Strategy Kill", symbol = "AAA", signalType = "ENTRY", close = 12.0)
         marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
 
-        mockMvc.perform(
-            put("/api/v1/strategies/${prepared.strategyId}/risk")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsBytes(
-                        mapOf(
-                            "perSymbolMaxNotional" to null,
-                            "strategyMaxExposure" to null,
-                            "maxOpenPositions" to null,
-                            "dailyLossLimit" to null,
-                            "strategyKillSwitchEnabled" to true,
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/${prepared.strategyId}/risk")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "perSymbolMaxNotional" to null,
+                                "strategyMaxExposure" to null,
+                                "maxOpenPositions" to null,
+                                "dailyLossLimit" to null,
+                                "strategyKillSwitchEnabled" to true,
+                            ),
                         ),
                     ),
-                ),
-        )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.strategyKillSwitchEnabled").value(true))
 
-        mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to prepared.signalEventId, "mode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to prepared.signalEventId, "mode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("rejected_risk"))
             .andExpect(jsonPath("$.failureReason").value(containsString("strategy_kill_switch")))
 
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/risk/events?limit=50"))
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}/risk/events?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$", hasSize<Any>(2)))
             .andExpect(jsonPath("$[*].eventType", hasItem("order_blocked")))
@@ -128,17 +131,18 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
             ),
         )
 
-        mockMvc.perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].riskCheck.passed").value(false))
             .andExpect(jsonPath("$[0].riskCheck.reasonCodes[0]").value("per_symbol_max_notional"))
 
-        mockMvc.perform(
-            post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to prepared.signalEventId, "mode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to prepared.signalEventId, "mode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("rejected_risk"))
             .andExpect(jsonPath("$.failureReason").value(containsString("per_symbol_max_notional")))
     }
@@ -163,18 +167,19 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
             ),
         )
 
-        mockMvc.perform(get("/api/v1/strategies/${strategy.strategyId}/orders/candidates?limit=50"))
+        mockMvc
+            .perform(get("/api/v1/strategies/${strategy.strategyId}/orders/candidates?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].symbol").value("BBB"))
             .andExpect(jsonPath("$[0].riskCheck.passed").value(false))
             .andExpect(jsonPath("$[0].riskCheck.reasonCodes", hasSize<Any>(2)))
 
-        mockMvc.perform(
-            post("/api/v1/strategies/${strategy.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to buyBbbSignal, "mode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/${strategy.strategyId}/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to buyBbbSignal, "mode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("rejected_risk"))
             .andExpect(jsonPath("$.failureReason").value(containsString("strategy_max_exposure")))
     }
@@ -208,25 +213,26 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
         )
 
         val cccBuySignal = insertSignalEvent(strategy, symbol = "CCC", signalType = "ENTRY", close = 50.0)
-        mockMvc.perform(
-            post("/api/v1/strategies/${strategy.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to cccBuySignal, "mode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/${strategy.strategyId}/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to cccBuySignal, "mode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("rejected_risk"))
             .andExpect(jsonPath("$.failureReason").value(containsString("daily_loss_limit")))
 
         val aaaSellSignal = insertSignalEvent(strategy, symbol = "AAA", signalType = "EXIT", close = 95.0)
-        mockMvc.perform(
-            post("/api/v1/strategies/${strategy.strategyId}/orders/requests")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to aaaSellSignal, "mode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/${strategy.strategyId}/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to aaaSellSignal, "mode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("requested"))
 
-        mockMvc.perform(get("/api/v1/strategies/${strategy.strategyId}/risk/events?limit=50"))
+        mockMvc
+            .perform(get("/api/v1/strategies/${strategy.strategyId}/risk/events?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[*].eventType", hasItem("daily_loss_limit_tripped")))
     }
@@ -245,23 +251,24 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
     private fun prepareStrategyContext(name: String): PreparedStrategy {
         val strategyId = createStrategy(name)
         jdbcTemplate.update("update strategy set status = 'RUNNING' where id = ?::uuid", strategyId)
-        val strategyVersionId = jdbcTemplate.queryForObject(
-            "select id from strategy_version where strategy_id = ?::uuid order by version_number desc limit 1",
-            String::class.java,
-            strategyId,
-        )!!
+        val strategyVersionId =
+            jdbcTemplate.queryForObject(
+                "select id from strategy_version where strategy_id = ?::uuid order by version_number desc limit 1",
+                String::class.java,
+                strategyId,
+            )!!
         val runId = UUID.randomUUID().toString()
         jdbcTemplate.update(
             """
-                insert into strategy_execution_run (
-                    id, strategy_id, strategy_version_id, trigger_type, status,
-                    scheduled_date, started_at, completed_at, symbol_count, signal_count,
-                    summary, error_message
-                ) values (
-                    ?::uuid, ?::uuid, ?::uuid, 'SCHEDULED', 'COMPLETED',
-                    '2026-01-05', '2026-01-05T09:30:00+09:00', '2026-01-05T09:31:00+09:00', 1, 1,
-                    '{}'::jsonb, null
-                )
+            insert into strategy_execution_run (
+                id, strategy_id, strategy_version_id, trigger_type, status,
+                scheduled_date, started_at, completed_at, symbol_count, signal_count,
+                summary, error_message
+            ) values (
+                ?::uuid, ?::uuid, ?::uuid, 'SCHEDULED', 'COMPLETED',
+                '2026-01-05', '2026-01-05T09:30:00+09:00', '2026-01-05T09:31:00+09:00', 1, 1,
+                '{}'::jsonb, null
+            )
             """.trimIndent(),
             runId,
             strategyId,
@@ -279,13 +286,13 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
         val signalEventId = UUID.randomUUID().toString()
         jdbcTemplate.update(
             """
-                insert into strategy_signal_event (
-                    id, run_id, strategy_id, strategy_version_id, symbol, signal_type,
-                    trading_date, payload, created_at, updated_at
-                ) values (
-                    ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, '2026-01-05',
-                    cast(? as jsonb), now(), now()
-                )
+            insert into strategy_signal_event (
+                id, run_id, strategy_id, strategy_version_id, symbol, signal_type,
+                trading_date, payload, created_at, updated_at
+            ) values (
+                ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?, '2026-01-05',
+                cast(? as jsonb), now(), now()
+            )
             """.trimIndent(),
             signalEventId,
             prepared.runId,
@@ -298,111 +305,135 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
         return signalEventId
     }
 
-    private fun createOrderRequest(strategyId: String, signalEventId: String): String = mockMvc.perform(
-        post("/api/v1/strategies/$strategyId/orders/requests")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to signalEventId, "mode" to "paper"))),
-    )
-        .andExpect(status().isOk)
-        .andReturn()
-        .response
-        .contentAsString
-        .let { objectMapper.readTree(it).get("id").asText() }
+    private fun createOrderRequest(
+        strategyId: String,
+        signalEventId: String,
+    ): String =
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/orders/requests")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("signalEventId" to signalEventId, "mode" to "paper"))),
+            ).andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+            .let { objectMapper.readTree(it).get("id").asText() }
 
-    private fun createFill(strategyId: String, orderRequestId: String, quantity: Long, price: Double, filledAt: String) {
-        mockMvc.perform(
-            post("/api/v1/strategies/$strategyId/orders/requests/$orderRequestId/fills")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsBytes(
-                        mapOf(
-                            "quantity" to quantity,
-                            "price" to price,
-                            "filledAt" to filledAt,
+    private fun createFill(
+        strategyId: String,
+        orderRequestId: String,
+        quantity: Long,
+        price: Double,
+        filledAt: String,
+    ) {
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/orders/requests/$orderRequestId/fills")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "quantity" to quantity,
+                                "price" to price,
+                                "filledAt" to filledAt,
+                            ),
                         ),
                     ),
-                ),
-        )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
     }
 
-    private fun updateStrategyRisk(strategyId: String, payload: Map<String, Any?>) {
-        mockMvc.perform(
-            put("/api/v1/strategies/$strategyId/risk")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(payload)),
-        )
-            .andExpect(status().isOk)
+    private fun updateStrategyRisk(
+        strategyId: String,
+        payload: Map<String, Any?>,
+    ) {
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/risk")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(payload)),
+            ).andExpect(status().isOk)
     }
 
-    private fun createStrategy(name: String): String = mockMvc.perform(
-        post("/api/v1/strategies")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(
-                objectMapper.writeValueAsBytes(
-                    mapOf(
-                        "name" to name,
-                        "description" to "risk draft",
-                        "strategyType" to "builder",
-                        "initialPayload" to mapOf(
-                            "payloadFormat" to "builder_json",
-                            "payload" to validBuilderPayload(name),
+    private fun createStrategy(name: String): String =
+        mockMvc
+            .perform(
+                post("/api/v1/strategies")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "name" to name,
+                                "description" to "risk draft",
+                                "strategyType" to "builder",
+                                "initialPayload" to
+                                    mapOf(
+                                        "payloadFormat" to "builder_json",
+                                        "payload" to validBuilderPayload(name),
+                                    ),
+                            ),
                         ),
                     ),
-                ),
-            ),
-    )
-        .andExpect(status().isOk)
-        .andReturn()
-        .response
-        .contentAsString
-        .let { objectMapper.readTree(it).get("id").asText() }
+            ).andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+            .let { objectMapper.readTree(it).get("id").asText() }
 
-    private fun validBuilderPayload(name: String) = mapOf(
-        "builderState" to mapOf(
-            "metadata" to mapOf(
-                "id" to name.lowercase().replace(" ", "_"),
-                "name" to name,
-                "description" to "risk draft",
-                "category" to "custom",
-                "author" to "OpenForge",
-                "tags" to listOf("risk"),
-            ),
-            "indicators" to listOf(
+    private fun validBuilderPayload(name: String) =
+        mapOf(
+            "builderState" to
                 mapOf(
-                    "indicatorId" to "sma",
-                    "alias" to "sma_fast",
-                    "params" to mapOf("period" to 2),
-                    "output" to "value",
+                    "metadata" to
+                        mapOf(
+                            "id" to name.lowercase().replace(" ", "_"),
+                            "name" to name,
+                            "description" to "risk draft",
+                            "category" to "custom",
+                            "author" to "OpenForge",
+                            "tags" to listOf("risk"),
+                        ),
+                    "indicators" to
+                        listOf(
+                            mapOf(
+                                "indicatorId" to "sma",
+                                "alias" to "sma_fast",
+                                "params" to mapOf("period" to 2),
+                                "output" to "value",
+                            ),
+                        ),
+                    "entry" to
+                        mapOf(
+                            "logic" to "AND",
+                            "conditions" to
+                                listOf(
+                                    mapOf(
+                                        "left" to mapOf("type" to "price", "field" to "close"),
+                                        "operator" to "cross_above",
+                                        "right" to mapOf("type" to "indicator", "alias" to "sma_fast", "output" to "value"),
+                                    ),
+                                ),
+                        ),
+                    "exit" to
+                        mapOf(
+                            "logic" to "AND",
+                            "conditions" to
+                                listOf(
+                                    mapOf(
+                                        "left" to mapOf("type" to "price", "field" to "close"),
+                                        "operator" to "cross_below",
+                                        "right" to mapOf("type" to "indicator", "alias" to "sma_fast", "output" to "value"),
+                                    ),
+                                ),
+                        ),
+                    "risk" to
+                        mapOf(
+                            "stopLoss" to mapOf("enabled" to false, "percent" to 0),
+                            "takeProfit" to mapOf("enabled" to false, "percent" to 0),
+                            "trailingStop" to mapOf("enabled" to false, "percent" to 0),
+                        ),
                 ),
-            ),
-            "entry" to mapOf(
-                "logic" to "AND",
-                "conditions" to listOf(
-                    mapOf(
-                        "left" to mapOf("type" to "price", "field" to "close"),
-                        "operator" to "cross_above",
-                        "right" to mapOf("type" to "indicator", "alias" to "sma_fast", "output" to "value"),
-                    ),
-                ),
-            ),
-            "exit" to mapOf(
-                "logic" to "AND",
-                "conditions" to listOf(
-                    mapOf(
-                        "left" to mapOf("type" to "price", "field" to "close"),
-                        "operator" to "cross_below",
-                        "right" to mapOf("type" to "indicator", "alias" to "sma_fast", "output" to "value"),
-                    ),
-                ),
-            ),
-            "risk" to mapOf(
-                "stopLoss" to mapOf("enabled" to false, "percent" to 0),
-                "takeProfit" to mapOf("enabled" to false, "percent" to 0),
-                "trailingStop" to mapOf("enabled" to false, "percent" to 0),
-            ),
-        ),
-    )
+        )
 }
 
 private data class PreparedSignalContext(

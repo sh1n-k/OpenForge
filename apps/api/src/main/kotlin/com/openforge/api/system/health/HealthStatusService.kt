@@ -14,11 +14,11 @@ class HealthStatusService(
     private val applicationProperties: ApplicationProperties,
     private val buildProperties: BuildProperties?,
 ) {
-
     fun read(): HealthResponse {
-        val databaseProduct = dataSource.connection.use { connection ->
-            connection.metaData.databaseProductName
-        }
+        val databaseProduct =
+            dataSource.connection.use { connection ->
+                connection.metaData.databaseProductName
+            }
 
         jdbcTemplate.queryForObject("select 1", Int::class.java)
 
@@ -27,10 +27,11 @@ class HealthStatusService(
             appName = "OpenForge API",
             version = buildProperties?.version ?: "0.0.1-SNAPSHOT",
             timestamp = OffsetDateTime.now(),
-            database = DatabaseStatus(
-                status = "UP",
-                product = databaseProduct,
-            ),
+            database =
+                DatabaseStatus(
+                    status = "UP",
+                    product = databaseProduct,
+                ),
             environment = applicationProperties.environment,
             mode = applicationProperties.mode,
         )

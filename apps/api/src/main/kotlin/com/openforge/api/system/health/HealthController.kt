@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.RestController
 class HealthController(
     private val healthStatusService: HealthStatusService,
 ) {
-
     @GetMapping
     fun read(): HealthResponse = healthStatusService.read()
 }
-

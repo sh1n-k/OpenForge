@@ -6,7 +6,6 @@ import kotlin.math.floor
 import kotlin.math.max
 
 class BacktestEngine {
-
     fun run(
         spec: StrategySpec,
         symbols: List<String>,
@@ -18,20 +17,22 @@ class BacktestEngine {
         }
 
         val bucketCapital = config.initialCapital / symbols.size.toDouble()
-        val symbolResults = symbols.associateWith { symbol ->
-            simulateSymbol(
-                symbol = symbol,
-                spec = spec,
-                bars = barsBySymbol[symbol].orEmpty(),
-                bucketCapital = bucketCapital,
-                config = config,
-            )
-        }
+        val symbolResults =
+            symbols.associateWith { symbol ->
+                simulateSymbol(
+                    symbol = symbol,
+                    spec = spec,
+                    bars = barsBySymbol[symbol].orEmpty(),
+                    bucketCapital = bucketCapital,
+                    config = config,
+                )
+            }
 
-        val allDates = symbolResults.values
-            .flatMap { it.equitySnapshots.map(EquitySnapshot::tradingDate) }
-            .distinct()
-            .sorted()
+        val allDates =
+            symbolResults.values
+                .flatMap { it.equitySnapshots.map(EquitySnapshot::tradingDate) }
+                .distinct()
+                .sorted()
 
         val combinedPoints = mutableListOf<EquityPoint>()
         var peak = 0.0
@@ -50,9 +51,10 @@ class BacktestEngine {
             combinedPoints += EquityPoint(date, equity, cash, drawdown)
         }
 
-        val trades = symbolResults.values.flatMap { it.trades }.sortedWith(
-            compareBy<TradeRecord> { it.entryDate }.thenBy { it.symbol },
-        )
+        val trades =
+            symbolResults.values.flatMap { it.trades }.sortedWith(
+                compareBy<TradeRecord> { it.entryDate }.thenBy { it.symbol },
+            )
         val finalCapital = combinedPoints.lastOrNull()?.equity ?: config.initialCapital
         val totalReturnRate = if (config.initialCapital == 0.0) 0.0 else (finalCapital - config.initialCapital) / config.initialCapital
         val maxDrawdownRate = combinedPoints.maxOfOrNull { it.drawdown } ?: 0.0
@@ -60,22 +62,24 @@ class BacktestEngine {
         val grossProfit = trades.filter { it.netPnl > 0.0 }.sumOf { it.netPnl }
         val grossLoss = trades.filter { it.netPnl < 0.0 }.sumOf { -it.netPnl }
         val averagePnl = if (trades.isEmpty()) 0.0 else trades.sumOf { it.netPnl } / trades.size
-        val profitFactor = if (grossLoss == 0.0) {
-            if (grossProfit == 0.0) 0.0 else grossProfit
-        } else {
-            grossProfit / grossLoss
-        }
+        val profitFactor =
+            if (grossLoss == 0.0) {
+                if (grossProfit == 0.0) 0.0 else grossProfit
+            } else {
+                grossProfit / grossLoss
+            }
 
-        val summary = linkedMapOf<String, Any?>(
-            "totalReturnRate" to totalReturnRate,
-            "maxDrawdownRate" to maxDrawdownRate,
-            "winRate" to if (trades.isEmpty()) 0.0 else winCount.toDouble() / trades.size.toDouble(),
-            "tradeCount" to trades.size,
-            "averagePnl" to averagePnl,
-            "profitFactor" to profitFactor,
-            "initialCapital" to config.initialCapital,
-            "finalCapital" to finalCapital,
-        )
+        val summary =
+            linkedMapOf<String, Any?>(
+                "totalReturnRate" to totalReturnRate,
+                "maxDrawdownRate" to maxDrawdownRate,
+                "winRate" to if (trades.isEmpty()) 0.0 else winCount.toDouble() / trades.size.toDouble(),
+                "tradeCount" to trades.size,
+                "averagePnl" to averagePnl,
+                "profitFactor" to profitFactor,
+                "initialCapital" to config.initialCapital,
+                "finalCapital" to finalCapital,
+            )
 
         return EngineResult(
             summary = summary,
@@ -110,15 +114,16 @@ class BacktestEngine {
                     ActionType.EXIT -> {
                         if (position != null) {
                             val price = sellPrice(bar.open, config.slippageRate)
-                            val trade = closePosition(
-                                symbol = symbol,
-                                position = position!!,
-                                exitDate = bar.tradingDate,
-                                exitPrice = price,
-                                reason = pending.reason ?: BacktestExitReason.SIGNAL,
-                                commissionRate = config.commissionRate,
-                                taxRate = config.taxRate,
-                            )
+                            val trade =
+                                closePosition(
+                                    symbol = symbol,
+                                    position = position!!,
+                                    exitDate = bar.tradingDate,
+                                    exitPrice = price,
+                                    reason = pending.reason ?: BacktestExitReason.SIGNAL,
+                                    commissionRate = config.commissionRate,
+                                    taxRate = config.taxRate,
+                                )
                             cash += trade.proceeds
                             trades += trade.record
                             position = null
@@ -133,12 +138,13 @@ class BacktestEngine {
                                 val buyCommission = price * quantity * config.commissionRate
                                 val totalCost = price * quantity + buyCommission
                                 cash -= totalCost
-                                position = Position(
-                                    entryDate = bar.tradingDate,
-                                    entryPrice = price,
-                                    quantity = quantity,
-                                    highestHigh = bar.high,
-                                )
+                                position =
+                                    Position(
+                                        entryDate = bar.tradingDate,
+                                        entryPrice = price,
+                                        quantity = quantity,
+                                        highestHigh = bar.high,
+                                    )
                             }
                         }
                     }
@@ -150,15 +156,16 @@ class BacktestEngine {
                 position = position!!.copy(highestHigh = max(position!!.highestHigh, bar.high))
                 val riskExit = resolveRiskExit(bar, position!!, spec.risk, config)
                 if (riskExit != null) {
-                    val trade = closePosition(
-                        symbol = symbol,
-                        position = position!!,
-                        exitDate = bar.tradingDate,
-                        exitPrice = riskExit.price,
-                        reason = riskExit.reason,
-                        commissionRate = config.commissionRate,
-                        taxRate = config.taxRate,
-                    )
+                    val trade =
+                        closePosition(
+                            symbol = symbol,
+                            position = position!!,
+                            exitDate = bar.tradingDate,
+                            exitPrice = riskExit.price,
+                            reason = riskExit.reason,
+                            commissionRate = config.commissionRate,
+                            taxRate = config.taxRate,
+                        )
                     cash += trade.proceeds
                     trades += trade.record
                     position = null
@@ -177,32 +184,35 @@ class BacktestEngine {
             }
 
             val marketValue = position?.let { it.quantity * bar.close } ?: 0.0
-            equitySnapshots += EquitySnapshot(
-                tradingDate = bar.tradingDate,
-                equity = cash + marketValue,
-                cash = cash,
-            )
+            equitySnapshots +=
+                EquitySnapshot(
+                    tradingDate = bar.tradingDate,
+                    equity = cash + marketValue,
+                    cash = cash,
+                )
         }
 
         if (position != null) {
             val lastBar = bars.last()
-            val trade = closePosition(
-                symbol = symbol,
-                position = position!!,
-                exitDate = lastBar.tradingDate,
-                exitPrice = sellPrice(lastBar.close, config.slippageRate),
-                reason = BacktestExitReason.END_OF_PERIOD,
-                commissionRate = config.commissionRate,
-                taxRate = config.taxRate,
-            )
+            val trade =
+                closePosition(
+                    symbol = symbol,
+                    position = position!!,
+                    exitDate = lastBar.tradingDate,
+                    exitPrice = sellPrice(lastBar.close, config.slippageRate),
+                    reason = BacktestExitReason.END_OF_PERIOD,
+                    commissionRate = config.commissionRate,
+                    taxRate = config.taxRate,
+                )
             cash += trade.proceeds
             trades += trade.record
             position = null
-            equitySnapshots[equitySnapshots.lastIndex] = EquitySnapshot(
-                tradingDate = lastBar.tradingDate,
-                equity = cash,
-                cash = cash,
-            )
+            equitySnapshots[equitySnapshots.lastIndex] =
+                EquitySnapshot(
+                    tradingDate = lastBar.tradingDate,
+                    equity = cash,
+                    cash = cash,
+                )
         }
 
         return SymbolSimulationResult(trades, equitySnapshots)
@@ -233,9 +243,15 @@ class BacktestEngine {
         return null
     }
 
-    private fun buyPrice(price: Double, slippageRate: Double): Double = price * (1.0 + slippageRate)
+    private fun buyPrice(
+        price: Double,
+        slippageRate: Double,
+    ): Double = price * (1.0 + slippageRate)
 
-    private fun sellPrice(price: Double, slippageRate: Double): Double = price * (1.0 - slippageRate)
+    private fun sellPrice(
+        price: Double,
+        slippageRate: Double,
+    ): Double = price * (1.0 - slippageRate)
 
     private fun closePosition(
         symbol: String,
@@ -257,18 +273,19 @@ class BacktestEngine {
         val pnlPercent = if (invested <= 0.0) 0.0 else netPnl / invested
         return ClosedTrade(
             proceeds = sellValue - sellCommission - sellTax,
-            record = TradeRecord(
-                symbol = symbol,
-                entryDate = position.entryDate,
-                exitDate = exitDate,
-                entryPrice = position.entryPrice,
-                exitPrice = exitPrice,
-                quantity = position.quantity,
-                grossPnl = grossPnl,
-                netPnl = netPnl,
-                pnlPercent = pnlPercent,
-                exitReason = reason,
-            ),
+            record =
+                TradeRecord(
+                    symbol = symbol,
+                    entryDate = position.entryDate,
+                    exitDate = exitDate,
+                    entryPrice = position.entryPrice,
+                    exitPrice = exitPrice,
+                    quantity = position.quantity,
+                    grossPnl = grossPnl,
+                    netPnl = netPnl,
+                    pnlPercent = pnlPercent,
+                    exitReason = reason,
+                ),
         )
     }
 }

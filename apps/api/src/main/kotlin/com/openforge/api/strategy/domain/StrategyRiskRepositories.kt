@@ -7,5 +7,8 @@ import java.util.UUID
 interface StrategyRiskConfigRepository : JpaRepository<StrategyRiskConfigEntity, UUID>
 
 interface StrategyRiskEventRepository : JpaRepository<StrategyRiskEventEntity, UUID> {
-    fun findAllByStrategyIdOrderByOccurredAtDesc(strategyId: UUID, pageable: Pageable): List<StrategyRiskEventEntity>
+    fun findAllByStrategyIdOrderByOccurredAtDesc(
+        strategyId: UUID,
+        pageable: Pageable,
+    ): List<StrategyRiskEventEntity>
 }

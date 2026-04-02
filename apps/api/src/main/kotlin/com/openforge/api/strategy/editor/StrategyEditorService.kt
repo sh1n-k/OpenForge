@@ -12,76 +12,19 @@ import java.util.LinkedHashMap
 
 @Service
 class StrategyEditorService {
-
     private val yaml = Yaml(dumperOptions())
 
-    private val indicators = listOf(
-        StrategyEditorIndicatorDefinition(
-            id = "sma",
-            outputs = setOf("value"),
-            defaultOutput = "value",
-            defaults = linkedMapOf("period" to 20),
-        ),
-        StrategyEditorIndicatorDefinition(
-            id = "ema",
-            outputs = setOf("value"),
-            defaultOutput = "value",
-            defaults = linkedMapOf("period" to 20),
-        ),
-        StrategyEditorIndicatorDefinition(
-            id = "rsi",
-            outputs = setOf("value"),
-            defaultOutput = "value",
-            defaults = linkedMapOf("period" to 14),
-        ),
-        StrategyEditorIndicatorDefinition(
-            id = "macd",
-            outputs = setOf("value", "signal"),
-            defaultOutput = "value",
-            defaults = linkedMapOf(
-                "fastPeriod" to 12,
-                "slowPeriod" to 26,
-                "signalPeriod" to 9,
-            ),
-        ),
-        StrategyEditorIndicatorDefinition(
-            id = "volume_sma",
-            outputs = setOf("value"),
-            defaultOutput = "value",
-            defaults = linkedMapOf("period" to 20),
-        ),
-        StrategyEditorIndicatorDefinition(
-            id = "rolling_high",
-            outputs = setOf("value"),
-            defaultOutput = "value",
-            defaults = linkedMapOf("period" to 20),
-        ),
-        StrategyEditorIndicatorDefinition(
-            id = "rolling_low",
-            outputs = setOf("value"),
-            defaultOutput = "value",
-            defaults = linkedMapOf("period" to 20),
-        ),
-    ).associateBy { it.id }
+    private val indicators = IndicatorRegistry.indicators
+    private val supportedOperators = IndicatorRegistry.supportedOperators
+    private val supportedPriceFields = IndicatorRegistry.supportedPriceFields
+    private val conditionKeys = IndicatorRegistry.conditionKeys
+    private val builderRootKeys = IndicatorRegistry.builderRootKeys
 
-    private val supportedOperators = setOf(
-        "greater_than",
-        "less_than",
-        "greater_equal",
-        "less_equal",
-        "cross_above",
-        "cross_below",
-        "equals",
-    )
-
-    private val supportedPriceFields = setOf("close", "open", "high", "low", "volume")
-    private val conditionKeys = setOf("left", "operator", "right")
-    private val builderRootKeys = setOf("metadata", "indicators", "entry", "exit", "risk")
-
-    fun validate(command: StrategyValidateCommand): StrategyValidationResult = when (command.strategyType) {
-        StrategyType.BUILDER -> validateBuilder(command.payloadFormat, command.payload)
-        StrategyType.CODE -> validateCode(command.payloadFormat, command.payload)
-    }
+    fun validate(command: StrategyValidateCommand): StrategyValidationResult =
+        when (command.strategyType) {
+            StrategyType.BUILDER -> validateBuilder(command.payloadFormat, command.payload)
+            StrategyType.CODE -> validateCode(command.payloadFormat, command.payload)
+        }
 
     fun validateOrThrow(command: StrategyValidateCommand): StrategyValidationResult {
         val result = validate(command)
@@ -100,52 +43,69 @@ class StrategyEditorService {
         payload: Map<String, Any?>,
     ): StrategyValidationResult = validate(StrategyValidateCommand(strategyType, payloadFormat, payload))
 
-    fun builderTemplate(name: String, description: String?): Map<String, Any?> = linkedMapOf(
-        "builderState" to linkedMapOf(
-            "metadata" to linkedMapOf(
-                "id" to slugify(name),
-                "name" to name,
-                "description" to (description ?: ""),
-                "category" to "custom",
-                "author" to "OpenForge",
-                "tags" to emptyList<String>(),
-            ),
-            "indicators" to emptyList<Map<String, Any?>>(),
-            "entry" to linkedMapOf(
-                "logic" to "AND",
-                "conditions" to emptyList<Map<String, Any?>>(),
-            ),
-            "exit" to linkedMapOf(
-                "logic" to "AND",
-                "conditions" to emptyList<Map<String, Any?>>(),
-            ),
-            "risk" to defaultBuilderRisk(),
-        ),
-    )
-
-    fun codeTemplate(name: String, description: String?): String = renderYaml(
+    fun builderTemplate(
+        name: String,
+        description: String?,
+    ): Map<String, Any?> =
         linkedMapOf(
-            "version" to "1.0",
-            "metadata" to linkedMapOf(
-                "name" to name,
-                "description" to (description ?: ""),
-                "author" to "OpenForge",
-                "tags" to emptyList<String>(),
+            "builderState" to
+                linkedMapOf(
+                    "metadata" to
+                        linkedMapOf(
+                            "id" to slugify(name),
+                            "name" to name,
+                            "description" to (description ?: ""),
+                            "category" to "custom",
+                            "author" to "OpenForge",
+                            "tags" to emptyList<String>(),
+                        ),
+                    "indicators" to emptyList<Map<String, Any?>>(),
+                    "entry" to
+                        linkedMapOf(
+                            "logic" to "AND",
+                            "conditions" to emptyList<Map<String, Any?>>(),
+                        ),
+                    "exit" to
+                        linkedMapOf(
+                            "logic" to "AND",
+                            "conditions" to emptyList<Map<String, Any?>>(),
+                        ),
+                    "risk" to defaultBuilderRisk(),
+                ),
+        )
+
+    fun codeTemplate(
+        name: String,
+        description: String?,
+    ): String =
+        renderYaml(
+            linkedMapOf(
+                "version" to "1.0",
+                "metadata" to
+                    linkedMapOf(
+                        "name" to name,
+                        "description" to (description ?: ""),
+                        "author" to "OpenForge",
+                        "tags" to emptyList<String>(),
+                    ),
+                "strategy" to
+                    linkedMapOf(
+                        "id" to slugify(name),
+                        "category" to "custom",
+                        "indicators" to emptyList<Map<String, Any?>>(),
+                        "entry" to linkedMapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
+                        "exit" to linkedMapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
+                    ),
+                "risk" to defaultNormalizedRisk(),
             ),
-            "strategy" to linkedMapOf(
-                "id" to slugify(name),
-                "category" to "custom",
-                "indicators" to emptyList<Map<String, Any?>>(),
-                "entry" to linkedMapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
-                "exit" to linkedMapOf("logic" to "AND", "conditions" to emptyList<Map<String, Any?>>()),
-            ),
-            "risk" to defaultNormalizedRisk(),
-        ),
-    )
+        )
 
     fun renderNormalizedSpec(normalizedSpec: Map<String, Any?>): String = renderYaml(normalizedSpec)
 
-    private fun validateBuilder(payloadFormat: PayloadFormat, payload: Map<String, Any?>): StrategyValidationResult {
+    private fun validateBuilder(
+        payloadFormat: PayloadFormat,
+        payload: Map<String, Any?>,
+    ): StrategyValidationResult {
         val errors = mutableListOf<StrategyValidationMessage>()
         val warnings = mutableListOf<StrategyValidationMessage>()
 
@@ -154,14 +114,15 @@ class StrategyEditorService {
             return invalid(errors, warnings)
         }
 
-        val rawBuilderState = when {
-            payload["builderState"] is Map<*, *> -> payload["builderState"] as Map<*, *>
-            payload.keys.any { builderRootKeys.contains(it) } -> {
-                warnings += warning("schema", "Legacy builder payload detected. Re-save to upgrade the draft.")
-                payload
+        val rawBuilderState =
+            when {
+                payload["builderState"] is Map<*, *> -> payload["builderState"] as Map<*, *>
+                payload.keys.any { builderRootKeys.contains(it) } -> {
+                    warnings += warning("schema", "Legacy builder payload detected. Re-save to upgrade the draft.")
+                    payload
+                }
+                else -> null
             }
-            else -> null
-        }
 
         if (rawBuilderState == null) {
             errors += error("schema", "builder_json payload must include builderState object")
@@ -172,7 +133,10 @@ class StrategyEditorService {
         return buildResult(normalized, errors, warnings)
     }
 
-    private fun validateCode(payloadFormat: PayloadFormat, payload: Map<String, Any?>): StrategyValidationResult {
+    private fun validateCode(
+        payloadFormat: PayloadFormat,
+        payload: Map<String, Any?>,
+    ): StrategyValidationResult {
         val errors = mutableListOf<StrategyValidationMessage>()
         val warnings = mutableListOf<StrategyValidationMessage>()
 
@@ -192,12 +156,13 @@ class StrategyEditorService {
             return invalid(errors, warnings)
         }
 
-        val loaded: Any? = try {
-            yaml.load<Any>(source)
-        } catch (exception: Exception) {
-            errors += error("syntax", exception.message ?: "YAML syntax error")
-            return invalid(errors, warnings)
-        }
+        val loaded: Any? =
+            try {
+                yaml.load<Any>(source)
+            } catch (exception: Exception) {
+                errors += error("syntax", exception.message ?: "YAML syntax error")
+                return invalid(errors, warnings)
+            }
 
         if (loaded !is Map<*, *>) {
             errors += error("schema", "OpenForge YAML DSL must be a top-level object")
@@ -215,15 +180,16 @@ class StrategyEditorService {
     ): StrategyValidationResult {
         val valid = errors.isEmpty() && normalizedSpec != null
         val status = if (valid) StrategyValidationStatus.VALID else StrategyValidationStatus.INVALID
-        val summary = if (valid) {
-            if (warnings.isEmpty()) {
-                "Validation passed"
+        val summary =
+            if (valid) {
+                if (warnings.isEmpty()) {
+                    "Validation passed"
+                } else {
+                    "Validation passed with ${warnings.size} warning(s)"
+                }
             } else {
-                "Validation passed with ${warnings.size} warning(s)"
+                "Validation failed with ${errors.size} error(s)"
             }
-        } else {
-            "Validation failed with ${errors.size} error(s)"
-        }
         return StrategyValidationResult(
             valid = valid,
             status = status,
@@ -239,15 +205,16 @@ class StrategyEditorService {
         errors: List<StrategyValidationMessage>,
         warnings: List<StrategyValidationMessage>,
         status: StrategyValidationStatus = StrategyValidationStatus.INVALID,
-    ): StrategyValidationResult = StrategyValidationResult(
-        valid = false,
-        status = status,
-        normalizedSpec = null,
-        yamlPreview = "",
-        errors = errors,
-        warnings = warnings,
-        summary = "Validation failed with ${errors.size} error(s)",
-    )
+    ): StrategyValidationResult =
+        StrategyValidationResult(
+            valid = false,
+            status = status,
+            normalizedSpec = null,
+            yamlPreview = "",
+            errors = errors,
+            warnings = warnings,
+            summary = "Validation failed with ${errors.size} error(s)",
+        )
 
     private fun normalizeBuilderState(
         rawBuilderState: Map<*, *>,
@@ -293,19 +260,21 @@ class StrategyEditorService {
 
         return linkedMapOf(
             "version" to "1.0",
-            "metadata" to linkedMapOf(
-                "name" to name,
-                "description" to description,
-                "author" to author,
-                "tags" to tags,
-            ),
-            "strategy" to linkedMapOf(
-                "id" to strategyId,
-                "category" to category,
-                "indicators" to normalizedIndicators,
-                "entry" to entry,
-                "exit" to exit,
-            ),
+            "metadata" to
+                linkedMapOf(
+                    "name" to name,
+                    "description" to description,
+                    "author" to author,
+                    "tags" to tags,
+                ),
+            "strategy" to
+                linkedMapOf(
+                    "id" to strategyId,
+                    "category" to category,
+                    "indicators" to normalizedIndicators,
+                    "entry" to entry,
+                    "exit" to exit,
+                ),
             "risk" to risk,
         )
     }
@@ -373,19 +342,21 @@ class StrategyEditorService {
 
         return linkedMapOf(
             "version" to version,
-            "metadata" to linkedMapOf(
-                "name" to name,
-                "description" to description,
-                "author" to author,
-                "tags" to tags,
-            ),
-            "strategy" to linkedMapOf(
-                "id" to strategyId,
-                "category" to category,
-                "indicators" to normalizedIndicators,
-                "entry" to entry,
-                "exit" to exit,
-            ),
+            "metadata" to
+                linkedMapOf(
+                    "name" to name,
+                    "description" to description,
+                    "author" to author,
+                    "tags" to tags,
+                ),
+            "strategy" to
+                linkedMapOf(
+                    "id" to strategyId,
+                    "category" to category,
+                    "indicators" to normalizedIndicators,
+                    "entry" to entry,
+                    "exit" to exit,
+                ),
             "risk" to risk,
         )
     }
@@ -504,9 +475,10 @@ class StrategyEditorService {
             return null
         }
         val logic = normalizeLogic(group["logic"], label, errors)
-        val normalizedConditions = listValue(group["conditions"]).orEmpty().mapIndexedNotNull { index, rawCondition ->
-            normalizeCondition(rawCondition, "$label.conditions[$index]", outputsByAlias, errors)
-        }
+        val normalizedConditions =
+            listValue(group["conditions"]).orEmpty().mapIndexedNotNull { index, rawCondition ->
+                normalizeCondition(rawCondition, "$label.conditions[$index]", outputsByAlias, errors)
+            }
         if (logic == null) {
             return null
         }
@@ -533,9 +505,10 @@ class StrategyEditorService {
             return null
         }
         val logic = normalizeLogic(group["logic"], label, errors)
-        val normalizedConditions = listValue(group["conditions"]).orEmpty().mapIndexedNotNull { index, rawCondition ->
-            normalizeCondition(rawCondition, "$label.conditions[$index]", outputsByAlias, errors)
-        }
+        val normalizedConditions =
+            listValue(group["conditions"]).orEmpty().mapIndexedNotNull { index, rawCondition ->
+                normalizeCondition(rawCondition, "$label.conditions[$index]", outputsByAlias, errors)
+            }
         if (logic == null) {
             return null
         }
@@ -676,10 +649,11 @@ class StrategyEditorService {
         errors: MutableList<StrategyValidationMessage>,
     ): Map<String, Any?> {
         val item = mapValue(rawItem).orEmpty()
-        val percent = asNumber(item["percent"] ?: 0) ?: run {
-            errors += error("schema", "$label.percent must be numeric")
-            0
-        }
+        val percent =
+            asNumber(item["percent"] ?: 0) ?: run {
+                errors += error("schema", "$label.percent must be numeric")
+                0
+            }
         return linkedMapOf(
             "enabled" to ((item["enabled"] as? Boolean) ?: false),
             "percent" to percent,
@@ -711,51 +685,63 @@ class StrategyEditorService {
 
     private fun renderYaml(value: Map<String, Any?>): String = yaml.dump(value).trimEnd()
 
-    private fun defaultBuilderRisk(): Map<String, Any?> = linkedMapOf(
-        "stopLoss" to linkedMapOf("enabled" to false, "percent" to 0),
-        "takeProfit" to linkedMapOf("enabled" to false, "percent" to 0),
-        "trailingStop" to linkedMapOf("enabled" to false, "percent" to 0),
-    )
+    private fun defaultBuilderRisk(): Map<String, Any?> =
+        linkedMapOf(
+            "stopLoss" to linkedMapOf("enabled" to false, "percent" to 0),
+            "takeProfit" to linkedMapOf("enabled" to false, "percent" to 0),
+            "trailingStop" to linkedMapOf("enabled" to false, "percent" to 0),
+        )
 
-    private fun defaultNormalizedRisk(): Map<String, Any?> = linkedMapOf(
-        "stop_loss" to linkedMapOf("enabled" to false, "percent" to 0),
-        "take_profit" to linkedMapOf("enabled" to false, "percent" to 0),
-        "trailing_stop" to linkedMapOf("enabled" to false, "percent" to 0),
-    )
+    private fun defaultNormalizedRisk(): Map<String, Any?> =
+        linkedMapOf(
+            "stop_loss" to linkedMapOf("enabled" to false, "percent" to 0),
+            "take_profit" to linkedMapOf("enabled" to false, "percent" to 0),
+            "trailing_stop" to linkedMapOf("enabled" to false, "percent" to 0),
+        )
 
-    private fun slugify(value: String): String = value
-        .lowercase()
-        .replace(Regex("[^a-z0-9]+"), "_")
-        .trim('_')
-        .ifBlank { "strategy" }
+    private fun slugify(value: String): String =
+        value
+            .lowercase()
+            .replace(Regex("[^a-z0-9]+"), "_")
+            .trim('_')
+            .ifBlank { "strategy" }
 
     private fun mapValue(value: Any?): Map<String, Any?>? {
         if (value !is Map<*, *>) {
             return null
         }
-        return value.entries.associate { (key, nestedValue) ->
-            key.toString() to nestedValue
-        }.toMap(LinkedHashMap())
+        return value.entries
+            .associate { (key, nestedValue) ->
+                key.toString() to nestedValue
+            }.toMap(LinkedHashMap())
     }
 
     private fun listValue(value: Any?): List<Any?>? = value as? List<Any?>
 
-    private fun asNumber(value: Any?): Number? = when (value) {
-        is Number -> value
-        is String -> value.toDoubleOrNull()
-        else -> null
-    }
+    private fun asNumber(value: Any?): Number? =
+        when (value) {
+            is Number -> value
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
 
-    private fun error(category: String, message: String) = StrategyValidationMessage(category, message)
+    private fun error(
+        category: String,
+        message: String,
+    ) = StrategyValidationMessage(category, message)
 
-    private fun warning(category: String, message: String) = StrategyValidationMessage(category, message)
+    private fun warning(
+        category: String,
+        message: String,
+    ) = StrategyValidationMessage(category, message)
 
-    private fun dumperOptions(): DumperOptions = DumperOptions().apply {
-        defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
-        isPrettyFlow = true
-        indent = 2
-        indicatorIndent = 1
-        width = 120
-        splitLines = false
-    }
+    private fun dumperOptions(): DumperOptions =
+        DumperOptions().apply {
+            defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
+            isPrettyFlow = true
+            indent = 2
+            indicatorIndent = 1
+            width = 120
+            splitLines = false
+        }
 }

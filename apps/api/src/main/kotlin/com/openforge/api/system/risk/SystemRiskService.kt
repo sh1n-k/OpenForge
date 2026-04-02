@@ -15,7 +15,6 @@ class SystemRiskService(
     private val jdbcTemplate: JdbcTemplate,
     private val objectMapper: ObjectMapper,
 ) {
-
     fun getGlobalRisk(): GlobalRiskResponse {
         val state = globalRiskState()
         return GlobalRiskResponse(
@@ -25,24 +24,25 @@ class SystemRiskService(
     }
 
     fun updateGlobalKillSwitch(request: UpdateGlobalRiskKillSwitchRequest): GlobalRiskResponse {
-        val payload = objectMapper.writeValueAsString(
-            mapOf("enabled" to request.enabled),
-        )
+        val payload =
+            objectMapper.writeValueAsString(
+                mapOf("enabled" to request.enabled),
+            )
         jdbcTemplate.update(
             """
-                insert into app_config (key, value, updated_at)
-                values (?, cast(? as jsonb), now())
-                on conflict (key) do update set
-                    value = excluded.value,
-                    updated_at = now()
+            insert into app_config (key, value, updated_at)
+            values (?, cast(? as jsonb), now())
+            on conflict (key) do update set
+                value = excluded.value,
+                updated_at = now()
             """.trimIndent(),
             GLOBAL_KILL_SWITCH_KEY,
             payload,
         )
         jdbcTemplate.update(
             """
-                insert into app_event_log (event_type, level, payload, created_at)
-                values (?, ?, cast(? as jsonb), now())
+            insert into app_event_log (event_type, level, payload, created_at)
+            values (?, ?, cast(? as jsonb), now())
             """.trimIndent(),
             GLOBAL_KILL_SWITCH_EVENT_TYPE,
             "info",
@@ -51,50 +51,54 @@ class SystemRiskService(
         return getGlobalRisk()
     }
 
-    fun listGlobalRiskEvents(limit: Int): List<GlobalRiskEventResponse> = jdbcTemplate.query(
-        """
+    fun listGlobalRiskEvents(limit: Int): List<GlobalRiskEventResponse> =
+        jdbcTemplate.query(
+            """
             select id, event_type, level, payload::text as payload_text, created_at
             from app_event_log
             where event_type = ?
             order by created_at desc
             limit ?
-        """.trimIndent(),
-        { rs, _ ->
-            val payload = objectMapper.readValue(rs.getString("payload_text"), Map::class.java) as Map<String, Any?>
-            val enabled = payload["enabled"] as? Boolean ?: false
-            GlobalRiskEventResponse(
-                id = rs.getLong("id"),
-                eventType = rs.getString("event_type"),
-                reasonCode = if (enabled) "global_kill_switch_enabled" else "global_kill_switch_disabled",
-                message = if (enabled) "전역 킬 스위치 활성화" else "전역 킬 스위치 비활성화",
-                payload = payload,
-                occurredAt = rs.getTimestamp("created_at").toOffsetDateTimeUtc(),
-            )
-        },
-        GLOBAL_KILL_SWITCH_EVENT_TYPE,
-        normalizeLimit(limit, 20),
-    )
-
-    fun isGlobalKillSwitchEnabled(): Boolean {
-        return globalRiskState().enabled
-    }
-
-    private fun globalRiskState(): GlobalRiskState {
-        val row = jdbcTemplate.query(
-            "select value::text as value_text, updated_at from app_config where key = ?",
+            """.trimIndent(),
             { rs, _ ->
-                val payload = objectMapper.readValue(rs.getString("value_text"), Map::class.java) as Map<String, Any?>
-                GlobalRiskState(
-                    enabled = payload["enabled"] as? Boolean ?: false,
-                    updatedAt = rs.getTimestamp("updated_at").toOffsetDateTimeUtc(),
+                val payload = objectMapper.readValue(rs.getString("payload_text"), Map::class.java) as Map<String, Any?>
+                val enabled = payload["enabled"] as? Boolean ?: false
+                GlobalRiskEventResponse(
+                    id = rs.getLong("id"),
+                    eventType = rs.getString("event_type"),
+                    reasonCode = if (enabled) "global_kill_switch_enabled" else "global_kill_switch_disabled",
+                    message = if (enabled) "전역 킬 스위치 활성화" else "전역 킬 스위치 비활성화",
+                    payload = payload,
+                    occurredAt = rs.getTimestamp("created_at").toOffsetDateTimeUtc(),
                 )
             },
-            GLOBAL_KILL_SWITCH_KEY,
-        ).firstOrNull()
+            GLOBAL_KILL_SWITCH_EVENT_TYPE,
+            normalizeLimit(limit, 20),
+        )
+
+    fun isGlobalKillSwitchEnabled(): Boolean = globalRiskState().enabled
+
+    private fun globalRiskState(): GlobalRiskState {
+        val row =
+            jdbcTemplate
+                .query(
+                    "select value::text as value_text, updated_at from app_config where key = ?",
+                    { rs, _ ->
+                        val payload = objectMapper.readValue(rs.getString("value_text"), Map::class.java) as Map<String, Any?>
+                        GlobalRiskState(
+                            enabled = payload["enabled"] as? Boolean ?: false,
+                            updatedAt = rs.getTimestamp("updated_at").toOffsetDateTimeUtc(),
+                        )
+                    },
+                    GLOBAL_KILL_SWITCH_KEY,
+                ).firstOrNull()
         return row ?: GlobalRiskState(enabled = false, updatedAt = null)
     }
 
-    private fun normalizeLimit(value: Int, defaultValue: Int): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(
+        value: Int,
+        defaultValue: Int,
+    ): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
 
     private fun Timestamp.toOffsetDateTimeUtc(): OffsetDateTime = toInstant().atOffset(ZoneOffset.UTC)
 

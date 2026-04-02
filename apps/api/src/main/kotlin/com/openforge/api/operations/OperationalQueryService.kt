@@ -17,22 +17,26 @@ class OperationalQueryService(
     private val signalEventRepository: StrategySignalEventRepository,
     private val orderTrackingService: OrderTrackingService,
 ) {
-
-    fun listOrders(strategyId: UUID?, limit: Int): List<CrossStrategyOrderRequestResponse> {
+    fun listOrders(
+        strategyId: UUID?,
+        limit: Int,
+    ): List<CrossStrategyOrderRequestResponse> {
         val strategies = strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
         val nameMap = strategies.associate { it.id to it.name }
         val pageable = PageRequest.of(0, normalizeLimit(limit, 50))
 
-        val requests = if (strategyId != null) {
-            orderRequestRepository.findAllByStrategyIdOrderByRequestedAtDesc(strategyId, pageable)
-        } else {
-            orderRequestRepository.findAllByOrderByRequestedAtDesc(pageable)
-        }
+        val requests =
+            if (strategyId != null) {
+                orderRequestRepository.findAllByStrategyIdOrderByRequestedAtDesc(strategyId, pageable)
+            } else {
+                orderRequestRepository.findAllByOrderByRequestedAtDesc(pageable)
+            }
 
         return requests.map { req ->
-            val symbol = runCatching {
-                signalEventRepository.findById(req.signalEventId).orElse(null)?.symbol
-            }.getOrNull() ?: ""
+            val symbol =
+                runCatching {
+                    signalEventRepository.findById(req.signalEventId).orElse(null)?.symbol
+                }.getOrNull() ?: ""
 
             CrossStrategyOrderRequestResponse(
                 id = req.id,
@@ -51,16 +55,20 @@ class OperationalQueryService(
         }
     }
 
-    fun listFills(strategyId: UUID?, limit: Int): List<CrossStrategyFillResponse> {
+    fun listFills(
+        strategyId: UUID?,
+        limit: Int,
+    ): List<CrossStrategyFillResponse> {
         val strategies = strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
         val nameMap = strategies.associate { it.id to it.name }
         val pageable = PageRequest.of(0, normalizeLimit(limit, 50))
 
-        val fills = if (strategyId != null) {
-            orderFillRepository.findAllByStrategyIdOrderByFilledAtDesc(strategyId, pageable)
-        } else {
-            orderFillRepository.findAllByOrderByFilledAtDesc(pageable)
-        }
+        val fills =
+            if (strategyId != null) {
+                orderFillRepository.findAllByStrategyIdOrderByFilledAtDesc(strategyId, pageable)
+            } else {
+                orderFillRepository.findAllByOrderByFilledAtDesc(pageable)
+            }
 
         return fills.map { fill ->
             CrossStrategyFillResponse(
@@ -80,11 +88,12 @@ class OperationalQueryService(
     }
 
     fun listPositions(strategyId: UUID?): List<CrossStrategyPositionResponse> {
-        val strategies = if (strategyId != null) {
-            strategyRepository.findByIdAndIsArchivedFalse(strategyId)?.let { listOf(it) } ?: emptyList()
-        } else {
-            strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
-        }
+        val strategies =
+            if (strategyId != null) {
+                strategyRepository.findByIdAndIsArchivedFalse(strategyId)?.let { listOf(it) } ?: emptyList()
+            } else {
+                strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
+            }
 
         return strategies.flatMap { strategy ->
             orderTrackingService.currentPositionProjections(strategy.id).map { p ->
@@ -100,5 +109,8 @@ class OperationalQueryService(
         }
     }
 
-    private fun normalizeLimit(value: Int, defaultValue: Int): Int = value.coerceIn(1, 500).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(
+        value: Int,
+        defaultValue: Int,
+    ): Int = value.coerceIn(1, 500).takeIf { it > 0 } ?: defaultValue
 }

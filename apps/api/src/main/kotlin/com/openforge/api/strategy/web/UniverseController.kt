@@ -18,7 +18,6 @@ import java.util.UUID
 class UniverseController(
     private val universeService: UniverseService,
 ) {
-
     @GetMapping
     fun list(): List<UniverseSummaryResponse> = universeService.listUniverses()
 
@@ -51,4 +50,3 @@ class UniverseController(
         universeService.archiveUniverse(universeId)
     }
 }
-

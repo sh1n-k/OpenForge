@@ -16,4 +16,3 @@ data class DatabaseStatus(
     val status: String,
     val product: String,
 )
-

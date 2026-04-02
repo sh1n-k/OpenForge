@@ -20,7 +20,6 @@ class AuthController(
     private val jwtService: JwtService,
     private val applicationProperties: ApplicationProperties,
 ) {
-
     @PostMapping("/login")
     fun login(
         @RequestBody request: LoginRequest,
@@ -73,10 +72,11 @@ class AuthController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): AuthStatusResponse {
-        val refreshToken = request.cookies
-            ?.firstOrNull { it.name == REFRESH_TOKEN_COOKIE }
-            ?.value
-            ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found")
+        val refreshToken =
+            request.cookies
+                ?.firstOrNull { it.name == REFRESH_TOKEN_COOKIE }
+                ?.value
+                ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found")
 
         if (!jwtService.validateToken(refreshToken) || !jwtService.isRefreshToken(refreshToken)) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token")
@@ -103,9 +103,10 @@ class AuthController(
         if (configured.isBlank()) {
             return AuthStatusResponse(authenticated = true, authRequired = false)
         }
-        val token = request.cookies
-            ?.firstOrNull { it.name == ACCESS_TOKEN_COOKIE }
-            ?.value
+        val token =
+            request.cookies
+                ?.firstOrNull { it.name == ACCESS_TOKEN_COOKIE }
+                ?.value
         val authenticated = token != null && jwtService.validateToken(token) && !jwtService.isRefreshToken(token)
         return AuthStatusResponse(authenticated = authenticated, authRequired = true)
     }
@@ -126,11 +127,12 @@ class AuthController(
         return cookie
     }
 
-    private fun hashSha256(input: String): ByteArray =
-        MessageDigest.getInstance("SHA-256").digest(input.toByteArray(StandardCharsets.UTF_8))
+    private fun hashSha256(input: String): ByteArray = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(StandardCharsets.UTF_8))
 
-    private fun timingSafeEquals(a: ByteArray, b: ByteArray): Boolean =
-        MessageDigest.isEqual(a, b)
+    private fun timingSafeEquals(
+        a: ByteArray,
+        b: ByteArray,
+    ): Boolean = MessageDigest.isEqual(a, b)
 
     companion object {
         const val ACCESS_TOKEN_COOKIE = "of_access_token"
@@ -138,7 +140,9 @@ class AuthController(
     }
 }
 
-data class LoginRequest(val password: String)
+data class LoginRequest(
+    val password: String,
+)
 
 data class AuthStatusResponse(
     val authenticated: Boolean,

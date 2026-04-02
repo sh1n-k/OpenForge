@@ -54,7 +54,9 @@ data class BrokerConnectionEventResponse(
     val occurredAt: OffsetDateTime,
 )
 
-enum class BrokerConnectionEventType(@get:JsonValue val value: String) {
+enum class BrokerConnectionEventType(
+    @get:JsonValue val value: String,
+) {
     CONFIG_SAVED("config_saved"),
     CONNECTION_TEST_SUCCEEDED("connection_test_succeeded"),
     CONNECTION_TEST_FAILED("connection_test_failed"),
@@ -64,12 +66,15 @@ enum class BrokerConnectionEventType(@get:JsonValue val value: String) {
     companion object {
         @JvmStatic
         @JsonCreator
-        fun fromValue(value: String): BrokerConnectionEventType = entries.firstOrNull { it.value == value }
-            ?: throw IllegalArgumentException("Unsupported brokerConnectionEventType: $value")
+        fun fromValue(value: String): BrokerConnectionEventType =
+            entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unsupported brokerConnectionEventType: $value")
     }
 }
 
-enum class BrokerConnectionTestStatus(@get:JsonValue val value: String) {
+enum class BrokerConnectionTestStatus(
+    @get:JsonValue val value: String,
+) {
     SUCCESS("success"),
     FAILED("failed"),
     ;
@@ -77,7 +82,8 @@ enum class BrokerConnectionTestStatus(@get:JsonValue val value: String) {
     companion object {
         @JvmStatic
         @JsonCreator
-        fun fromValue(value: String): BrokerConnectionTestStatus = entries.firstOrNull { it.value == value }
-            ?: throw IllegalArgumentException("Unsupported brokerConnectionTestStatus: $value")
+        fun fromValue(value: String): BrokerConnectionTestStatus =
+            entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unsupported brokerConnectionTestStatus: $value")
     }
 }

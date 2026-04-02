@@ -24,19 +24,20 @@ class UniverseService(
     private val universeSymbolRepository: UniverseSymbolRepository,
     private val strategyUniverseRepository: StrategyUniverseRepository,
 ) {
-
-    fun listUniverses(): List<UniverseSummaryResponse> = universeRepository
-        .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
-        .map(::toSummary)
+    fun listUniverses(): List<UniverseSummaryResponse> =
+        universeRepository
+            .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
+            .map(::toSummary)
 
     fun createUniverse(request: CreateUniverseRequest): UniverseDetailResponse {
         ensureUniqueUniverseName(request.name, null)
-        val universe = universeRepository.save(
-            UniverseEntity(
-                name = request.name.trim(),
-                description = request.description?.trim()?.ifBlank { null },
-            ),
-        )
+        val universe =
+            universeRepository.save(
+                UniverseEntity(
+                    name = request.name.trim(),
+                    description = request.description?.trim()?.ifBlank { null },
+                ),
+            )
         return getUniverse(universe.id)
     }
 
@@ -49,20 +50,24 @@ class UniverseService(
             description = universe.description,
             symbolCount = symbols.size.toLong(),
             strategyCount = strategyUniverseRepository.countByUniverseId(universe.id),
-            symbols = symbols.map {
-                UniverseSymbolResponse(
-                    symbol = it.symbol,
-                    market = it.market,
-                    displayName = it.displayName,
-                    sortOrder = it.sortOrder,
-                )
-            },
+            symbols =
+                symbols.map {
+                    UniverseSymbolResponse(
+                        symbol = it.symbol,
+                        market = it.market,
+                        displayName = it.displayName,
+                        sortOrder = it.sortOrder,
+                    )
+                },
             createdAt = universe.createdAt,
             updatedAt = universe.updatedAt,
         )
     }
 
-    fun updateUniverse(universeId: UUID, request: UpdateUniverseRequest): UniverseDetailResponse {
+    fun updateUniverse(
+        universeId: UUID,
+        request: UpdateUniverseRequest,
+    ): UniverseDetailResponse {
         val universe = getActiveUniverse(universeId)
 
         request.name?.trim()?.let { name ->
@@ -81,18 +86,22 @@ class UniverseService(
         return getUniverse(universe.id)
     }
 
-    fun replaceSymbols(universeId: UUID, inputs: List<UniverseSymbolInput>): UniverseDetailResponse {
+    fun replaceSymbols(
+        universeId: UUID,
+        inputs: List<UniverseSymbolInput>,
+    ): UniverseDetailResponse {
         val universe = getActiveUniverse(universeId)
-        val normalized = inputs
-            .mapIndexed { index, input ->
-                UniverseSymbolEntity(
-                    universeId = universe.id,
-                    symbol = input.symbol.trim(),
-                    market = input.market,
-                    displayName = input.displayName.trim(),
-                    sortOrder = input.sortOrder.takeIf { it >= 0 } ?: index,
-                )
-            }
+        val normalized =
+            inputs
+                .mapIndexed { index, input ->
+                    UniverseSymbolEntity(
+                        universeId = universe.id,
+                        symbol = input.symbol.trim(),
+                        market = input.market,
+                        displayName = input.displayName.trim(),
+                        sortOrder = input.sortOrder.takeIf { it >= 0 } ?: index,
+                    )
+                }
 
         if (normalized.any { it.symbol.isBlank() || it.displayName.isBlank() }) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe symbols require symbol and displayName")
@@ -113,22 +122,26 @@ class UniverseService(
         universeRepository.save(universe)
     }
 
-    private fun ensureUniqueUniverseName(name: String, excludeId: UUID?) {
+    private fun ensureUniqueUniverseName(
+        name: String,
+        excludeId: UUID?,
+    ) {
         if (universeRepository.existsActiveByName(name.trim(), excludeId)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "An active universe with the same name already exists")
         }
     }
 
-    private fun getActiveUniverse(universeId: UUID): UniverseEntity = universeRepository.findByIdAndIsArchivedFalse(universeId)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Universe not found: $universeId")
+    private fun getActiveUniverse(universeId: UUID): UniverseEntity =
+        universeRepository.findByIdAndIsArchivedFalse(universeId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Universe not found: $universeId")
 
-    private fun toSummary(universe: UniverseEntity): UniverseSummaryResponse = UniverseSummaryResponse(
-        id = universe.id,
-        name = universe.name,
-        description = universe.description,
-        symbolCount = universeSymbolRepository.countByUniverseId(universe.id),
-        strategyCount = strategyUniverseRepository.countByUniverseId(universe.id),
-        updatedAt = universe.updatedAt,
-    )
+    private fun toSummary(universe: UniverseEntity): UniverseSummaryResponse =
+        UniverseSummaryResponse(
+            id = universe.id,
+            name = universe.name,
+            description = universe.description,
+            symbolCount = universeSymbolRepository.countByUniverseId(universe.id),
+            strategyCount = strategyUniverseRepository.countByUniverseId(universe.id),
+            updatedAt = universe.updatedAt,
+        )
 }
-

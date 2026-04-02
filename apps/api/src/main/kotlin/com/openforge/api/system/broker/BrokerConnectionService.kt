@@ -3,10 +3,10 @@ package com.openforge.api.system.broker
 import com.openforge.api.config.ApplicationProperties
 import com.openforge.api.strategy.domain.OrderMode
 import jakarta.transaction.Transactional
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
-import org.springframework.core.env.Environment
 import org.springframework.web.server.ResponseStatusException
 import tools.jackson.databind.ObjectMapper
 import java.net.URI
@@ -37,7 +37,6 @@ class BrokerConnectionService(
     private val kisApiProperties: KisApiProperties,
     private val environment: Environment,
 ) {
-
     private val secureRandom = SecureRandom()
 
     fun getStatus(): SystemBrokerStatusResponse {
@@ -50,10 +49,11 @@ class BrokerConnectionService(
             live = live,
             hasPaperConfig = paper.isConfigured,
             hasLiveConfig = live.isConfigured,
-            isCurrentModeConfigured = when (currentMode) {
-                OrderMode.PAPER -> paper.isConfigured
-                OrderMode.LIVE -> live.isConfigured
-            },
+            isCurrentModeConfigured =
+                when (currentMode) {
+                    OrderMode.PAPER -> paper.isConfigured
+                    OrderMode.LIVE -> live.isConfigured
+                },
         )
     }
 
@@ -64,30 +64,30 @@ class BrokerConnectionService(
 
         jdbcTemplate.update(
             """
-                insert into broker_connection_config (
-                    id,
-                    broker_type,
-                    target_mode,
-                    app_key_ciphertext,
-                    app_secret_ciphertext,
-                    account_number_ciphertext,
-                    product_code_ciphertext,
-                    base_url,
-                    enabled,
-                    last_connection_test_at,
-                    last_connection_test_status,
-                    last_connection_test_message,
-                    created_at,
-                    updated_at
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
-                on conflict (broker_type, target_mode) do update set
-                    app_key_ciphertext = excluded.app_key_ciphertext,
-                    app_secret_ciphertext = excluded.app_secret_ciphertext,
-                    account_number_ciphertext = excluded.account_number_ciphertext,
-                    product_code_ciphertext = excluded.product_code_ciphertext,
-                    base_url = excluded.base_url,
-                    enabled = excluded.enabled,
-                    updated_at = now()
+            insert into broker_connection_config (
+                id,
+                broker_type,
+                target_mode,
+                app_key_ciphertext,
+                app_secret_ciphertext,
+                account_number_ciphertext,
+                product_code_ciphertext,
+                base_url,
+                enabled,
+                last_connection_test_at,
+                last_connection_test_status,
+                last_connection_test_message,
+                created_at,
+                updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
+            on conflict (broker_type, target_mode) do update set
+                app_key_ciphertext = excluded.app_key_ciphertext,
+                app_secret_ciphertext = excluded.app_secret_ciphertext,
+                account_number_ciphertext = excluded.account_number_ciphertext,
+                product_code_ciphertext = excluded.product_code_ciphertext,
+                base_url = excluded.base_url,
+                enabled = excluded.enabled,
+                updated_at = now()
             """.trimIndent(),
             merged.id,
             BROKER_TYPE,
@@ -108,23 +108,25 @@ class BrokerConnectionService(
             targetMode = request.targetMode,
             eventType = BrokerConnectionEventType.CONFIG_SAVED,
             message = "${request.targetMode.value} KIS 연결 설정 저장",
-            payload = mapOf(
-                "enabled" to request.enabled,
-                "isConfigured" to response.isConfigured,
-                "maskedAppKey" to response.maskedAppKey,
-                "maskedAccountNumber" to response.maskedAccountNumber,
-                "maskedProductCode" to response.maskedProductCode,
-            ),
+            payload =
+                mapOf(
+                    "enabled" to request.enabled,
+                    "isConfigured" to response.isConfigured,
+                    "maskedAppKey" to response.maskedAppKey,
+                    "maskedAccountNumber" to response.maskedAccountNumber,
+                    "maskedProductCode" to response.maskedProductCode,
+                ),
         )
         if (existing?.enabled != null && existing.enabled != request.enabled) {
             appendEvent(
                 targetMode = request.targetMode,
                 eventType = BrokerConnectionEventType.ENABLED_CHANGED,
-                message = if (request.enabled) {
-                    "${request.targetMode.value} 브로커 연결 활성화"
-                } else {
-                    "${request.targetMode.value} 브로커 연결 비활성화"
-                },
+                message =
+                    if (request.enabled) {
+                        "${request.targetMode.value} 브로커 연결 활성화"
+                    } else {
+                        "${request.targetMode.value} 브로커 연결 비활성화"
+                    },
                 payload = mapOf("enabled" to request.enabled),
             )
         }
@@ -132,33 +134,37 @@ class BrokerConnectionService(
     }
 
     fun testConnection(request: TestBrokerConnectionRequest): BrokerConnectionResponse {
-        val config = findConfig(request.targetMode)
-            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Broker config is not registered for ${request.targetMode.value}")
+        val config =
+            findConfig(request.targetMode)
+                ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Broker config is not registered for ${request.targetMode.value}")
         requireConfigured(config)
 
-        val result = runCatching { performConnectionTest(config) }
-            .getOrElse { throwable ->
-                val message = throwable.message ?: "KIS connection test failed"
-                val failed = config.copy(
-                    lastConnectionTestAt = OffsetDateTime.now(ZoneOffset.UTC),
-                    lastConnectionTestStatus = BrokerConnectionTestStatus.FAILED,
-                    lastConnectionTestMessage = message,
-                )
-                persistTestResult(failed)
-                appendEvent(
-                    targetMode = request.targetMode,
-                    eventType = BrokerConnectionEventType.CONNECTION_TEST_FAILED,
-                    message = message,
-                    payload = mapOf("status" to BrokerConnectionTestStatus.FAILED.value),
-                )
-                return toResponse(failed, request.targetMode)
-            }
+        val result =
+            runCatching { performConnectionTest(config) }
+                .getOrElse { throwable ->
+                    val message = throwable.message ?: "KIS connection test failed"
+                    val failed =
+                        config.copy(
+                            lastConnectionTestAt = OffsetDateTime.now(ZoneOffset.UTC),
+                            lastConnectionTestStatus = BrokerConnectionTestStatus.FAILED,
+                            lastConnectionTestMessage = message,
+                        )
+                    persistTestResult(failed)
+                    appendEvent(
+                        targetMode = request.targetMode,
+                        eventType = BrokerConnectionEventType.CONNECTION_TEST_FAILED,
+                        message = message,
+                        payload = mapOf("status" to BrokerConnectionTestStatus.FAILED.value),
+                    )
+                    return toResponse(failed, request.targetMode)
+                }
 
-        val updated = config.copy(
-            lastConnectionTestAt = OffsetDateTime.now(ZoneOffset.UTC),
-            lastConnectionTestStatus = BrokerConnectionTestStatus.SUCCESS,
-            lastConnectionTestMessage = result.message,
-        )
+        val updated =
+            config.copy(
+                lastConnectionTestAt = OffsetDateTime.now(ZoneOffset.UTC),
+                lastConnectionTestStatus = BrokerConnectionTestStatus.SUCCESS,
+                lastConnectionTestMessage = result.message,
+            )
         persistTestResult(updated)
         appendEvent(
             targetMode = request.targetMode,
@@ -169,25 +175,26 @@ class BrokerConnectionService(
         return toResponse(updated, request.targetMode)
     }
 
-    fun listEvents(limit: Int): List<BrokerConnectionEventResponse> = jdbcTemplate.query(
-        """
+    fun listEvents(limit: Int): List<BrokerConnectionEventResponse> =
+        jdbcTemplate.query(
+            """
             select id, target_mode, event_type, message, payload::text as payload_text, occurred_at
             from broker_connection_event
             order by occurred_at desc
             limit ?
-        """.trimIndent(),
-        { rs, _ ->
-            BrokerConnectionEventResponse(
-                id = UUID.fromString(rs.getString("id")),
-                targetMode = OrderMode.valueOf(rs.getString("target_mode")),
-                eventType = BrokerConnectionEventType.fromValue(rs.getString("event_type")),
-                message = rs.getString("message"),
-                payload = objectMapper.readValue(rs.getString("payload_text"), Map::class.java) as Map<String, Any?>,
-                occurredAt = rs.getTimestamp("occurred_at").toOffsetDateTimeUtc(),
-            )
-        },
-        normalizeLimit(limit, 20),
-    )
+            """.trimIndent(),
+            { rs, _ ->
+                BrokerConnectionEventResponse(
+                    id = UUID.fromString(rs.getString("id")),
+                    targetMode = OrderMode.valueOf(rs.getString("target_mode")),
+                    eventType = BrokerConnectionEventType.fromValue(rs.getString("event_type")),
+                    message = rs.getString("message"),
+                    payload = objectMapper.readValue(rs.getString("payload_text"), Map::class.java) as Map<String, Any?>,
+                    occurredAt = rs.getTimestamp("occurred_at").toOffsetDateTimeUtc(),
+                )
+            },
+            normalizeLimit(limit, 20),
+        )
 
     private fun performConnectionTest(config: StoredBrokerConfig): ConnectionTestResult {
         val appKey = decrypt(config.appKeyCiphertext!!)
@@ -199,24 +206,29 @@ class BrokerConnectionService(
         return ConnectionTestResult("OAuth 토큰 발급 및 계좌 조회 성공")
     }
 
-    private fun requestAccessToken(baseUrl: String, appKey: String, appSecret: String): String {
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("$baseUrl/oauth2/tokenP"))
-            .header("Content-Type", "application/json")
-            .header("Accept", "application/json")
-            .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
-            .POST(
-                HttpRequest.BodyPublishers.ofString(
-                    objectMapper.writeValueAsString(
-                        mapOf(
-                            "grant_type" to "client_credentials",
-                            "appkey" to appKey,
-                            "appsecret" to appSecret,
+    private fun requestAccessToken(
+        baseUrl: String,
+        appKey: String,
+        appSecret: String,
+    ): String {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("$baseUrl/oauth2/tokenP"))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        objectMapper.writeValueAsString(
+                            mapOf(
+                                "grant_type" to "client_credentials",
+                                "appkey" to appKey,
+                                "appsecret" to appSecret,
+                            ),
                         ),
                     ),
-                ),
-            )
-            .build()
+                ).build()
 
         val response = httpClient().send(request, HttpResponse.BodyHandlers.ofString())
         val body = objectMapper.readTree(response.body().ifBlank { "{}" })
@@ -238,33 +250,36 @@ class BrokerConnectionService(
         accountNumber: String,
         productCode: String,
     ) {
-        val query = listOf(
-            "CANO" to accountNumber,
-            "ACNT_PRDT_CD" to productCode,
-            "AFHR_FLPR_YN" to "N",
-            "OFL_YN" to "",
-            "INQR_DVSN" to "02",
-            "UNPR_DVSN" to "01",
-            "FUND_STTL_ICLD_YN" to "N",
-            "FNCG_AMT_AUTO_RDPT_YN" to "N",
-            "PRCS_DVSN" to "00",
-            "CTX_AREA_FK100" to "",
-            "CTX_AREA_NK100" to "",
-        ).joinToString("&") { (key, value) ->
-            "${encode(key)}=${encode(value)}"
-        }
+        val query =
+            listOf(
+                "CANO" to accountNumber,
+                "ACNT_PRDT_CD" to productCode,
+                "AFHR_FLPR_YN" to "N",
+                "OFL_YN" to "",
+                "INQR_DVSN" to "02",
+                "UNPR_DVSN" to "01",
+                "FUND_STTL_ICLD_YN" to "N",
+                "FNCG_AMT_AUTO_RDPT_YN" to "N",
+                "PRCS_DVSN" to "00",
+                "CTX_AREA_FK100" to "",
+                "CTX_AREA_NK100" to "",
+            ).joinToString("&") { (key, value) ->
+                "${encode(key)}=${encode(value)}"
+            }
         val trId = if (config.targetMode == OrderMode.PAPER) "VTTC8434R" else "TTTC8434R"
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create("${config.baseUrl}/uapi/domestic-stock/v1/trading/inquire-balance?$query"))
-            .header("Accept", "application/json")
-            .header("authorization", "Bearer $accessToken")
-            .header("appkey", appKey)
-            .header("appsecret", appSecret)
-            .header("tr_id", trId)
-            .header("custtype", "P")
-            .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
-            .GET()
-            .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("${config.baseUrl}/uapi/domestic-stock/v1/trading/inquire-balance?$query"))
+                .header("Accept", "application/json")
+                .header("authorization", "Bearer $accessToken")
+                .header("appkey", appKey)
+                .header("appsecret", appSecret)
+                .header("tr_id", trId)
+                .header("custtype", "P")
+                .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
+                .GET()
+                .build()
         val response = httpClient().send(request, HttpResponse.BodyHandlers.ofString())
         val body = objectMapper.readTree(response.body().ifBlank { "{}" })
         if (response.statusCode() !in 200..299 || body.path("rt_cd").asText() != "0") {
@@ -275,12 +290,12 @@ class BrokerConnectionService(
     private fun persistTestResult(config: StoredBrokerConfig) {
         jdbcTemplate.update(
             """
-                update broker_connection_config
-                set last_connection_test_at = ?,
-                    last_connection_test_status = ?,
-                    last_connection_test_message = ?,
-                    updated_at = now()
-                where broker_type = ? and target_mode = ?
+            update broker_connection_config
+            set last_connection_test_at = ?,
+                last_connection_test_status = ?,
+                last_connection_test_message = ?,
+                updated_at = now()
+            where broker_type = ? and target_mode = ?
             """.trimIndent(),
             config.lastConnectionTestAt?.toTimestamp(),
             config.lastConnectionTestStatus?.value,
@@ -312,7 +327,10 @@ class BrokerConnectionService(
         )
     }
 
-    private fun mergeSecret(existingCiphertext: String?, newValue: String?): String? {
+    private fun mergeSecret(
+        existingCiphertext: String?,
+        newValue: String?,
+    ): String? {
         val normalized = newValue?.trim()?.takeIf { it.isNotEmpty() }
         return normalized?.let(::encrypt) ?: existingCiphertext
     }
@@ -331,7 +349,10 @@ class BrokerConnectionService(
         }
     }
 
-    private fun toResponse(config: StoredBrokerConfig?, targetMode: OrderMode): BrokerConnectionResponse {
+    private fun toResponse(
+        config: StoredBrokerConfig?,
+        targetMode: OrderMode,
+    ): BrokerConnectionResponse {
         if (config == null) {
             return BrokerConnectionResponse(
                 brokerType = BROKER_TYPE,
@@ -360,36 +381,40 @@ class BrokerConnectionService(
         )
     }
 
-    private fun findConfig(targetMode: OrderMode): StoredBrokerConfig? = jdbcTemplate.query(
-        """
-            select id, target_mode, app_key_ciphertext, app_secret_ciphertext, account_number_ciphertext,
-                   product_code_ciphertext, base_url, enabled, last_connection_test_at,
-                   last_connection_test_status, last_connection_test_message, created_at, updated_at
-            from broker_connection_config
-            where broker_type = ? and target_mode = ?
-        """.trimIndent(),
-        { rs, _ ->
-            StoredBrokerConfig(
-                id = UUID.fromString(rs.getString("id")),
-                targetMode = OrderMode.valueOf(rs.getString("target_mode")),
-                appKeyCiphertext = rs.getString("app_key_ciphertext"),
-                appSecretCiphertext = rs.getString("app_secret_ciphertext"),
-                accountNumberCiphertext = rs.getString("account_number_ciphertext"),
-                productCodeCiphertext = rs.getString("product_code_ciphertext"),
-                baseUrl = rs.getString("base_url"),
-                enabled = rs.getBoolean("enabled"),
-                lastConnectionTestAt = rs.getTimestamp("last_connection_test_at")?.toOffsetDateTimeUtc(),
-                lastConnectionTestStatus = rs.getString("last_connection_test_status")
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let(BrokerConnectionTestStatus::fromValue),
-                lastConnectionTestMessage = rs.getString("last_connection_test_message"),
-                createdAt = rs.getTimestamp("created_at").toOffsetDateTimeUtc(),
-                updatedAt = rs.getTimestamp("updated_at").toOffsetDateTimeUtc(),
-            )
-        },
-        BROKER_TYPE,
-        targetMode.name,
-    ).firstOrNull()
+    private fun findConfig(targetMode: OrderMode): StoredBrokerConfig? =
+        jdbcTemplate
+            .query(
+                """
+                select id, target_mode, app_key_ciphertext, app_secret_ciphertext, account_number_ciphertext,
+                       product_code_ciphertext, base_url, enabled, last_connection_test_at,
+                       last_connection_test_status, last_connection_test_message, created_at, updated_at
+                from broker_connection_config
+                where broker_type = ? and target_mode = ?
+                """.trimIndent(),
+                { rs, _ ->
+                    StoredBrokerConfig(
+                        id = UUID.fromString(rs.getString("id")),
+                        targetMode = OrderMode.valueOf(rs.getString("target_mode")),
+                        appKeyCiphertext = rs.getString("app_key_ciphertext"),
+                        appSecretCiphertext = rs.getString("app_secret_ciphertext"),
+                        accountNumberCiphertext = rs.getString("account_number_ciphertext"),
+                        productCodeCiphertext = rs.getString("product_code_ciphertext"),
+                        baseUrl = rs.getString("base_url"),
+                        enabled = rs.getBoolean("enabled"),
+                        lastConnectionTestAt = rs.getTimestamp("last_connection_test_at")?.toOffsetDateTimeUtc(),
+                        lastConnectionTestStatus =
+                            rs
+                                .getString("last_connection_test_status")
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let(BrokerConnectionTestStatus::fromValue),
+                        lastConnectionTestMessage = rs.getString("last_connection_test_message"),
+                        createdAt = rs.getTimestamp("created_at").toOffsetDateTimeUtc(),
+                        updatedAt = rs.getTimestamp("updated_at").toOffsetDateTimeUtc(),
+                    )
+                },
+                BROKER_TYPE,
+                targetMode.name,
+            ).firstOrNull()
 
     private fun appendEvent(
         targetMode: OrderMode,
@@ -399,9 +424,9 @@ class BrokerConnectionService(
     ) {
         jdbcTemplate.update(
             """
-                insert into broker_connection_event (
-                    id, target_mode, event_type, message, payload, occurred_at, created_at, updated_at
-                ) values (?, ?, ?, ?, cast(? as jsonb), now(), now(), now())
+            insert into broker_connection_event (
+                id, target_mode, event_type, message, payload, occurred_at, created_at, updated_at
+            ) values (?, ?, ?, ?, cast(? as jsonb), now(), now(), now())
             """.trimIndent(),
             UUID.randomUUID(),
             targetMode.name,
@@ -416,10 +441,12 @@ class BrokerConnectionService(
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
         val encrypted = cipher.doFinal(plainText.toByteArray(StandardCharsets.UTF_8))
-        val combined = ByteBuffer.allocate(iv.size + encrypted.size)
-            .put(iv)
-            .put(encrypted)
-            .array()
+        val combined =
+            ByteBuffer
+                .allocate(iv.size + encrypted.size)
+                .put(iv)
+                .put(encrypted)
+                .array()
         return Base64.getEncoder().encodeToString(combined)
     }
 
@@ -433,16 +460,21 @@ class BrokerConnectionService(
     }
 
     private fun secretKey(): SecretKeySpec {
-        val raw = environment.getProperty("app.secret-key")
-            ?: environment.getProperty(SECRET_ENV_KEY)
-            ?: System.getenv(SECRET_ENV_KEY)
-            ?: System.getProperty(SECRET_ENV_KEY)
-            ?: throw IllegalStateException("$SECRET_ENV_KEY must be configured for broker secret encryption")
+        val raw =
+            environment.getProperty("app.secret-key")
+                ?: environment.getProperty(SECRET_ENV_KEY)
+                ?: System.getenv(SECRET_ENV_KEY)
+                ?: System.getProperty(SECRET_ENV_KEY)
+                ?: throw IllegalStateException("$SECRET_ENV_KEY must be configured for broker secret encryption")
         val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(StandardCharsets.UTF_8))
         return SecretKeySpec(digest.copyOf(32), "AES")
     }
 
-    private fun mask(value: String, visiblePrefix: Int, visibleSuffix: Int): String {
+    private fun mask(
+        value: String,
+        visiblePrefix: Int,
+        visibleSuffix: Int,
+    ): String {
         if (value.length <= visiblePrefix + visibleSuffix) {
             return "*".repeat(value.length.coerceAtLeast(1))
         }
@@ -454,13 +486,15 @@ class BrokerConnectionService(
         }
     }
 
-    private fun baseUrlFor(mode: OrderMode): String = when (mode) {
-        OrderMode.PAPER -> kisApiProperties.paperBaseUrl
-        OrderMode.LIVE -> kisApiProperties.liveBaseUrl
-    }
+    private fun baseUrlFor(mode: OrderMode): String =
+        when (mode) {
+            OrderMode.PAPER -> kisApiProperties.paperBaseUrl
+            OrderMode.LIVE -> kisApiProperties.liveBaseUrl
+        }
 
-    private fun currentSystemMode(): OrderMode = runCatching { OrderMode.fromValue(applicationProperties.mode.lowercase()) }
-        .getOrElse { OrderMode.PAPER }
+    private fun currentSystemMode(): OrderMode =
+        runCatching { OrderMode.fromValue(applicationProperties.mode.lowercase()) }
+            .getOrElse { OrderMode.PAPER }
 
     private fun isConfigured(config: StoredBrokerConfig): Boolean =
         !config.appKeyCiphertext.isNullOrBlank() &&
@@ -468,13 +502,18 @@ class BrokerConnectionService(
             !config.accountNumberCiphertext.isNullOrBlank() &&
             !config.productCodeCiphertext.isNullOrBlank()
 
-    private fun httpClient(): HttpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofMillis(kisApiProperties.connectTimeoutMillis))
-        .build()
+    private fun httpClient(): HttpClient =
+        HttpClient
+            .newBuilder()
+            .connectTimeout(Duration.ofMillis(kisApiProperties.connectTimeoutMillis))
+            .build()
 
     private fun encode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8)
 
-    private fun normalizeLimit(value: Int, defaultValue: Int): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(
+        value: Int,
+        defaultValue: Int,
+    ): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
 
     private fun Timestamp.toOffsetDateTimeUtc(): OffsetDateTime = toInstant().atOffset(ZoneOffset.UTC)
 

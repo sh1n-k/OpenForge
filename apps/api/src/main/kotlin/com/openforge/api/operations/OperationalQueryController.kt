@@ -11,7 +11,6 @@ import java.util.UUID
 class OperationalQueryController(
     private val operationalQueryService: OperationalQueryService,
 ) {
-
     @GetMapping("/orders")
     fun orders(
         @RequestParam(required = false) strategyId: UUID?,

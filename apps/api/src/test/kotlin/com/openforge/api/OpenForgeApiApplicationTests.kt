@@ -4,10 +4,8 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class OpenForgeApiApplicationTests {
-
-	@Test
-	fun applicationClassExists() {
-		assertEquals("OpenForgeApiApplication", OpenForgeApiApplication::class.simpleName)
-	}
-
+    @Test
+    fun applicationClassExists() {
+        assertEquals("OpenForgeApiApplication", OpenForgeApiApplication::class.simpleName)
+    }
 }

@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController
 class SystemRiskController(
     private val systemRiskService: SystemRiskService,
 ) {
-
     @GetMapping
     fun read(): GlobalRiskResponse = systemRiskService.getGlobalRisk()
 

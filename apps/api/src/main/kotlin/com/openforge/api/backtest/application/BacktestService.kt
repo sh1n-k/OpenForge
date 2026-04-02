@@ -62,9 +62,10 @@ class BacktestService(
 
     @PostConstruct
     fun markInterruptedRuns() {
-        val interrupted = backtestRunRepository.findAllByStatusInOrderByRequestedAtAsc(
-            listOf(BacktestRunStatus.QUEUED, BacktestRunStatus.RUNNING),
-        )
+        val interrupted =
+            backtestRunRepository.findAllByStatusInOrderByRequestedAtAsc(
+                listOf(BacktestRunStatus.QUEUED, BacktestRunStatus.RUNNING),
+            )
         interrupted.forEach {
             it.status = BacktestRunStatus.FAILED
             it.errorMessage = "interrupted"
@@ -83,8 +84,9 @@ class BacktestService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Provide either symbols or universeIds, not both")
         }
 
-        val strategy = strategyRepository.findByIdAndIsArchivedFalse(request.strategyId)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: ${request.strategyId}")
+        val strategy =
+            strategyRepository.findByIdAndIsArchivedFalse(request.strategyId)
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: ${request.strategyId}")
         val version = resolveVersion(strategy.id, request.strategyVersionId)
         if (version.normalizedSpec == null || version.validationStatus != StrategyValidationStatus.VALID) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Strategy version must be valid before running backtest")
@@ -99,31 +101,34 @@ class BacktestService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Market data coverage is incomplete for the selected symbols")
         }
 
-        val run = backtestRunRepository.save(
-            BacktestRunEntity(
-                strategyId = strategy.id,
-                strategyVersionId = version.id,
-                status = BacktestRunStatus.QUEUED,
-                runConfig = linkedMapOf(
-                    "startDate" to request.startDate.toString(),
-                    "endDate" to request.endDate.toString(),
-                    "initialCapital" to request.initialCapital.toDouble(),
-                    "commissionRate" to request.commissionRate.toDouble(),
-                    "taxRate" to request.taxRate.toDouble(),
-                    "slippageRate" to request.slippageRate.toDouble(),
+        val run =
+            backtestRunRepository.save(
+                BacktestRunEntity(
+                    strategyId = strategy.id,
+                    strategyVersionId = version.id,
+                    status = BacktestRunStatus.QUEUED,
+                    runConfig =
+                        linkedMapOf(
+                            "startDate" to request.startDate.toString(),
+                            "endDate" to request.endDate.toString(),
+                            "initialCapital" to request.initialCapital.toDouble(),
+                            "commissionRate" to request.commissionRate.toDouble(),
+                            "taxRate" to request.taxRate.toDouble(),
+                            "slippageRate" to request.slippageRate.toDouble(),
+                        ),
+                    normalizedSpec = deepCopyMap(version.normalizedSpec!!),
+                    symbols = resolvedSymbols,
                 ),
-                normalizedSpec = deepCopyMap(version.normalizedSpec!!),
-                symbols = resolvedSymbols,
-            ),
-        )
+            )
 
         return BacktestRunQueuedResponse(runId = run.id, status = run.status)
     }
 
     fun getBacktest(runId: UUID): BacktestRunDetailResponse {
-        val run = backtestRunRepository.findById(runId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND, "Backtest run not found: $runId")
-        }
+        val run =
+            backtestRunRepository.findById(runId).orElseThrow {
+                ResponseStatusException(HttpStatus.NOT_FOUND, "Backtest run not found: $runId")
+            }
         val points = backtestEquityPointRepository.findAllByRunIdOrderByTradingDateAsc(run.id)
         val trades = backtestTradeRepository.findAllByRunIdOrderByEntryDateAscSymbolAsc(run.id)
         return BacktestRunDetailResponse(
@@ -137,28 +142,30 @@ class BacktestService(
             config = run.runConfig,
             symbols = run.symbols,
             summary = run.summary,
-            equityCurve = points.map {
-                BacktestEquityPointResponse(
-                    tradingDate = it.tradingDate,
-                    equity = it.equity.toDouble(),
-                    cash = it.cash.toDouble(),
-                    drawdown = it.drawdown.toDouble(),
-                )
-            },
-            trades = trades.map {
-                BacktestTradeResponse(
-                    symbol = it.symbol,
-                    entryDate = it.entryDate,
-                    exitDate = it.exitDate,
-                    entryPrice = it.entryPrice.toDouble(),
-                    exitPrice = it.exitPrice.toDouble(),
-                    quantity = it.quantity,
-                    grossPnl = it.grossPnl.toDouble(),
-                    netPnl = it.netPnl.toDouble(),
-                    pnlPercent = it.pnlPercent.toDouble(),
-                    exitReason = it.exitReason,
-                )
-            },
+            equityCurve =
+                points.map {
+                    BacktestEquityPointResponse(
+                        tradingDate = it.tradingDate,
+                        equity = it.equity.toDouble(),
+                        cash = it.cash.toDouble(),
+                        drawdown = it.drawdown.toDouble(),
+                    )
+                },
+            trades =
+                trades.map {
+                    BacktestTradeResponse(
+                        symbol = it.symbol,
+                        entryDate = it.entryDate,
+                        exitDate = it.exitDate,
+                        entryPrice = it.entryPrice.toDouble(),
+                        exitPrice = it.exitPrice.toDouble(),
+                        quantity = it.quantity,
+                        grossPnl = it.grossPnl.toDouble(),
+                        netPnl = it.netPnl.toDouble(),
+                        pnlPercent = it.pnlPercent.toDouble(),
+                        exitReason = it.exitReason,
+                    )
+                },
             errorMessage = run.errorMessage,
         )
     }
@@ -203,16 +210,17 @@ class BacktestService(
         endDate: LocalDate,
     ): MarketCoverageResponse {
         val normalizedSymbols = symbols.map { it.trim().uppercase() }.filter { it.isNotBlank() }.distinct()
-        val coverage = normalizedSymbols.map { symbol ->
-            val first = marketDailyBarRepository.findTopBySymbolAndTradingDateLessThanEqualOrderByTradingDateDesc(symbol, startDate)
-            val last = marketDailyBarRepository.findTopBySymbolAndTradingDateGreaterThanEqualOrderByTradingDateAsc(symbol, endDate)
-            MarketCoverageSymbolResponse(
-                symbol = symbol,
-                covered = first != null && last != null && !first.tradingDate.isAfter(startDate) && !last.tradingDate.isBefore(endDate),
-                firstDate = first?.tradingDate,
-                lastDate = last?.tradingDate,
-            )
-        }
+        val coverage =
+            normalizedSymbols.map { symbol ->
+                val first = marketDailyBarRepository.findTopBySymbolAndTradingDateLessThanEqualOrderByTradingDateDesc(symbol, startDate)
+                val last = marketDailyBarRepository.findTopBySymbolAndTradingDateGreaterThanEqualOrderByTradingDateAsc(symbol, endDate)
+                MarketCoverageSymbolResponse(
+                    symbol = symbol,
+                    covered = first != null && last != null && !first.tradingDate.isAfter(startDate) && !last.tradingDate.isBefore(endDate),
+                    firstDate = first?.tradingDate,
+                    lastDate = last?.tradingDate,
+                )
+            }
         return MarketCoverageResponse(
             covered = coverage.isNotEmpty() && coverage.all { it.covered },
             symbols = coverage,
@@ -244,56 +252,63 @@ class BacktestService(
 
         try {
             val spec = StrategySignalSupport.parseStrategySpec(run.normalizedSpec)
-            val config = RunConfig(
-                initialCapital = numberValue(run.runConfig["initialCapital"]),
-                commissionRate = numberValue(run.runConfig["commissionRate"]),
-                taxRate = numberValue(run.runConfig["taxRate"]),
-                slippageRate = numberValue(run.runConfig["slippageRate"]),
-            )
-            val barsBySymbol = run.symbols.associateWith { symbol ->
-                marketDailyBarRepository.findAllBySymbolAndTradingDateBetweenOrderByTradingDateAsc(
-                    symbol,
-                    LocalDate.parse(run.runConfig["startDate"].toString()),
-                    LocalDate.parse(run.runConfig["endDate"].toString()),
-                ).map {
-                    Bar(
-                        tradingDate = it.tradingDate,
-                        open = it.open.toDouble(),
-                        high = it.high.toDouble(),
-                        low = it.low.toDouble(),
-                        close = it.close.toDouble(),
-                        volume = it.volume.toDouble(),
-                    )
+            val config =
+                RunConfig(
+                    initialCapital = numberValue(run.runConfig["initialCapital"]),
+                    commissionRate = numberValue(run.runConfig["commissionRate"]),
+                    taxRate = numberValue(run.runConfig["taxRate"]),
+                    slippageRate = numberValue(run.runConfig["slippageRate"]),
+                )
+            val barsBySymbol =
+                run.symbols.associateWith { symbol ->
+                    marketDailyBarRepository
+                        .findAllBySymbolAndTradingDateBetweenOrderByTradingDateAsc(
+                            symbol,
+                            LocalDate.parse(run.runConfig["startDate"].toString()),
+                            LocalDate.parse(run.runConfig["endDate"].toString()),
+                        ).map {
+                            Bar(
+                                tradingDate = it.tradingDate,
+                                open = it.open.toDouble(),
+                                high = it.high.toDouble(),
+                                low = it.low.toDouble(),
+                                close = it.close.toDouble(),
+                                volume = it.volume.toDouble(),
+                            )
+                        }
                 }
-            }
             val result = engine.run(spec, run.symbols, barsBySymbol, config)
 
             backtestTradeRepository.deleteAllByRunId(run.id)
             backtestEquityPointRepository.deleteAllByRunId(run.id)
-            backtestTradeRepository.saveAll(result.trades.map {
-                BacktestTradeEntity(
-                    runId = run.id,
-                    symbol = it.symbol,
-                    entryDate = it.entryDate,
-                    exitDate = it.exitDate,
-                    entryPrice = decimal(it.entryPrice, 6),
-                    exitPrice = decimal(it.exitPrice, 6),
-                    quantity = it.quantity,
-                    grossPnl = decimal(it.grossPnl, 6),
-                    netPnl = decimal(it.netPnl, 6),
-                    pnlPercent = decimal(it.pnlPercent, 8),
-                    exitReason = it.exitReason,
-                )
-            })
-            backtestEquityPointRepository.saveAll(result.equityPoints.map {
-                BacktestEquityPointEntity(
-                    runId = run.id,
-                    tradingDate = it.tradingDate,
-                    equity = decimal(it.equity, 6),
-                    cash = decimal(it.cash, 6),
-                    drawdown = decimal(it.drawdown, 8),
-                )
-            })
+            backtestTradeRepository.saveAll(
+                result.trades.map {
+                    BacktestTradeEntity(
+                        runId = run.id,
+                        symbol = it.symbol,
+                        entryDate = it.entryDate,
+                        exitDate = it.exitDate,
+                        entryPrice = decimal(it.entryPrice, 6),
+                        exitPrice = decimal(it.exitPrice, 6),
+                        quantity = it.quantity,
+                        grossPnl = decimal(it.grossPnl, 6),
+                        netPnl = decimal(it.netPnl, 6),
+                        pnlPercent = decimal(it.pnlPercent, 8),
+                        exitReason = it.exitReason,
+                    )
+                },
+            )
+            backtestEquityPointRepository.saveAll(
+                result.equityPoints.map {
+                    BacktestEquityPointEntity(
+                        runId = run.id,
+                        tradingDate = it.tradingDate,
+                        equity = decimal(it.equity, 6),
+                        cash = decimal(it.cash, 6),
+                        drawdown = decimal(it.drawdown, 8),
+                    )
+                },
+            )
 
             run.summary = result.summary
             run.status = BacktestRunStatus.COMPLETED
@@ -313,40 +328,54 @@ class BacktestService(
         }
     }
 
-    private fun resolveVersion(strategyId: UUID, requestedVersionId: UUID?): StrategyVersionEntity {
-        val version = if (requestedVersionId != null) {
-            strategyVersionRepository.findById(requestedVersionId).orElseThrow {
-                ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy version not found: $requestedVersionId")
-            }.also {
-                if (it.strategyId != strategyId) {
-                    throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Strategy version does not belong to the requested strategy")
-                }
+    private fun resolveVersion(
+        strategyId: UUID,
+        requestedVersionId: UUID?,
+    ): StrategyVersionEntity {
+        val version =
+            if (requestedVersionId != null) {
+                strategyVersionRepository
+                    .findById(requestedVersionId)
+                    .orElseThrow {
+                        ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy version not found: $requestedVersionId")
+                    }.also {
+                        if (it.strategyId != strategyId) {
+                            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Strategy version does not belong to the requested strategy")
+                        }
+                    }
+            } else {
+                strategyVersionRepository.findTopByStrategyIdOrderByVersionNumberDesc(strategyId)
+                    ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy does not have any versions")
             }
-        } else {
-            strategyVersionRepository.findTopByStrategyIdOrderByVersionNumberDesc(strategyId)
-                ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy does not have any versions")
-        }
 
         if (version.normalizedSpec == null || version.validationStatus != StrategyValidationStatus.VALID) {
-            val result = strategyEditorService.validateStoredPayload(
-                strategyRepository.findById(strategyId).orElseThrow().strategyType,
-                version.payloadFormat,
-                version.payload,
-            )
+            val result =
+                strategyEditorService.validateStoredPayload(
+                    strategyRepository.findById(strategyId).orElseThrow().strategyType,
+                    version.payloadFormat,
+                    version.payload,
+                )
             version.normalizedSpec = result.normalizedSpec?.let(::deepCopyMap)
-            version.validationStatus = if (result.valid) StrategyValidationStatus.VALID else StrategyValidationStatus.INVALID
-            version.validationErrors = result.errors.map {
-                linkedMapOf(
-                    "category" to it.category,
-                    "message" to it.message,
-                )
-            }
-            version.validationWarnings = result.warnings.map {
-                linkedMapOf(
-                    "category" to it.category,
-                    "message" to it.message,
-                )
-            }
+            version.validationStatus =
+                if (result.valid) {
+                    StrategyValidationStatus.VALID
+                } else {
+                    StrategyValidationStatus.INVALID
+                }
+            version.validationErrors =
+                result.errors.map {
+                    linkedMapOf(
+                        "category" to it.category,
+                        "message" to it.message,
+                    )
+                }
+            version.validationWarnings =
+                result.warnings.map {
+                    linkedMapOf(
+                        "category" to it.category,
+                        "message" to it.message,
+                    )
+                }
             strategyVersionRepository.save(version)
         }
         return version
@@ -362,11 +391,12 @@ class BacktestService(
             return directSymbols.distinct()
         }
 
-        val resolvedUniverseIds = if (universeIds.isNotEmpty()) {
-            universeIds.distinct()
-        } else {
-            strategyUniverseRepository.findAllByStrategyId(strategyId).map { it.universeId }.distinct()
-        }
+        val resolvedUniverseIds =
+            if (universeIds.isNotEmpty()) {
+                universeIds.distinct()
+            } else {
+                strategyUniverseRepository.findAllByStrategyId(strategyId).map { it.universeId }.distinct()
+            }
         if (resolvedUniverseIds.isEmpty()) {
             return emptyList()
         }
@@ -376,12 +406,16 @@ class BacktestService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe contains archived or missing entries")
         }
 
-        return resolvedUniverseIds.flatMap { universeId ->
-            universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId).map { it.symbol.uppercase() }
-        }.distinct()
+        return resolvedUniverseIds
+            .flatMap { universeId ->
+                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId).map { it.symbol.uppercase() }
+            }.distinct()
     }
 
-    private fun parseCsv(reader: BufferedReader, rows: MutableList<MarketDailyBarEntity>) {
+    private fun parseCsv(
+        reader: BufferedReader,
+        rows: MutableList<MarketDailyBarEntity>,
+    ) {
         val lines = reader.readLines().filter { it.isNotBlank() }
         if (lines.isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV file is empty")
@@ -392,47 +426,56 @@ class BacktestService(
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid CSV format at line ${index + 2}")
             }
             try {
-                rows += MarketDailyBarEntity(
-                    symbol = columns[0].uppercase(),
-                    tradingDate = LocalDate.parse(columns[1]),
-                    open = BigDecimal(columns[2]),
-                    high = BigDecimal(columns[3]),
-                    low = BigDecimal(columns[4]),
-                    close = BigDecimal(columns[5]),
-                    volume = BigDecimal(columns[6]),
-                )
+                rows +=
+                    MarketDailyBarEntity(
+                        symbol = columns[0].uppercase(),
+                        tradingDate = LocalDate.parse(columns[1]),
+                        open = BigDecimal(columns[2]),
+                        high = BigDecimal(columns[3]),
+                        low = BigDecimal(columns[4]),
+                        close = BigDecimal(columns[5]),
+                        volume = BigDecimal(columns[6]),
+                    )
             } catch (_: Exception) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid CSV value at line ${index + 2}")
             }
         }
     }
 
-    private fun decimal(value: Double, scale: Int): BigDecimal = BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP)
+    private fun decimal(
+        value: Double,
+        scale: Int,
+    ): BigDecimal = BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP)
 
-    private fun numberValue(value: Any?): Double = when (value) {
-        is Number -> value.toDouble()
-        is String -> value.toDouble()
-        else -> throw IllegalArgumentException("Numeric value is required")
-    }
+    private fun numberValue(value: Any?): Double =
+        when (value) {
+            is Number -> value.toDouble()
+            is String -> value.toDouble()
+            else -> throw IllegalArgumentException("Numeric value is required")
+        }
 
-    private fun toHeadlineMetrics(summary: Map<String, Any?>): BacktestHeadlineMetricsResponse = BacktestHeadlineMetricsResponse(
-        totalReturnRate = numberValue(summary["totalReturnRate"]),
-        maxDrawdownRate = numberValue(summary["maxDrawdownRate"]),
-        winRate = numberValue(summary["winRate"]),
-        tradeCount = numberValue(summary["tradeCount"]).toInt(),
-        averagePnl = numberValue(summary["averagePnl"]),
-        profitFactor = numberValue(summary["profitFactor"]),
-    )
+    private fun toHeadlineMetrics(summary: Map<String, Any?>): BacktestHeadlineMetricsResponse =
+        BacktestHeadlineMetricsResponse(
+            totalReturnRate = numberValue(summary["totalReturnRate"]),
+            maxDrawdownRate = numberValue(summary["maxDrawdownRate"]),
+            winRate = numberValue(summary["winRate"]),
+            tradeCount = numberValue(summary["tradeCount"]).toInt(),
+            averagePnl = numberValue(summary["averagePnl"]),
+            profitFactor = numberValue(summary["profitFactor"]),
+        )
 
     @Suppress("UNCHECKED_CAST")
-    private fun deepCopyMap(value: Map<String, Any?>): Map<String, Any?> = value.entries.associate { (key, nestedValue) ->
-        key to deepCopyValue(nestedValue)
-    }.toMap(linkedMapOf())
+    private fun deepCopyMap(value: Map<String, Any?>): Map<String, Any?> =
+        value.entries
+            .associate { (key, nestedValue) ->
+                key to deepCopyValue(nestedValue)
+            }.toMap(linkedMapOf())
 
     @Suppress("UNCHECKED_CAST")
-    private fun deepCopyValue(value: Any?): Any? = when (value) {
-        is Map<*, *> -> value.entries.associate { it.key.toString() to deepCopyValue(it.value) }.toMap(linkedMapOf())
-        is List<*> -> value.map(::deepCopyValue)
-        else -> value
-    }
+    private fun deepCopyValue(value: Any?): Any? =
+        when (value) {
+            is Map<*, *> -> value.entries.associate { it.key.toString() to deepCopyValue(it.value) }.toMap(linkedMapOf())
+            is List<*> -> value.map(::deepCopyValue)
+            else -> value
+        }
 }

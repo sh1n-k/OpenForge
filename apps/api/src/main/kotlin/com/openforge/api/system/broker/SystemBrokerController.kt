@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController
 class SystemBrokerController(
     private val brokerConnectionService: BrokerConnectionService,
 ) {
-
     @GetMapping
     fun read(): SystemBrokerStatusResponse = brokerConnectionService.getStatus()
 

@@ -26,7 +26,7 @@ dev-web:
 	cd apps/web && $(ROOT_ENV) && export WEB_PORT="$${WEB_PORT:-$${PORT:-3000}}" PORT="$${WEB_PORT}" API_PORT="$${API_PORT:-8080}" API_BASE_URL="$${API_BASE_URL:-http://127.0.0.1:$${API_PORT}}" WEB_ORIGIN="$${WEB_ORIGIN:-http://127.0.0.1:$${WEB_PORT}}" && pnpm dev
 
 check:
-	cd apps/api && $(ROOT_ENV) && ./gradlew test
+	cd apps/api && $(ROOT_ENV) && ./gradlew test spotlessCheck
 	cd apps/web && pnpm lint && pnpm test --run
 
 smoke:

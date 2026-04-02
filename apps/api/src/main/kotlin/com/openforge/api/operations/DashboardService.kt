@@ -28,7 +28,6 @@ class DashboardService(
     private val systemRiskService: SystemRiskService,
     private val healthStatusService: HealthStatusService,
 ) {
-
     fun getDashboard(): DashboardResponse {
         val strategies = strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
         val strategyMap = strategies.associateBy { it.id }
@@ -37,110 +36,122 @@ class DashboardService(
         val today = LocalDate.now(ZONE_ID)
         val todayStart = today.atStartOfDay(ZONE_ID).toOffsetDateTime()
 
-        val strategySummaries = strategies.map { strategy ->
-            val config = executionConfigs[strategy.id]
-            val lastRun = executionRunRepository.findTopByStrategyIdOrderByStartedAtDesc(strategy.id)
-            val positions = orderTrackingService.currentPositionProjections(strategy.id)
-            val todayOrderCount = orderRequestRepository
-                .findAllByStrategyIdAndRequestedAtAfter(strategy.id, todayStart)
-                .size
+        val strategySummaries =
+            strategies.map { strategy ->
+                val config = executionConfigs[strategy.id]
+                val lastRun = executionRunRepository.findTopByStrategyIdOrderByStartedAtDesc(strategy.id)
+                val positions = orderTrackingService.currentPositionProjections(strategy.id)
+                val todayOrderCount =
+                    orderRequestRepository
+                        .findAllByStrategyIdAndRequestedAtAfter(strategy.id, todayStart)
+                        .size
 
-            DashboardStrategySummary(
-                id = strategy.id,
-                name = strategy.name,
-                strategyType = strategy.strategyType.value,
-                status = strategy.status.value,
-                executionEnabled = config?.enabled ?: false,
-                lastRunStatus = lastRun?.status?.value,
-                lastRunAt = lastRun?.startedAt,
-                positionCount = positions.size,
-                todayOrderCount = todayOrderCount,
-            )
-        }
+                DashboardStrategySummary(
+                    id = strategy.id,
+                    name = strategy.name,
+                    strategyType = strategy.strategyType.value,
+                    status = strategy.status.value,
+                    executionEnabled = config?.enabled ?: false,
+                    lastRunStatus = lastRun?.status?.value,
+                    lastRunAt = lastRun?.startedAt,
+                    positionCount = positions.size,
+                    todayOrderCount = todayOrderCount,
+                )
+            }
 
         val runningStrategyCount = strategies.count { it.status == StrategyStatus.RUNNING }
 
-        val allTodayOrders = strategies.flatMap { strategy ->
-            orderRequestRepository.findAllByStrategyIdAndRequestedAtAfter(strategy.id, todayStart)
-        }
+        val allTodayOrders =
+            strategies.flatMap { strategy ->
+                orderRequestRepository.findAllByStrategyIdAndRequestedAtAfter(strategy.id, todayStart)
+            }
 
-        val allTodayFills = strategies.flatMap { strategy ->
-            orderFillRepository.findAllByStrategyIdOrderByFilledAtAsc(strategy.id)
-                .filter { it.filledAt >= todayStart }
-        }
+        val allTodayFills =
+            strategies.flatMap { strategy ->
+                orderFillRepository
+                    .findAllByStrategyIdOrderByFilledAtAsc(strategy.id)
+                    .filter { it.filledAt >= todayStart }
+            }
         val todayPnl = allTodayFills.sumOf { it.realizedPnl.toDouble() }
 
-        val allPositions = strategies.flatMap { strategy ->
-            orderTrackingService.currentPositionProjections(strategy.id).map { p ->
-                DashboardPositionItem(
-                    strategyId = strategy.id,
-                    strategyName = strategy.name,
-                    symbol = p.symbol,
-                    netQuantity = p.netQuantity,
-                    avgEntryPrice = p.avgEntryPrice.toDouble(),
-                    lastFillAt = p.lastFillAt,
-                )
-            }
-        }
-
-        val recentFills = strategies.flatMap { strategy ->
-            orderFillRepository.findAllByStrategyIdOrderByFilledAtDesc(
-                strategy.id,
-                PageRequest.of(0, 10),
-            ).map { fill ->
-                DashboardFillItem(
-                    id = fill.id,
-                    strategyId = fill.strategyId,
-                    strategyName = strategyMap[fill.strategyId]?.name ?: "",
-                    symbol = fill.symbol,
-                    side = fill.side.value,
-                    quantity = fill.quantity,
-                    price = fill.price.toDouble(),
-                    realizedPnl = fill.realizedPnl.toDouble(),
-                    filledAt = fill.filledAt,
-                )
-            }
-        }
-            .sortedByDescending { it.filledAt }
-            .take(10)
-
-        val recentErrors = buildList {
-            strategies.forEach { strategy ->
-                val failedRuns = executionRunRepository.findAllByStrategyIdOrderByStartedAtDesc(
-                    strategy.id,
-                    PageRequest.of(0, 5),
-                ).filter { it.errorMessage != null }
-                failedRuns.forEach { run ->
-                    add(
-                        DashboardErrorItem(
-                            source = "execution",
-                            strategyId = strategy.id,
-                            strategyName = strategy.name,
-                            message = run.errorMessage!!,
-                            occurredAt = run.completedAt ?: run.startedAt,
-                        ),
-                    )
-                }
-
-                val blockedEvents = riskEventRepository.findAllByStrategyIdOrderByOccurredAtDesc(
-                    strategy.id,
-                    PageRequest.of(0, 5),
-                ).filter { it.eventType == StrategyRiskEventType.ORDER_BLOCKED }
-                blockedEvents.forEach { event ->
-                    add(
-                        DashboardErrorItem(
-                            source = "risk",
-                            strategyId = strategy.id,
-                            strategyName = strategy.name,
-                            message = event.message,
-                            occurredAt = event.occurredAt,
-                        ),
+        val allPositions =
+            strategies.flatMap { strategy ->
+                orderTrackingService.currentPositionProjections(strategy.id).map { p ->
+                    DashboardPositionItem(
+                        strategyId = strategy.id,
+                        strategyName = strategy.name,
+                        symbol = p.symbol,
+                        netQuantity = p.netQuantity,
+                        avgEntryPrice = p.avgEntryPrice.toDouble(),
+                        lastFillAt = p.lastFillAt,
                     )
                 }
             }
-        }
-            .sortedByDescending { it.occurredAt }
-            .take(10)
+
+        val recentFills =
+            strategies
+                .flatMap { strategy ->
+                    orderFillRepository
+                        .findAllByStrategyIdOrderByFilledAtDesc(
+                            strategy.id,
+                            PageRequest.of(0, 10),
+                        ).map { fill ->
+                            DashboardFillItem(
+                                id = fill.id,
+                                strategyId = fill.strategyId,
+                                strategyName = strategyMap[fill.strategyId]?.name ?: "",
+                                symbol = fill.symbol,
+                                side = fill.side.value,
+                                quantity = fill.quantity,
+                                price = fill.price.toDouble(),
+                                realizedPnl = fill.realizedPnl.toDouble(),
+                                filledAt = fill.filledAt,
+                            )
+                        }
+                }.sortedByDescending { it.filledAt }
+                .take(10)
+
+        val recentErrors =
+            buildList {
+                strategies.forEach { strategy ->
+                    val failedRuns =
+                        executionRunRepository
+                            .findAllByStrategyIdOrderByStartedAtDesc(
+                                strategy.id,
+                                PageRequest.of(0, 5),
+                            ).filter { it.errorMessage != null }
+                    failedRuns.forEach { run ->
+                        add(
+                            DashboardErrorItem(
+                                source = "execution",
+                                strategyId = strategy.id,
+                                strategyName = strategy.name,
+                                message = run.errorMessage!!,
+                                occurredAt = run.completedAt ?: run.startedAt,
+                            ),
+                        )
+                    }
+
+                    val blockedEvents =
+                        riskEventRepository
+                            .findAllByStrategyIdOrderByOccurredAtDesc(
+                                strategy.id,
+                                PageRequest.of(0, 5),
+                            ).filter { it.eventType == StrategyRiskEventType.ORDER_BLOCKED }
+                    blockedEvents.forEach { event ->
+                        add(
+                            DashboardErrorItem(
+                                source = "risk",
+                                strategyId = strategy.id,
+                                strategyName = strategy.name,
+                                message = event.message,
+                                occurredAt = event.occurredAt,
+                            ),
+                        )
+                    }
+                }
+            }.sortedByDescending { it.occurredAt }
+                .take(10)
 
         val healthResponse = runCatching { healthStatusService.read() }.getOrNull()
 
@@ -154,10 +165,11 @@ class DashboardService(
             currentPositions = allPositions,
             recentErrors = recentErrors,
             globalKillSwitchEnabled = systemRiskService.isGlobalKillSwitchEnabled(),
-            health = HealthSummary(
-                apiStatus = healthResponse?.status ?: "UNKNOWN",
-                dbStatus = healthResponse?.database?.status ?: "UNKNOWN",
-            ),
+            health =
+                HealthSummary(
+                    apiStatus = healthResponse?.status ?: "UNKNOWN",
+                    dbStatus = healthResponse?.database?.status ?: "UNKNOWN",
+                ),
         )
     }
 

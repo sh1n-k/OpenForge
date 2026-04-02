@@ -13,14 +13,10 @@ class StrategyUniverseEntity(
     @Id
     @Column(columnDefinition = "uuid")
     var id: UUID = UUID.randomUUID(),
-
     @Column(name = "strategy_id", columnDefinition = "uuid", nullable = false)
     var strategyId: UUID,
-
     @Column(name = "universe_id", columnDefinition = "uuid", nullable = false)
     var universeId: UUID,
-
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now(),
 )
-

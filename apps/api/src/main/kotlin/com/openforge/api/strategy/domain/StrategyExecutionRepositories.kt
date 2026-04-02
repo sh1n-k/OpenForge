@@ -10,9 +10,16 @@ interface StrategyExecutionConfigRepository : JpaRepository<StrategyExecutionCon
 
 interface StrategyExecutionRunRepository : JpaRepository<StrategyExecutionRunEntity, UUID> {
     fun findTopByStrategyIdOrderByStartedAtDesc(strategyId: UUID): StrategyExecutionRunEntity?
-    fun findAllByStrategyIdOrderByStartedAtDesc(strategyId: UUID, pageable: Pageable): List<StrategyExecutionRunEntity>
+
+    fun findAllByStrategyIdOrderByStartedAtDesc(
+        strategyId: UUID,
+        pageable: Pageable,
+    ): List<StrategyExecutionRunEntity>
 }
 
 interface StrategySignalEventRepository : JpaRepository<StrategySignalEventEntity, UUID> {
-    fun findAllByStrategyIdOrderByCreatedAtDesc(strategyId: UUID, pageable: Pageable): List<StrategySignalEventEntity>
+    fun findAllByStrategyIdOrderByCreatedAtDesc(
+        strategyId: UUID,
+        pageable: Pageable,
+    ): List<StrategySignalEventEntity>
 }

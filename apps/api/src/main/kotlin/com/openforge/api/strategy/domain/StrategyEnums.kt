@@ -3,7 +3,9 @@ package com.openforge.api.strategy.domain
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
 
-enum class StrategyType(@get:JsonValue val value: String) {
+enum class StrategyType(
+    @get:JsonValue val value: String,
+) {
     BUILDER("builder"),
     CODE("code"),
     ;
@@ -17,7 +19,9 @@ enum class StrategyType(@get:JsonValue val value: String) {
     }
 }
 
-enum class StrategyStatus(@get:JsonValue val value: String) {
+enum class StrategyStatus(
+    @get:JsonValue val value: String,
+) {
     DRAFT("draft"),
     BACKTEST_COMPLETED("backtest_completed"),
     RUNNING("running"),
@@ -33,7 +37,9 @@ enum class StrategyStatus(@get:JsonValue val value: String) {
     }
 }
 
-enum class PayloadFormat(@get:JsonValue val value: String) {
+enum class PayloadFormat(
+    @get:JsonValue val value: String,
+) {
     BUILDER_JSON("builder_json"),
     CODE_TEXT("code_text"),
     ;
@@ -47,7 +53,9 @@ enum class PayloadFormat(@get:JsonValue val value: String) {
     }
 }
 
-enum class MarketType(@get:JsonValue val value: String) {
+enum class MarketType(
+    @get:JsonValue val value: String,
+) {
     DOMESTIC("domestic"),
     ;
 
@@ -60,7 +68,9 @@ enum class MarketType(@get:JsonValue val value: String) {
     }
 }
 
-enum class StrategyValidationStatus(@get:JsonValue val value: String) {
+enum class StrategyValidationStatus(
+    @get:JsonValue val value: String,
+) {
     VALID("valid"),
     INVALID("invalid"),
     INVALID_LEGACY_DRAFT("invalid_legacy_draft"),

@@ -9,11 +9,15 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/v1/system/activity")
-class SystemActivityController(private val systemActivityService: SystemActivityService) {
-
+class SystemActivityController(
+    private val systemActivityService: SystemActivityService,
+) {
     @GetMapping
     fun list(
-        @RequestParam(defaultValue = "100") limit: @Min(1) @Max(500) Int,
+        @RequestParam(defaultValue = "100") limit:
+            @Min(1)
+            @Max(500)
+            Int,
         @RequestParam(required = false) category: String?,
     ): List<ActivityEventResponse> = systemActivityService.listEvents(limit, category)
 }

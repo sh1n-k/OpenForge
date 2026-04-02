@@ -66,9 +66,10 @@ class PaperExecutionService(
 
     @PostConstruct
     fun markInterruptedRuns() {
-        val interrupted = strategyExecutionRunRepository.findAll().filter {
-            it.status == StrategyExecutionRunStatus.RUNNING
-        }
+        val interrupted =
+            strategyExecutionRunRepository.findAll().filter {
+                it.status == StrategyExecutionRunStatus.RUNNING
+            }
         interrupted.forEach {
             it.status = StrategyExecutionRunStatus.FAILED
             it.errorMessage = "interrupted"
@@ -85,7 +86,10 @@ class PaperExecutionService(
         return toExecutionResponse(strategy, config)
     }
 
-    fun updateExecution(strategyId: UUID, request: UpdateStrategyExecutionRequest): StrategyExecutionResponse {
+    fun updateExecution(
+        strategyId: UUID,
+        request: UpdateStrategyExecutionRequest,
+    ): StrategyExecutionResponse {
         val strategy = getActiveStrategy(strategyId)
         val config = strategyExecutionConfigRepository.findById(strategy.id).orElse(defaultConfig(strategy.id))
         config.scheduleTime = parseScheduleTime(request.scheduleTime)
@@ -108,20 +112,28 @@ class PaperExecutionService(
         return getExecution(strategy.id)
     }
 
-    fun listExecutionRuns(strategyId: UUID, limit: Int): List<StrategyExecutionRunResponse> {
+    fun listExecutionRuns(
+        strategyId: UUID,
+        limit: Int,
+    ): List<StrategyExecutionRunResponse> {
         getActiveStrategy(strategyId)
-        return strategyExecutionRunRepository.findAllByStrategyIdOrderByStartedAtDesc(
-            strategyId,
-            PageRequest.of(0, normalizeLimit(limit, 20)),
-        ).map(::toRunResponse)
+        return strategyExecutionRunRepository
+            .findAllByStrategyIdOrderByStartedAtDesc(
+                strategyId,
+                PageRequest.of(0, normalizeLimit(limit, 20)),
+            ).map(::toRunResponse)
     }
 
-    fun listSignals(strategyId: UUID, limit: Int): List<StrategySignalEventResponse> {
+    fun listSignals(
+        strategyId: UUID,
+        limit: Int,
+    ): List<StrategySignalEventResponse> {
         getActiveStrategy(strategyId)
-        return strategySignalEventRepository.findAllByStrategyIdOrderByCreatedAtDesc(
-            strategyId,
-            PageRequest.of(0, normalizeLimit(limit, 50)),
-        ).map(::toSignalResponse)
+        return strategySignalEventRepository
+            .findAllByStrategyIdOrderByCreatedAtDesc(
+                strategyId,
+                PageRequest.of(0, normalizeLimit(limit, 50)),
+            ).map(::toSignalResponse)
     }
 
     @Scheduled(fixedDelay = 60000)
@@ -166,18 +178,19 @@ class PaperExecutionService(
         }
 
         val symbols = resolveLinkedSymbols(strategy.id)
-        val run = strategyExecutionRunRepository.save(
-            StrategyExecutionRunEntity(
-                strategyId = strategy.id,
-                strategyVersionId = versions.first().id,
-                triggerType = StrategyExecutionTriggerType.SCHEDULED,
-                status = StrategyExecutionRunStatus.RUNNING,
-                scheduledDate = scheduledAt.toLocalDate(),
-                startedAt = scheduledAt.toOffsetDateTime(),
-                symbolCount = symbols.size,
-                signalCount = 0,
-            ),
-        )
+        val run =
+            strategyExecutionRunRepository.save(
+                StrategyExecutionRunEntity(
+                    strategyId = strategy.id,
+                    strategyVersionId = versions.first().id,
+                    triggerType = StrategyExecutionTriggerType.SCHEDULED,
+                    status = StrategyExecutionRunStatus.RUNNING,
+                    scheduledDate = scheduledAt.toLocalDate(),
+                    startedAt = scheduledAt.toOffsetDateTime(),
+                    symbolCount = symbols.size,
+                    signalCount = 0,
+                ),
+            )
 
         try {
             if (symbols.isEmpty()) {
@@ -187,39 +200,43 @@ class PaperExecutionService(
             val executableVersion = resolveLatestExecutableVersion(strategy, versions)
             run.strategyVersionId = executableVersion.id
             val spec = StrategySignalSupport.parseStrategySpec(executableVersion.normalizedSpec!!)
-            val barsBySymbol = symbols.associateWith { symbol ->
-                marketDailyBarRepository.findAllBySymbolOrderByTradingDateAsc(symbol).map {
-                    Bar(
-                        tradingDate = it.tradingDate,
-                        open = it.open.toDouble(),
-                        high = it.high.toDouble(),
-                        low = it.low.toDouble(),
-                        close = it.close.toDouble(),
-                        volume = it.volume.toDouble(),
-                    )
+            val barsBySymbol =
+                symbols.associateWith { symbol ->
+                    marketDailyBarRepository.findAllBySymbolOrderByTradingDateAsc(symbol).map {
+                        Bar(
+                            tradingDate = it.tradingDate,
+                            open = it.open.toDouble(),
+                            high = it.high.toDouble(),
+                            low = it.low.toDouble(),
+                            close = it.close.toDouble(),
+                            volume = it.volume.toDouble(),
+                        )
+                    }
                 }
-            }
             val signals = signalEngine.generateSignals(spec, barsBySymbol)
 
-            strategySignalEventRepository.saveAll(signals.map { signal ->
-                StrategySignalEventEntity(
-                    runId = run.id,
-                    strategyId = strategy.id,
-                    strategyVersionId = executableVersion.id,
-                    symbol = signal.symbol,
-                    signalType = signal.signalType,
-                    tradingDate = signal.tradingDate,
-                    payload = signal.payload,
-                )
-            })
+            strategySignalEventRepository.saveAll(
+                signals.map { signal ->
+                    StrategySignalEventEntity(
+                        runId = run.id,
+                        strategyId = strategy.id,
+                        strategyVersionId = executableVersion.id,
+                        symbol = signal.symbol,
+                        signalType = signal.signalType,
+                        tradingDate = signal.tradingDate,
+                        payload = signal.payload,
+                    )
+                },
+            )
 
             run.signalCount = signals.size
             run.status = StrategyExecutionRunStatus.COMPLETED
-            run.summary = linkedMapOf(
-                "evaluatedSymbolCount" to symbols.size,
-                "signalCount" to signals.size,
-                "signalSymbols" to signals.map { it.symbol }.distinct(),
-            )
+            run.summary =
+                linkedMapOf(
+                    "evaluatedSymbolCount" to symbols.size,
+                    "signalCount" to signals.size,
+                    "signalSymbols" to signals.map { it.symbol }.distinct(),
+                )
             run.completedAt = OffsetDateTime.now(ZoneId.of(config.timezone))
             run.errorMessage = null
             strategyExecutionRunRepository.save(run)
@@ -262,25 +279,28 @@ class PaperExecutionService(
             return version
         }
 
-        val result = strategyEditorService.validateStoredPayload(
-            strategy.strategyType,
-            version.payloadFormat,
-            version.payload,
-        )
+        val result =
+            strategyEditorService.validateStoredPayload(
+                strategy.strategyType,
+                version.payloadFormat,
+                version.payload,
+            )
         version.normalizedSpec = result.normalizedSpec?.let(::deepCopyMap)
         version.validationStatus = if (result.valid) StrategyValidationStatus.VALID else StrategyValidationStatus.INVALID
-        version.validationErrors = result.errors.map {
-            linkedMapOf(
-                "category" to it.category,
-                "message" to it.message,
-            )
-        }
-        version.validationWarnings = result.warnings.map {
-            linkedMapOf(
-                "category" to it.category,
-                "message" to it.message,
-            )
-        }
+        version.validationErrors =
+            result.errors.map {
+                linkedMapOf(
+                    "category" to it.category,
+                    "message" to it.message,
+                )
+            }
+        version.validationWarnings =
+            result.warnings.map {
+                linkedMapOf(
+                    "category" to it.category,
+                    "message" to it.message,
+                )
+            }
         return strategyVersionRepository.save(version)
     }
 
@@ -295,29 +315,36 @@ class PaperExecutionService(
             return emptyList()
         }
 
-        return universeIds.flatMap { universeId ->
-            universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId).map { it.symbol.uppercase() }
-        }.distinct()
+        return universeIds
+            .flatMap { universeId ->
+                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAsc(universeId).map { it.symbol.uppercase() }
+            }.distinct()
     }
 
-    private fun getActiveStrategy(strategyId: UUID): StrategyEntity = strategyRepository.findByIdAndIsArchivedFalse(strategyId)
-        ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
+    private fun getActiveStrategy(strategyId: UUID): StrategyEntity =
+        strategyRepository.findByIdAndIsArchivedFalse(strategyId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
 
-    private fun defaultConfig(strategyId: UUID): StrategyExecutionConfigEntity = StrategyExecutionConfigEntity(
-        strategyId = strategyId,
-        enabled = false,
-        mode = StrategyExecutionMode.PAPER,
-        scheduleTime = DEFAULT_SCHEDULE_TIME,
-        timezone = DEFAULT_TIMEZONE,
-    )
+    private fun defaultConfig(strategyId: UUID): StrategyExecutionConfigEntity =
+        StrategyExecutionConfigEntity(
+            strategyId = strategyId,
+            enabled = false,
+            mode = StrategyExecutionMode.PAPER,
+            scheduleTime = DEFAULT_SCHEDULE_TIME,
+            timezone = DEFAULT_TIMEZONE,
+        )
 
-    private fun parseScheduleTime(value: String): LocalTime = try {
-        LocalTime.parse(value.trim(), SCHEDULE_TIME_FORMATTER)
-    } catch (_: DateTimeParseException) {
-        throw ResponseStatusException(HttpStatus.BAD_REQUEST, "scheduleTime must use HH:mm format")
-    }
+    private fun parseScheduleTime(value: String): LocalTime =
+        try {
+            LocalTime.parse(value.trim(), SCHEDULE_TIME_FORMATTER)
+        } catch (_: DateTimeParseException) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "scheduleTime must use HH:mm format")
+        }
 
-    private fun normalizeLimit(value: Int, defaultValue: Int): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(
+        value: Int,
+        defaultValue: Int,
+    ): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
 
     private fun toExecutionResponse(
         strategy: StrategyEntity,
@@ -342,59 +369,66 @@ class PaperExecutionService(
 
         val zoneId = ZoneId.of(config.timezone)
         val now = ZonedDateTime.now(zoneId)
-        val nextDate = if (config.lastScheduledDate == now.toLocalDate()) {
-            now.toLocalDate().plusDays(1)
-        } else {
-            now.toLocalDate()
-        }
+        val nextDate =
+            if (config.lastScheduledDate == now.toLocalDate()) {
+                now.toLocalDate().plusDays(1)
+            } else {
+                now.toLocalDate()
+            }
         return ZonedDateTime.of(nextDate, config.scheduleTime, zoneId).toOffsetDateTime()
     }
 
-    private fun toLastRunResponse(run: StrategyExecutionRunEntity): StrategyExecutionLastRunResponse = StrategyExecutionLastRunResponse(
-        runId = run.id,
-        status = run.status,
-        scheduledDate = run.scheduledDate,
-        startedAt = run.startedAt,
-        completedAt = run.completedAt,
-        signalCount = run.signalCount,
-        errorMessage = run.errorMessage,
-    )
+    private fun toLastRunResponse(run: StrategyExecutionRunEntity): StrategyExecutionLastRunResponse =
+        StrategyExecutionLastRunResponse(
+            runId = run.id,
+            status = run.status,
+            scheduledDate = run.scheduledDate,
+            startedAt = run.startedAt,
+            completedAt = run.completedAt,
+            signalCount = run.signalCount,
+            errorMessage = run.errorMessage,
+        )
 
-    private fun toRunResponse(run: StrategyExecutionRunEntity): StrategyExecutionRunResponse = StrategyExecutionRunResponse(
-        runId = run.id,
-        status = run.status,
-        triggerType = run.triggerType,
-        scheduledDate = run.scheduledDate,
-        startedAt = run.startedAt,
-        completedAt = run.completedAt,
-        symbolCount = run.symbolCount,
-        signalCount = run.signalCount,
-        errorMessage = run.errorMessage,
-        strategyVersionId = run.strategyVersionId,
-    )
+    private fun toRunResponse(run: StrategyExecutionRunEntity): StrategyExecutionRunResponse =
+        StrategyExecutionRunResponse(
+            runId = run.id,
+            status = run.status,
+            triggerType = run.triggerType,
+            scheduledDate = run.scheduledDate,
+            startedAt = run.startedAt,
+            completedAt = run.completedAt,
+            symbolCount = run.symbolCount,
+            signalCount = run.signalCount,
+            errorMessage = run.errorMessage,
+            strategyVersionId = run.strategyVersionId,
+        )
 
-    private fun toSignalResponse(signal: StrategySignalEventEntity): StrategySignalEventResponse = StrategySignalEventResponse(
-        id = signal.id,
-        runId = signal.runId,
-        strategyVersionId = signal.strategyVersionId,
-        symbol = signal.symbol,
-        signalType = signal.signalType,
-        tradingDate = signal.tradingDate,
-        createdAt = signal.createdAt,
-        payload = signal.payload,
-    )
-
-    @Suppress("UNCHECKED_CAST")
-    private fun deepCopyMap(value: Map<String, Any?>): Map<String, Any?> = value.entries.associate { (key, nestedValue) ->
-        key to deepCopyValue(nestedValue)
-    }.toMap(LinkedHashMap())
+    private fun toSignalResponse(signal: StrategySignalEventEntity): StrategySignalEventResponse =
+        StrategySignalEventResponse(
+            id = signal.id,
+            runId = signal.runId,
+            strategyVersionId = signal.strategyVersionId,
+            symbol = signal.symbol,
+            signalType = signal.signalType,
+            tradingDate = signal.tradingDate,
+            createdAt = signal.createdAt,
+            payload = signal.payload,
+        )
 
     @Suppress("UNCHECKED_CAST")
-    private fun deepCopyValue(value: Any?): Any? = when (value) {
-        is Map<*, *> -> value.entries.associate { it.key.toString() to deepCopyValue(it.value) }.toMap(LinkedHashMap())
-        is List<*> -> value.map(::deepCopyValue)
-        else -> value
-    }
+    private fun deepCopyMap(value: Map<String, Any?>): Map<String, Any?> =
+        value.entries
+            .associate { (key, nestedValue) ->
+                key to deepCopyValue(nestedValue)
+            }.toMap(LinkedHashMap())
+
+    @Suppress("UNCHECKED_CAST")
+    private fun deepCopyValue(value: Any?): Any? =
+        when (value) {
+            is Map<*, *> -> value.entries.associate { it.key.toString() to deepCopyValue(it.value) }.toMap(LinkedHashMap())
+            is List<*> -> value.map(::deepCopyValue)
+            else -> value
+        }
 
     companion object {
         private val DEFAULT_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
@@ -406,53 +440,54 @@ class PaperExecutionService(
 
 @Service
 class PaperSignalEngine {
-
     fun generateSignals(
         spec: StrategySpec,
         barsBySymbol: Map<String, List<Bar>>,
-    ): List<GeneratedSignal> = barsBySymbol.entries.flatMap { (symbol, bars) ->
-        if (bars.isEmpty()) {
-            return@flatMap emptyList()
-        }
-
-        val lastIndex = bars.lastIndex
-        val indicators = StrategySignalSupport.calculateIndicators(spec.indicators, bars)
-        if (!StrategySignalSupport.hasRequiredValues(spec, indicators, lastIndex)) {
-            return@flatMap emptyList()
-        }
-
-        val lastBar = bars[lastIndex]
-        buildList {
-            if (StrategySignalSupport.evaluateGroup(spec.entry, bars, indicators, lastIndex)) {
-                add(
-                    GeneratedSignal(
-                        symbol = symbol,
-                        signalType = StrategySignalType.ENTRY,
-                        tradingDate = lastBar.tradingDate,
-                        payload = payloadFor(lastBar),
-                    ),
-                )
+    ): List<GeneratedSignal> =
+        barsBySymbol.entries.flatMap { (symbol, bars) ->
+            if (bars.isEmpty()) {
+                return@flatMap emptyList()
             }
-            if (StrategySignalSupport.evaluateGroup(spec.exit, bars, indicators, lastIndex)) {
-                add(
-                    GeneratedSignal(
-                        symbol = symbol,
-                        signalType = StrategySignalType.EXIT,
-                        tradingDate = lastBar.tradingDate,
-                        payload = payloadFor(lastBar),
-                    ),
-                )
+
+            val lastIndex = bars.lastIndex
+            val indicators = StrategySignalSupport.calculateIndicators(spec.indicators, bars)
+            if (!StrategySignalSupport.hasRequiredValues(spec, indicators, lastIndex)) {
+                return@flatMap emptyList()
+            }
+
+            val lastBar = bars[lastIndex]
+            buildList {
+                if (StrategySignalSupport.evaluateGroup(spec.entry, bars, indicators, lastIndex)) {
+                    add(
+                        GeneratedSignal(
+                            symbol = symbol,
+                            signalType = StrategySignalType.ENTRY,
+                            tradingDate = lastBar.tradingDate,
+                            payload = payloadFor(lastBar),
+                        ),
+                    )
+                }
+                if (StrategySignalSupport.evaluateGroup(spec.exit, bars, indicators, lastIndex)) {
+                    add(
+                        GeneratedSignal(
+                            symbol = symbol,
+                            signalType = StrategySignalType.EXIT,
+                            tradingDate = lastBar.tradingDate,
+                            payload = payloadFor(lastBar),
+                        ),
+                    )
+                }
             }
         }
-    }
 
-    private fun payloadFor(bar: Bar): Map<String, Any?> = linkedMapOf(
-        "open" to bar.open,
-        "high" to bar.high,
-        "low" to bar.low,
-        "close" to bar.close,
-        "volume" to bar.volume,
-    )
+    private fun payloadFor(bar: Bar): Map<String, Any?> =
+        linkedMapOf(
+            "open" to bar.open,
+            "high" to bar.high,
+            "low" to bar.low,
+            "close" to bar.close,
+            "volume" to bar.volume,
+        )
 }
 
 data class GeneratedSignal(

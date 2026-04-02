@@ -19,7 +19,6 @@ class SecurityConfig(
     private val jwtService: JwtService,
     private val applicationProperties: ApplicationProperties,
 ) {
-
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
@@ -33,15 +32,16 @@ class SecurityConfig(
             http
                 .authorizeHttpRequests { auth ->
                     auth
-                        .requestMatchers("/api/v1/health").permitAll()
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .anyRequest().authenticated()
-                }
-                .addFilterBefore(
+                        .requestMatchers("/api/v1/health")
+                        .permitAll()
+                        .requestMatchers("/api/v1/auth/**")
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated()
+                }.addFilterBefore(
                     JwtAuthenticationFilter(jwtService),
                     UsernamePasswordAuthenticationFilter::class.java,
-                )
-                .exceptionHandling { ex ->
+                ).exceptionHandling { ex ->
                     ex.authenticationEntryPoint { _, response, _ ->
                         response.status = 401
                         response.contentType = "application/json"
@@ -56,7 +56,8 @@ class SecurityConfig(
     @Bean
     fun userDetailsService(): UserDetailsService =
         InMemoryUserDetailsManager(
-            User.withUsername("unused")
+            User
+                .withUsername("unused")
                 .password("{noop}unused")
                 .authorities(emptyList())
                 .build(),

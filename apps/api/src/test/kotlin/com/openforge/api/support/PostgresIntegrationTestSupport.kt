@@ -22,7 +22,6 @@ import org.testcontainers.containers.PostgreSQLContainer
     ],
 )
 abstract class PostgresIntegrationTestSupport {
-
     @Autowired
     lateinit var jdbcTemplate: JdbcTemplate
 
@@ -45,7 +44,8 @@ abstract class PostgresIntegrationTestSupport {
 }
 
 private object SharedPostgresContainer {
-    val instance: PostgreSQLContainer<*> = PostgreSQLContainer("postgres:18-alpine").apply {
-        start()
-    }
+    val instance: PostgreSQLContainer<*> =
+        PostgreSQLContainer("postgres:18-alpine").apply {
+            start()
+        }
 }

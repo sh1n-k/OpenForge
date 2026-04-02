@@ -57,7 +57,10 @@ data class DashboardErrorItem(
     val occurredAt: OffsetDateTime,
 )
 
-data class HealthSummary(val apiStatus: String, val dbStatus: String)
+data class HealthSummary(
+    val apiStatus: String,
+    val dbStatus: String,
+)
 
 data class CrossStrategyOrderRequestResponse(
     val id: UUID,

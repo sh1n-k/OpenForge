@@ -5,17 +5,17 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DatabaseMigrationIntegrationTest : PostgresIntegrationTestSupport() {
-
     @Test
     fun `creates bootstrap tables through flyway`() {
-        val tables = jdbcTemplate.queryForList(
-            """
+        val tables =
+            jdbcTemplate.queryForList(
+                """
                 select table_name
                 from information_schema.tables
                 where table_schema = 'public'
-            """.trimIndent(),
-            String::class.java,
-        )
+                """.trimIndent(),
+                String::class.java,
+            )
 
         assertTrue(
             tables.containsAll(

@@ -13,14 +13,10 @@ class UniverseEntity(
     @Id
     @Column(columnDefinition = "uuid")
     var id: UUID = UUID.randomUUID(),
-
     @Column(nullable = false, length = 120)
     var name: String,
-
     @Column(columnDefinition = "text")
     var description: String? = null,
-
     @Column(name = "is_archived", nullable = false)
     var isArchived: Boolean = false,
 ) : BaseAuditableEntity()
-

@@ -19,51 +19,37 @@ class StrategyOrderRequestEntity(
     @Id
     @Column(columnDefinition = "uuid")
     var id: UUID = UUID.randomUUID(),
-
     @Column(name = "strategy_id", columnDefinition = "uuid", nullable = false)
     var strategyId: UUID,
-
     @Column(name = "strategy_version_id", columnDefinition = "uuid", nullable = false)
     var strategyVersionId: UUID,
-
     @Column(name = "signal_event_id", columnDefinition = "uuid", nullable = false)
     var signalEventId: UUID,
-
     @Column(name = "execution_run_id", columnDefinition = "uuid", nullable = false)
     var executionRunId: UUID,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var mode: OrderMode,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var side: OrderSide,
-
     @Enumerated(EnumType.STRING)
     @Column(name = "order_type", nullable = false, length = 32)
     var orderType: OrderType = OrderType.LIMIT,
-
     @Column(nullable = false)
     var quantity: Long,
-
     @Column(nullable = false, precision = 19, scale = 6)
     var price: BigDecimal,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var status: OrderRequestStatus,
-
     @Column(name = "precheck_passed", nullable = false)
     var precheckPassed: Boolean,
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "precheck_summary", columnDefinition = "jsonb", nullable = false)
     var precheckSummary: Map<String, Any?>,
-
     @Column(name = "failure_reason", columnDefinition = "text")
     var failureReason: String? = null,
-
     @Column(name = "requested_at", nullable = false)
     var requestedAt: OffsetDateTime,
 ) : BaseAuditableEntity()
@@ -74,21 +60,16 @@ class StrategyOrderStatusEventEntity(
     @Id
     @Column(columnDefinition = "uuid")
     var id: UUID = UUID.randomUUID(),
-
     @Column(name = "order_request_id", columnDefinition = "uuid", nullable = false)
     var orderRequestId: UUID,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var status: OrderLifecycleStatus,
-
     @Column(columnDefinition = "text")
     var reason: String? = null,
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     var payload: Map<String, Any?> = emptyMap(),
-
     @Column(name = "occurred_at", nullable = false)
     var occurredAt: OffsetDateTime,
 ) : BaseAuditableEntity()
@@ -99,39 +80,28 @@ class StrategyOrderFillEntity(
     @Id
     @Column(columnDefinition = "uuid")
     var id: UUID = UUID.randomUUID(),
-
     @Column(name = "order_request_id", columnDefinition = "uuid", nullable = false)
     var orderRequestId: UUID,
-
     @Column(name = "strategy_id", columnDefinition = "uuid", nullable = false)
     var strategyId: UUID,
-
     @Column(name = "strategy_version_id", columnDefinition = "uuid", nullable = false)
     var strategyVersionId: UUID,
-
     @Column(nullable = false, length = 32)
     var symbol: String,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var side: OrderSide,
-
     @Column(nullable = false)
     var quantity: Long,
-
     @Column(nullable = false, precision = 19, scale = 6)
     var price: BigDecimal,
-
     @Column(name = "realized_pnl", nullable = false, precision = 19, scale = 6)
     var realizedPnl: BigDecimal = BigDecimal.ZERO,
-
     @Column(name = "filled_at", nullable = false)
     var filledAt: OffsetDateTime,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     var source: OrderFillSource,
-
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     var payload: Map<String, Any?> = emptyMap(),

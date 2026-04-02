@@ -3,7 +3,9 @@ package com.openforge.api.backtest.domain
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
 
-enum class BacktestRunStatus(@get:JsonValue val value: String) {
+enum class BacktestRunStatus(
+    @get:JsonValue val value: String,
+) {
     QUEUED("queued"),
     RUNNING("running"),
     COMPLETED("completed"),
@@ -13,12 +15,15 @@ enum class BacktestRunStatus(@get:JsonValue val value: String) {
     companion object {
         @JvmStatic
         @JsonCreator
-        fun fromValue(value: String): BacktestRunStatus = entries.firstOrNull { it.value == value }
-            ?: throw IllegalArgumentException("Unsupported backtestRunStatus: $value")
+        fun fromValue(value: String): BacktestRunStatus =
+            entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unsupported backtestRunStatus: $value")
     }
 }
 
-enum class BacktestExitReason(@get:JsonValue val value: String) {
+enum class BacktestExitReason(
+    @get:JsonValue val value: String,
+) {
     SIGNAL("signal"),
     STOP_LOSS("stop_loss"),
     TAKE_PROFIT("take_profit"),
@@ -29,7 +34,8 @@ enum class BacktestExitReason(@get:JsonValue val value: String) {
     companion object {
         @JvmStatic
         @JsonCreator
-        fun fromValue(value: String): BacktestExitReason = entries.firstOrNull { it.value == value }
-            ?: throw IllegalArgumentException("Unsupported backtestExitReason: $value")
+        fun fromValue(value: String): BacktestExitReason =
+            entries.firstOrNull { it.value == value }
+                ?: throw IllegalArgumentException("Unsupported backtestExitReason: $value")
     }
 }

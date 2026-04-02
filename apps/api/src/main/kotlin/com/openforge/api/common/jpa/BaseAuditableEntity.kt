@@ -8,7 +8,6 @@ import java.time.OffsetDateTime
 
 @MappedSuperclass
 abstract class BaseAuditableEntity {
-
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: OffsetDateTime = OffsetDateTime.now()
 
@@ -27,4 +26,3 @@ abstract class BaseAuditableEntity {
         updatedAt = OffsetDateTime.now()
     }
 }
-

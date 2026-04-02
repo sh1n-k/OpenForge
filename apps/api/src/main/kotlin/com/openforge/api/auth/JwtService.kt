@@ -13,11 +13,11 @@ import javax.crypto.spec.SecretKeySpec
 class JwtService(
     private val applicationProperties: ApplicationProperties,
 ) {
-
     fun generateAccessToken(): String {
         val now = System.currentTimeMillis()
         val expiryMillis = applicationProperties.auth.tokenExpiryHours * 3600 * 1000
-        return Jwts.builder()
+        return Jwts
+            .builder()
             .subject("owner")
             .claim("type", "access")
             .issuedAt(Date(now))
@@ -29,7 +29,8 @@ class JwtService(
     fun generateRefreshToken(): String {
         val now = System.currentTimeMillis()
         val expiryMillis = applicationProperties.auth.refreshExpiryDays * 86400 * 1000
-        return Jwts.builder()
+        return Jwts
+            .builder()
             .subject("owner")
             .claim("type", "refresh")
             .issuedAt(Date(now))
@@ -38,27 +39,34 @@ class JwtService(
             .compact()
     }
 
-    fun validateToken(token: String): Boolean = runCatching {
-        Jwts.parser()
-            .verifyWith(secretKey())
-            .build()
-            .parseSignedClaims(token)
-        true
-    }.getOrDefault(false)
+    fun validateToken(token: String): Boolean =
+        runCatching {
+            Jwts
+                .parser()
+                .verifyWith(secretKey())
+                .build()
+                .parseSignedClaims(token)
+            true
+        }.getOrDefault(false)
 
-    fun isRefreshToken(token: String): Boolean = runCatching {
-        val claims = Jwts.parser()
-            .verifyWith(secretKey())
-            .build()
-            .parseSignedClaims(token)
-            .payload
-        claims["type"] == "refresh"
-    }.getOrDefault(false)
+    fun isRefreshToken(token: String): Boolean =
+        runCatching {
+            val claims =
+                Jwts
+                    .parser()
+                    .verifyWith(secretKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .payload
+            claims["type"] == "refresh"
+        }.getOrDefault(false)
 
     private fun secretKey(): SecretKey {
         val secret = applicationProperties.auth.jwtSecret.ifBlank { "default-dev-secret" }
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(secret.toByteArray(StandardCharsets.UTF_8))
+        val digest =
+            MessageDigest
+                .getInstance("SHA-256")
+                .digest(secret.toByteArray(StandardCharsets.UTF_8))
         return SecretKeySpec(digest, "HmacSHA256")
     }
 }

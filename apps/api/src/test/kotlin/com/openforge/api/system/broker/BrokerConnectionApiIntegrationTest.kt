@@ -24,7 +24,6 @@ import java.net.URI
 import java.nio.charset.StandardCharsets
 
 class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
-
     @Autowired
     lateinit var mockMvc: MockMvc
 
@@ -32,23 +31,23 @@ class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Test
     fun `saving paper credentials stores ciphertext only and returns masked values`() {
-        mockMvc.perform(
-            put("/api/v1/system/broker/config")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsBytes(
-                        mapOf(
-                            "targetMode" to "paper",
-                            "appKey" to "paper-app-key-123",
-                            "appSecret" to "paper-secret-123",
-                            "accountNumber" to "12345678",
-                            "productCode" to "01",
-                            "enabled" to true,
+        mockMvc
+            .perform(
+                put("/api/v1/system/broker/config")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "targetMode" to "paper",
+                                "appKey" to "paper-app-key-123",
+                                "appSecret" to "paper-secret-123",
+                                "accountNumber" to "12345678",
+                                "productCode" to "01",
+                                "enabled" to true,
+                            ),
                         ),
                     ),
-                ),
-        )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.targetMode").value("paper"))
             .andExpect(jsonPath("$.enabled").value(true))
             .andExpect(jsonPath("$.isConfigured").value(true))
@@ -56,19 +55,21 @@ class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
             .andExpect(jsonPath("$.maskedAccountNumber").value("12****78"))
             .andExpect(jsonPath("$.maskedProductCode").value("01"))
 
-        val row = jdbcTemplate.queryForMap(
-            """
+        val row =
+            jdbcTemplate.queryForMap(
+                """
                 select app_key_ciphertext, app_secret_ciphertext, account_number_ciphertext, product_code_ciphertext
                 from broker_connection_config
                 where broker_type = 'kis' and target_mode = 'PAPER'
-            """.trimIndent(),
-        )
+                """.trimIndent(),
+            )
         check(row["app_key_ciphertext"] != "paper-app-key-123")
         check(row["app_secret_ciphertext"] != "paper-secret-123")
         check(row["account_number_ciphertext"] != "12345678")
         check(row["product_code_ciphertext"] != "01")
 
-        mockMvc.perform(get("/api/v1/system/broker"))
+        mockMvc
+            .perform(get("/api/v1/system/broker"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.currentSystemMode").value("paper"))
             .andExpect(jsonPath("$.hasPaperConfig").value(true))
@@ -97,7 +98,8 @@ class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
             enabled = false,
         )
 
-        mockMvc.perform(get("/api/v1/system/broker"))
+        mockMvc
+            .perform(get("/api/v1/system/broker"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.paper.maskedAccountNumber").value("12****78"))
             .andExpect(jsonPath("$.live.maskedAccountNumber").value("87****21"))
@@ -116,16 +118,17 @@ class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
             enabled = true,
         )
 
-        mockMvc.perform(
-            post("/api/v1/system/broker/test")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("targetMode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/system/broker/test")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("targetMode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.lastConnectionTestStatus").value("success"))
             .andExpect(jsonPath("$.lastConnectionTestMessage").value("OAuth 토큰 발급 및 계좌 조회 성공"))
 
-        mockMvc.perform(get("/api/v1/system/broker/events?limit=20"))
+        mockMvc
+            .perform(get("/api/v1/system/broker/events?limit=20"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$", hasSize<Any>(2)))
             .andExpect(jsonPath("$[0].eventType").value("connection_test_succeeded"))
@@ -142,21 +145,23 @@ class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
             enabled = true,
         )
 
-        mockMvc.perform(
-            post("/api/v1/system/broker/test")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsBytes(mapOf("targetMode" to "paper"))),
-        )
-            .andExpect(status().isOk)
+        mockMvc
+            .perform(
+                post("/api/v1/system/broker/test")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("targetMode" to "paper"))),
+            ).andExpect(status().isOk)
             .andExpect(jsonPath("$.lastConnectionTestStatus").value("failed"))
             .andExpect(jsonPath("$.lastConnectionTestMessage").value(containsString("invalid credentials")))
 
-        mockMvc.perform(get("/api/v1/system/broker/events?limit=20"))
+        mockMvc
+            .perform(get("/api/v1/system/broker/events?limit=20"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$[0].eventType").value("connection_test_failed"))
             .andExpect(jsonPath("$[0].message").value(containsString("invalid credentials")))
 
-        mockMvc.perform(get("/api/v1/system/broker"))
+        mockMvc
+            .perform(get("/api/v1/system/broker"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.paper.maskedAppKey").exists())
             .andExpect(content().string(org.hamcrest.Matchers.not(containsString("bad-paper-secret"))))
@@ -170,23 +175,23 @@ class BrokerConnectionApiIntegrationTest : PostgresIntegrationTestSupport() {
         productCode: String,
         enabled: Boolean,
     ) {
-        mockMvc.perform(
-            put("/api/v1/system/broker/config")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    objectMapper.writeValueAsBytes(
-                        mapOf(
-                            "targetMode" to targetMode,
-                            "appKey" to appKey,
-                            "appSecret" to appSecret,
-                            "accountNumber" to accountNumber,
-                            "productCode" to productCode,
-                            "enabled" to enabled,
+        mockMvc
+            .perform(
+                put("/api/v1/system/broker/config")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "targetMode" to targetMode,
+                                "appKey" to appKey,
+                                "appSecret" to appSecret,
+                                "accountNumber" to accountNumber,
+                                "productCode" to productCode,
+                                "enabled" to enabled,
+                            ),
                         ),
                     ),
-                ),
-        )
-            .andExpect(status().isOk)
+            ).andExpect(status().isOk)
     }
 
     companion object {
@@ -262,24 +267,28 @@ private class BalanceHandler : HttpHandler {
         }
     }
 
-    private fun parseQuery(uri: URI): Map<String, String> = uri.rawQuery
-        ?.split("&")
-        ?.mapNotNull { part ->
-            val index = part.indexOf('=')
-            if (index < 0) {
-                null
-            } else {
-                part.substring(0, index) to java.net.URLDecoder.decode(
-                    part.substring(index + 1),
-                    StandardCharsets.UTF_8,
-                )
-            }
-        }
-        ?.toMap()
-        ?: emptyMap()
+    private fun parseQuery(uri: URI): Map<String, String> =
+        uri.rawQuery
+            ?.split("&")
+            ?.mapNotNull { part ->
+                val index = part.indexOf('=')
+                if (index < 0) {
+                    null
+                } else {
+                    part.substring(0, index) to
+                        java.net.URLDecoder.decode(
+                            part.substring(index + 1),
+                            StandardCharsets.UTF_8,
+                        )
+                }
+            }?.toMap()
+            ?: emptyMap()
 }
 
-private fun HttpExchange.sendJson(status: Int, body: String) {
+private fun HttpExchange.sendJson(
+    status: Int,
+    body: String,
+) {
     responseHeaders.add("Content-Type", "application/json")
     sendResponseHeaders(status, body.toByteArray(StandardCharsets.UTF_8).size.toLong())
     responseBody.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }

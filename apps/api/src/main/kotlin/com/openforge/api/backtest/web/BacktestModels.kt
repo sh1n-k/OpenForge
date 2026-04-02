@@ -3,9 +3,7 @@ package com.openforge.api.backtest.web
 import com.openforge.api.backtest.domain.BacktestExitReason
 import com.openforge.api.backtest.domain.BacktestRunStatus
 import jakarta.validation.constraints.DecimalMin
-import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
-import org.springframework.web.multipart.MultipartFile
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.OffsetDateTime
