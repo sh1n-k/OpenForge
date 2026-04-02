@@ -30,40 +30,40 @@ const errorEventFixture: ActivityEvent = {
 };
 
 describe("LogsPageClient", () => {
-  it("should_render_event_in_timeline_when_events_exist", () => {
+  it("renders event with korean labels", () => {
     render(<LogsPageClient events={[eventFixture]} />);
 
     expect(screen.getByText("주문이 요청되었습니다")).toBeInTheDocument();
-    expect(screen.getByText("order")).toBeInTheDocument();
-    expect(screen.getByText("info")).toBeInTheDocument();
+    expect(screen.getAllByText("주문").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("정보").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("should_render_category_filter_buttons_when_rendered", () => {
+  it("renders category filter buttons", () => {
     render(<LogsPageClient events={[]} />);
 
     expect(screen.getByRole("button", { name: "실행" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "시그널" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "주문" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "리스크" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "브로커" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "시스템" })).toBeInTheDocument();
   });
 
-  it("should_show_empty_event_message_when_no_events", () => {
+  it("shows empty message when no events", () => {
     render(<LogsPageClient events={[]} />);
 
-    expect(screen.getByText("이벤트가 없습니다")).toBeInTheDocument();
+    expect(screen.getByText("기록된 이벤트가 없습니다")).toBeInTheDocument();
   });
 
-  it("should_show_error_count_chip_when_error_events_exist", () => {
+  it("shows error count in metric card", () => {
     render(<LogsPageClient events={[eventFixture, errorEventFixture]} />);
 
-    expect(screen.getByText("1 errors")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 
-  it("should_render_total_event_count_chip", () => {
-    render(<LogsPageClient events={[eventFixture, errorEventFixture]} />);
+  it("shows strategy link for events with strategyId", () => {
+    render(<LogsPageClient events={[eventFixture]} />);
 
-    expect(screen.getByText("2 events")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Strategy")).toBeInTheDocument();
   });
 });

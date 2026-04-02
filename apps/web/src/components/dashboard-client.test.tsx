@@ -66,7 +66,7 @@ describe("DashboardClient", () => {
     );
 
     expect(screen.getByText("Alpha Strategy")).toBeInTheDocument();
-    expect(screen.getByText("running")).toBeInTheDocument();
+    expect(screen.getByText("실행 중")).toBeInTheDocument();
   });
 
   it("should_show_kill_switch_active_label_when_enabled", () => {
@@ -74,7 +74,8 @@ describe("DashboardClient", () => {
       <DashboardClient dashboard={dashboardFixture} systemRisk={systemRiskActive} />,
     );
 
-    expect(screen.getByRole("button", { name: "자동매매 가동 중" })).toBeInTheDocument();
+    expect(screen.getByText("자동매매 가동 중")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "전체 중지" })).toBeInTheDocument();
   });
 
   it("should_show_kill_switch_stopped_label_when_disabled", () => {
@@ -85,7 +86,8 @@ describe("DashboardClient", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "전체 중지됨" })).toBeInTheDocument();
+    expect(screen.getByText("자동매매 중지됨")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "가동 시작" })).toBeInTheDocument();
   });
 
   it("should_show_empty_strategy_message_when_no_strategies", () => {

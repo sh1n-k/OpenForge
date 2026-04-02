@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition } from "react";
+import { startTransition, useState } from "react";
 import {
   archiveUniverse,
   createUniverse,
@@ -17,116 +17,120 @@ export function UniversesPageClient({
   universes,
 }: UniversesPageClientProps) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   async function handleCreate(formData: FormData) {
-    await createUniverse({
-      name: String(formData.get("name")),
-      description: String(formData.get("description") ?? ""),
-    });
+    const name = String(formData.get("name")).trim();
+    if (!name) return;
+    try {
+      setError(null);
+      setIsCreating(true);
+      await createUniverse({
+        name,
+        description: String(formData.get("description") ?? "").trim(),
+      });
+      startTransition(() => router.refresh());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "유니버스 생성에 실패했습니다.");
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  async function handleArchive(universeId: string) {
+    if (!window.confirm("이 유니버스를 보관합니까? 목록에서 사라집니다.")) return;
+    await archiveUniverse(universeId);
     startTransition(() => router.refresh());
   }
 
   return (
     <main className="page-shell docs-page-shell">
-      <section
-        id="universes-summary"
-        className="doc-panel"
-      >
-        <div className="page-intro-row">
-          <div className="page-intro">
-            <p className="page-eyebrow">Universes</p>
-            <h1 className="page-title">Universe Registry</h1>
-            <p className="page-description">
-              전략에 연결할 종목 집합을 관리합니다. 설명, 심볼 수, 연결된 전략 수를 한 화면에서 읽을 수 있게 정리합니다.
-            </p>
-          </div>
-          <div className="page-actions">
-            <span className="status-chip status-chip-info">{universes.length} universes</span>
-          </div>
-        </div>
-        <div className="page-actions">
-          <Link
-            href="/strategies"
-            className="button-secondary"
-          >
-            Strategies
-          </Link>
-        </div>
+      <section id="universes-summary" className="page-intro">
+        <p className="page-eyebrow">Universes</p>
+        <h1 className="page-title">유니버스 레지스트리</h1>
+        <p className="page-description">
+          전략에 연결할 종목 집합을 관리합니다.
+        </p>
       </section>
 
-      <section
-        id="universes-create"
-        className="doc-panel"
-      >
-        <h2 className="section-title">Create Universe</h2>
-        <p className="section-copy">이름과 설명만 먼저 등록하고, 상세 화면에서 심볼 구성을 이어서 편집합니다.</p>
+      {error ? (
+        <div className="doc-panel doc-panel-error">
+          <p className="section-copy">{error}</p>
+        </div>
+      ) : null}
+
+      <section id="universes-create" className="doc-panel">
+        <h2 className="section-title">유니버스 생성</h2>
+        <p className="section-copy">이름과 설명만 먼저 등록하고, 상세 화면에서 심볼 구성을 편집합니다.</p>
         <form
-          action={handleCreate}
-          className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await handleCreate(new FormData(e.currentTarget));
+          }}
+          className="grid-section"
         >
-          <input
-            name="name"
-            placeholder="유니버스 이름"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-          />
-          <input
-            name="description"
-            placeholder="설명"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-          />
-          <button
-            type="submit"
-            className="button-primary"
-          >
-            생성
-          </button>
+          <div className="form-row">
+            <label className="form-field">
+              <span className="form-label">이름</span>
+              <input name="name" required placeholder="예: KOSPI 200 대형주" />
+            </label>
+            <label className="form-field">
+              <span className="form-label">설명 (선택)</span>
+              <input name="description" placeholder="유니버스에 대한 간단한 설명" />
+            </label>
+          </div>
+          <div>
+            <button type="submit" className="button-primary" disabled={isCreating}>
+              {isCreating ? "생성 중..." : "유니버스 생성"}
+            </button>
+          </div>
         </form>
       </section>
 
-      <section
-        id="universes-registry"
-        className="stack-list"
-      >
+      <section id="universes-registry">
+        <h2 className="section-title">
+          유니버스 목록
+          {universes.length > 0 ? (
+            <span className="section-count">{universes.length}개</span>
+          ) : null}
+        </h2>
         {universes.length === 0 ? (
-          <div className="doc-panel doc-panel-soft text-center">
-            저장된 유니버스가 없습니다.
+          <div className="empty-state">
+            <p className="empty-state-message">저장된 유니버스가 없습니다</p>
+            <p className="empty-state-hint">상단 폼에서 유니버스를 생성한 뒤, 종목을 추가하세요.</p>
           </div>
         ) : (
-          universes.map((universe) => (
-            <div
-              key={universe.id}
-              className="doc-panel"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <Link
-                    href={`/universes/${universe.id}`}
-                    className="section-title"
-                  >
-                    {universe.name}
-                  </Link>
-                  <p className="section-copy">
-                    {universe.description ?? "설명이 아직 없습니다."}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <div className="list-card">
-                    {universe.symbolCount} symbols / {universe.strategyCount} links
+          <div className="stack-list">
+            {universes.map((universe) => (
+              <div key={universe.id} className="list-card">
+                <div className="flex-between">
+                  <div>
+                    <Link href={`/universes/${universe.id}`} className="table-link" style={{ fontSize: "1.0625rem", fontWeight: 600 }}>
+                      {universe.name}
+                    </Link>
+                    {universe.description ? (
+                      <p className="section-copy" style={{ marginTop: 2 }}>{universe.description}</p>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await archiveUniverse(universe.id);
-                      startTransition(() => router.refresh());
-                    }}
-                    className="button-danger"
-                  >
-                    Archive
-                  </button>
+                  <div className="flex-center" style={{ gap: 12 }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div className="text-subtle" style={{ fontSize: "0.75rem" }}>{universe.symbolCount ?? 0}개 종목</div>
+                      <div className="text-subtle" style={{ fontSize: "0.75rem" }}>{universe.strategyCount ?? 0}개 전략 연결</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleArchive(universe.id)}
+                      className="button-ghost"
+                      style={{ color: "var(--error)" }}
+                    >
+                      보관
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </section>
     </main>

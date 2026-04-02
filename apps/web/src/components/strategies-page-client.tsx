@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useState } from "react";
 import {
   archiveStrategy,
   cloneStrategy,
@@ -20,8 +19,8 @@ type StrategiesPageClientProps = {
   strategies: StrategySummary[];
 };
 
-const defaultPayloads: Record<StrategyType, string> = {
-  builder: JSON.stringify(
+const defaultPayloads: Record<StrategyType, () => Record<string, unknown>> = {
+  builder: () =>
     makeBuilderPayload({
       metadata: {
         id: "new_builder_strategy",
@@ -40,17 +39,15 @@ const defaultPayloads: Record<StrategyType, string> = {
         trailingStop: { enabled: false, percent: 0 },
       },
     }),
-    null,
-    2,
-  ),
-  code: JSON.stringify(
-    {
-      source: makeCodeTemplate("New Code Strategy", ""),
-      sourceKind: "openforge_yaml",
-    },
-    null,
-    2,
-  ),
+  code: () => ({
+    source: makeCodeTemplate("New Code Strategy", ""),
+    sourceKind: "openforge_yaml",
+  }),
+};
+
+const typeLabels: Record<StrategyType, string> = {
+  builder: "빌더형",
+  code: "코드형",
 };
 
 export function StrategiesPageClient({
@@ -58,28 +55,38 @@ export function StrategiesPageClient({
 }: StrategiesPageClientProps) {
   const router = useRouter();
   const [strategyType, setStrategyType] = useState<StrategyType>("builder");
-  const [payload, setPayload] = useState(defaultPayloads.builder);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPayload(defaultPayloads[strategyType]);
-  }, [strategyType]);
+  const [isCreating, setIsCreating] = useState(false);
 
   async function handleCreate(formData: FormData) {
     try {
       setError(null);
-      const parsedPayload = JSON.parse(payload) as Record<string, unknown>;
+      setIsCreating(true);
+      const payload = defaultPayloads[strategyType]();
       const payloadFormat =
         strategyType === "builder" ? "builder_json" : "code_text";
 
+      const name = String(formData.get("name")).trim();
+      const description = String(formData.get("description") ?? "").trim();
+
+      // Update payload metadata with user-provided name/description
+      if (strategyType === "builder" && payload.builderState) {
+        const state = payload.builderState as Record<string, unknown>;
+        const meta = (state.metadata ?? {}) as Record<string, unknown>;
+        meta.id = name.toLowerCase().replace(/\s+/g, "_");
+        meta.name = name;
+        meta.description = description;
+        state.metadata = meta;
+      }
+
       await createStrategy({
-        name: String(formData.get("name")),
-        description: String(formData.get("description") ?? ""),
+        name,
+        description,
         strategyType,
         initialPayload: {
           payloadFormat,
-          payload: parsedPayload,
-          changeSummary: String(formData.get("changeSummary") ?? ""),
+          payload,
+          changeSummary: "초기 생성",
         },
       });
 
@@ -88,6 +95,8 @@ export function StrategiesPageClient({
       setError(
         createError instanceof Error ? createError.message : "전략 생성에 실패했습니다.",
       );
+    } finally {
+      setIsCreating(false);
     }
   }
 
@@ -97,143 +106,75 @@ export function StrategiesPageClient({
   }
 
   async function handleArchive(strategyId: string) {
+    if (!window.confirm("이 전략을 보관합니까? 목록에서 사라집니다.")) return;
     await archiveStrategy(strategyId);
     startTransition(() => router.refresh());
   }
 
   return (
     <main className="page-shell page-shell-wide docs-page-shell">
-      <section
-        id="strategies-summary"
-        className="doc-panel"
-      >
-        <div className="page-intro-row">
-          <div className="page-intro">
-            <p className="page-eyebrow">Strategies</p>
-            <h1 className="page-title">Strategy Registry</h1>
-            <p className="page-description">
-              전략 등록과 실행 관리를 한 화면에서 관리합니다.
-            </p>
-          </div>
-          <div className="page-actions">
-            <span className="status-chip status-chip-info">
-              {strategies.length} strategies
-            </span>
-          </div>
-        </div>
-        <div className="page-actions">
-          <Link
-            href="/universes"
-            className="button-secondary"
-          >
-            Universes
-          </Link>
-        </div>
+      <section id="strategies-summary" className="page-intro">
+        <p className="page-eyebrow">Strategies</p>
+        <h1 className="page-title">전략 레지스트리</h1>
+        <p className="page-description">
+          전략 등록과 실행 관리를 한 화면에서 관리합니다.
+        </p>
       </section>
 
-      <section
-        id="strategies-create"
-        className="doc-panel doc-panel-code"
-      >
-        <h2 className="section-title">
-          Create Strategy
-        </h2>
+      <section id="strategies-create" className="doc-panel">
+        <h2 className="section-title">전략 생성</h2>
+        <p className="section-copy">이름과 유형을 선택하면 기본 템플릿으로 전략이 생성됩니다. 상세 편집은 생성 후 편집 화면에서 할 수 있습니다.</p>
         <form
-          className="mt-5 grid gap-4"
+          className="grid-section"
           onSubmit={async (event) => {
             event.preventDefault();
             await handleCreate(new FormData(event.currentTarget));
           }}
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <input
-              name="name"
-              required
-              placeholder="전략 이름"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-            />
-            <select
-              value={strategyType}
-              onChange={(event) =>
-                setStrategyType(event.target.value as StrategyType)
-              }
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-            >
-              <option value="builder">builder</option>
-              <option value="code">code</option>
-            </select>
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label">전략 이름</label>
+              <input name="name" required placeholder="예: SMA 골든크로스" />
+            </div>
+            <div className="form-field">
+              <label className="form-label">유형</label>
+              <select
+                value={strategyType}
+                onChange={(event) =>
+                  setStrategyType(event.target.value as StrategyType)
+                }
+              >
+                <option value="builder">{typeLabels.builder}</option>
+                <option value="code">{typeLabels.code}</option>
+              </select>
+            </div>
           </div>
-          <input
-            name="description"
-            placeholder="설명"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-          />
-          <input
-            name="changeSummary"
-            placeholder="버전 메모"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-          />
-          <textarea
-            value={payload}
-            onChange={(event) => setPayload(event.target.value)}
-            rows={12}
-            className="rounded-3xl border border-slate-200 px-4 py-4 font-mono text-sm text-slate-800"
-          />
-          {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+          <div className="form-field">
+            <label className="form-label">설명 (선택)</label>
+            <input name="description" placeholder="전략에 대한 간단한 설명" />
+          </div>
+          {error ? <p className="inline-error">{error}</p> : null}
           <div>
-            <button
-              type="submit"
-              className="button-primary"
-            >
-              전략 생성
+            <button type="submit" className="button-primary" disabled={isCreating}>
+              {isCreating ? "생성 중..." : "전략 생성"}
             </button>
           </div>
         </form>
       </section>
 
-      <StrategyListView strategies={strategies} />
-
-      {strategies.length > 0 ? (
-        <section className="doc-panel">
-          <h2 className="section-title">
-            Quick Actions
-          </h2>
-          <div className="mt-4 grid gap-3">
-            {strategies.map((strategy) => (
-              <div
-                key={strategy.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3"
-              >
-                <div>
-                  <div className="font-semibold text-slate-900">
-                    {strategy.name}
-                  </div>
-                  <div className="text-sm text-slate-500">
-                    v{strategy.latestVersionNumber ?? 0} /{" "}
-                    {strategy.strategyType}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleClone(strategy.id)}
-                    className="button-secondary"
-                  >
-                    Clone
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleArchive(strategy.id)}
-                    className="button-danger"
-                  >
-                    Archive
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <section id="strategies-registry">
+        <h2 className="section-title">
+          전략 목록
+          {strategies.length > 0 ? (
+            <span className="section-count">{strategies.length}개</span>
+          ) : null}
+        </h2>
+        <StrategyListView
+          strategies={strategies}
+          onClone={handleClone}
+          onArchive={handleArchive}
+        />
+      </section>
     </main>
   );
 }

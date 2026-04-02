@@ -1,12 +1,18 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StrategyListView } from "@/components/strategy-list-view";
+
+vi.mock("next/link", () => ({
+  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 
 describe("StrategyListView", () => {
   it("renders empty state", () => {
     render(<StrategyListView strategies={[]} />);
 
-    expect(screen.getByText("저장된 전략이 없습니다. 상단 폼에서 첫 전략을 생성하세요.")).toBeInTheDocument();
+    expect(screen.getByText("저장된 전략이 없습니다")).toBeInTheDocument();
   });
 
   it("renders strategy cards", () => {
@@ -32,6 +38,6 @@ describe("StrategyListView", () => {
     expect(screen.getByText("Momentum KR")).toBeInTheDocument();
     expect(screen.getByText("Korean momentum draft")).toBeInTheDocument();
     expect(screen.getByText("v2")).toBeInTheDocument();
+    expect(screen.getByText("초안")).toBeInTheDocument();
   });
 });
-

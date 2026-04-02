@@ -1,6 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OrdersPageClient } from "@/components/orders-page-client";
+
+vi.mock("next/link", () => ({
+  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
 import type {
   CrossStrategyFill,
   CrossStrategyOrderRequest,
@@ -61,7 +67,7 @@ describe("OrdersPageClient", () => {
 
     expect(screen.getByText("005930")).toBeInTheDocument();
     expect(screen.getByText("Alpha Strategy")).toBeInTheDocument();
-    expect(screen.getByText("requested")).toBeInTheDocument();
+    expect(screen.getByText("요청")).toBeInTheDocument();
   });
 
   it("should_render_fill_table_when_fills_exist", () => {
@@ -74,7 +80,7 @@ describe("OrdersPageClient", () => {
     );
 
     expect(screen.getByText("005930")).toBeInTheDocument();
-    expect(screen.getByText("paper_manual")).toBeInTheDocument();
+    expect(screen.getByText("모의(수동)")).toBeInTheDocument();
   });
 
   it("should_show_empty_order_message_when_no_orders", () => {

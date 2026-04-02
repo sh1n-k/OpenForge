@@ -70,7 +70,7 @@ describe("DashboardPage", () => {
 
     render(await DashboardPage());
 
-    expect(screen.getByText("전체 중지됨")).toBeInTheDocument();
+    expect(screen.getByText("자동매매 중지됨")).toBeInTheDocument();
   });
 
   it("shows empty state messages when no data", async () => {
