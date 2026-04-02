@@ -20,6 +20,12 @@ import type {
   SystemBrokerStatus,
   BrokerConnection,
   BrokerConnectionEvent,
+  BrokerLedgerStatus,
+  BrokerLedgerSyncRun,
+  BrokerLedgerTrade,
+  BrokerLedgerBalance,
+  BrokerLedgerProfit,
+  BrokerLedgerMarket,
   BacktestRunStatus,
   BacktestRunDetail,
   BacktestRunSummary,
@@ -224,6 +230,71 @@ export async function loadSystemBrokerEvents(limit = 20) {
   params.set("limit", String(limit));
   return apiFetch<BrokerConnectionEvent[]>(
     `/api/v1/system/broker/events?${params.toString()}`,
+  );
+}
+
+export async function loadBrokerLedgerStatus() {
+  return apiFetch<BrokerLedgerStatus>("/api/v1/system/broker/ledger/status");
+}
+
+export async function loadBrokerLedgerSyncRuns(limit = 20) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<BrokerLedgerSyncRun[]>(
+    `/api/v1/system/broker/ledger/sync-runs?${params.toString()}`,
+  );
+}
+
+export async function startBrokerLedgerSync(input: {
+  startDate: string;
+  endDate: string;
+  markets: BrokerLedgerMarket[];
+}) {
+  return apiFetch<BrokerLedgerSyncRun>("/api/v1/system/broker/ledger/sync", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function loadBrokerLedgerTrades(input?: {
+  syncRunId?: string | null;
+  market?: BrokerLedgerMarket | null;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (input?.syncRunId) params.set("syncRunId", input.syncRunId);
+  if (input?.market) params.set("market", input.market);
+  params.set("limit", String(input?.limit ?? 100));
+  return apiFetch<BrokerLedgerTrade[]>(
+    `/api/v1/system/broker/ledger/trades?${params.toString()}`,
+  );
+}
+
+export async function loadBrokerLedgerBalances(input?: {
+  syncRunId?: string | null;
+  market?: BrokerLedgerMarket | null;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (input?.syncRunId) params.set("syncRunId", input.syncRunId);
+  if (input?.market) params.set("market", input.market);
+  params.set("limit", String(input?.limit ?? 100));
+  return apiFetch<BrokerLedgerBalance[]>(
+    `/api/v1/system/broker/ledger/balances?${params.toString()}`,
+  );
+}
+
+export async function loadBrokerLedgerProfits(input?: {
+  syncRunId?: string | null;
+  market?: BrokerLedgerMarket | null;
+  limit?: number;
+}) {
+  const params = new URLSearchParams();
+  if (input?.syncRunId) params.set("syncRunId", input.syncRunId);
+  if (input?.market) params.set("market", input.market);
+  params.set("limit", String(input?.limit ?? 100));
+  return apiFetch<BrokerLedgerProfit[]>(
+    `/api/v1/system/broker/ledger/profits?${params.toString()}`,
   );
 }
 

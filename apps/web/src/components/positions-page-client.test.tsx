@@ -43,6 +43,7 @@ describe("PositionsPageClient", () => {
     expect(screen.getByText("005930")).toBeInTheDocument();
     expect(screen.getAllByText("Alpha Strategy").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText(/OpenForge 내부 체결로 계산한 포지션만 표시합니다/)).toBeInTheDocument();
   });
 
   it("should_render_summary_metrics_when_positions_exist", () => {

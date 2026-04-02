@@ -68,6 +68,7 @@ describe("OrdersPageClient", () => {
     expect(screen.getByText("005930")).toBeInTheDocument();
     expect(screen.getByText("Alpha Strategy")).toBeInTheDocument();
     expect(screen.getByText("요청")).toBeInTheDocument();
+    expect(screen.getByText(/OpenForge 내부 주문 기록만 표시합니다/)).toBeInTheDocument();
   });
 
   it("should_render_fill_table_when_fills_exist", () => {

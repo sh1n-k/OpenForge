@@ -196,6 +196,25 @@ class BrokerConnectionService(
             normalizeLimit(limit, 20),
         )
 
+    fun loadCredentials(targetMode: OrderMode): BrokerConnectionCredentials {
+        val config =
+            findConfig(targetMode)
+                ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Broker config is not registered for ${targetMode.value}")
+        requireConfigured(config)
+        if (!config.enabled) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Broker config is disabled for ${targetMode.value}")
+        }
+
+        return BrokerConnectionCredentials(
+            targetMode = targetMode,
+            appKey = decrypt(config.appKeyCiphertext!!),
+            appSecret = decrypt(config.appSecretCiphertext!!),
+            accountNumber = decrypt(config.accountNumberCiphertext!!),
+            productCode = decrypt(config.productCodeCiphertext!!),
+            baseUrl = config.baseUrl,
+        )
+    }
+
     private fun performConnectionTest(config: StoredBrokerConfig): ConnectionTestResult {
         val appKey = decrypt(config.appKeyCiphertext!!)
         val appSecret = decrypt(config.appSecretCiphertext!!)

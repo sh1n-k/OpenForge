@@ -130,6 +130,32 @@ const routeMetaList: RouteMeta[] = [
     ],
   },
   {
+    href: "/broker",
+    label: "Broker",
+    description: "한투 계좌 원장과 동기화 상태",
+    mode: "docs",
+    match: /^\/broker$/,
+    sections: [
+      { id: "broker-summary", label: "원장 요약" },
+      { id: "broker-sync", label: "수동 동기화" },
+      { id: "broker-sync-runs", label: "동기화 이력" },
+    ],
+  },
+  {
+    href: "/broker/ledger",
+    label: "Broker Ledger",
+    description: "브로커 원장 상세 조회",
+    mode: "docs",
+    match: /^\/broker\/ledger$/,
+    sections: [
+      { id: "broker-ledger-summary", label: "조회 기준" },
+      { id: "broker-ledger-filters", label: "필터" },
+      { id: "broker-ledger-trades", label: "거래 원장" },
+      { id: "broker-ledger-balances", label: "잔고 스냅샷" },
+      { id: "broker-ledger-profits", label: "손익 스냅샷" },
+    ],
+  },
+  {
     href: "/orders",
     label: "Orders",
     description: "전체 주문 및 체결 조회",
@@ -181,7 +207,7 @@ const routeMetaList: RouteMeta[] = [
 
 export function getPrimaryRoutes() {
   return routeMetaList.filter((route) =>
-    ["/", "/strategies", "/universes", "/orders", "/positions", "/logs", "/settings"].includes(route.href),
+    ["/", "/strategies", "/universes", "/broker", "/orders", "/positions", "/logs", "/settings"].includes(route.href),
   );
 }
 
@@ -222,6 +248,27 @@ export function getCommandEntries(pathname: string): CommandEntry[] {
 }
 
 export function getContextCommands(pathname: string): CommandEntry[] {
+  if (pathname === "/broker" || pathname === "/broker/ledger") {
+    return [
+      {
+        id: "context:broker:home",
+        label: "Broker",
+        description: "원장 요약 화면으로 이동",
+        href: "/broker",
+        group: "Context",
+        keywords: ["broker", "ledger", "원장", "sync"],
+      },
+      {
+        id: "context:broker:ledger",
+        label: "Broker Ledger",
+        description: "원장 상세 화면으로 이동",
+        href: "/broker/ledger",
+        group: "Context",
+        keywords: ["broker", "ledger", "원장", "거래", "잔고", "손익"],
+      },
+    ];
+  }
+
   const strategyMatch = pathname.match(
     /^\/strategies\/([^/]+)(?:\/(edit|backtest))?$/,
   );

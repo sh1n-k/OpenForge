@@ -69,6 +69,16 @@ export function OrdersPageClient({
         <p className="page-description">모든 전략의 주문 요청과 체결 내역을 통합 조회합니다.</p>
       </section>
 
+      <section className="doc-panel doc-panel-info">
+        <p className="section-copy" style={{ marginTop: 0 }}>
+          이 화면은 OpenForge 내부 주문 기록만 표시합니다. 실제 계좌 원장은{" "}
+          <Link href="/broker" className="table-link">
+            Broker
+          </Link>
+          에서 확인하세요.
+        </p>
+      </section>
+
       <div className="summary-grid summary-grid-columns-2">
         <article className="metric-card metric-card-accent-primary">
           <p className="metric-card-label">주문 요청</p>

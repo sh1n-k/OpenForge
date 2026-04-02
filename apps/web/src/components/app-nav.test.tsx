@@ -28,6 +28,21 @@ describe("AppNav", () => {
     );
   });
 
+  it("marks broker as active for broker ledger routes", () => {
+    render(
+      <AppNav
+        pathname="/broker/ledger"
+      />,
+    );
+
+    const brokerPrimaryLink = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("href") === "/broker");
+
+    expect(brokerPrimaryLink).toBeDefined();
+    expect(brokerPrimaryLink).toHaveAttribute("aria-current", "page");
+  });
+
   it("filters page sections with local search", () => {
     render(
       <AppNav
