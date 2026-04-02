@@ -13,7 +13,7 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
       <div className="flex items-start justify-between gap-4">
         <div className="page-intro">
           <p className="page-eyebrow">
-            Universe Detail
+            유니버스 상세
           </p>
           <h1 className="page-title">
             {universe.name}
@@ -23,8 +23,8 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
           </p>
         </div>
         <div className="list-card">
-          <div>{universe.symbolCount} symbols</div>
-          <div>{universe.strategyCount} linked strategies</div>
+          <div>{universe.symbolCount}개 종목</div>
+          <div>{universe.strategyCount}개 연결 전략</div>
         </div>
       </div>
 
@@ -33,8 +33,9 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
         className="mt-6 stack-list"
       >
         {universe.symbols.length === 0 ? (
-          <div className="doc-panel doc-panel-soft text-center">
-            등록된 종목이 없습니다.
+          <div className="empty-state empty-state-compact">
+            <p className="empty-state-message">등록된 종목이 없습니다</p>
+            <p className="empty-state-hint">아래에서 종목을 추가하세요.</p>
           </div>
         ) : (
           universe.symbols.map((symbol) => (

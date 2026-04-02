@@ -33,7 +33,7 @@ describe("UniverseDetailView", () => {
     );
 
     expect(screen.getByText("Semis KR")).toBeInTheDocument();
-    expect(screen.getByText("2 symbols")).toBeInTheDocument();
+    expect(screen.getByText("2개 종목")).toBeInTheDocument();
     expect(screen.getByText("삼성전자")).toBeInTheDocument();
     expect(screen.getByText("SK하이닉스")).toBeInTheDocument();
   });

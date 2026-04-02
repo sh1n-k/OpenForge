@@ -163,7 +163,7 @@ export function BacktestRunnerClient({
   }
 
   return (
-    <main className="page-shell workbench-page-shell">
+    <main className="page-shell docs-page-shell">
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <section
           id="backtest-summary"
@@ -171,7 +171,7 @@ export function BacktestRunnerClient({
         >
           <div className="page-intro-row">
             <div className="page-intro">
-              <p className="page-eyebrow">Backtest</p>
+              <p className="page-eyebrow">백테스트</p>
               <h1 className="page-title">{strategy.name}</h1>
               <p className="page-description">
                 normalized spec 기반 일봉 백테스트 실행 화면
@@ -179,7 +179,7 @@ export function BacktestRunnerClient({
             </div>
             <div className="page-actions">
               <span className="status-chip status-chip-info">
-                {resolvedSymbols.length} symbols
+                {resolvedSymbols.length}개 종목
               </span>
             </div>
           </div>
@@ -188,33 +188,33 @@ export function BacktestRunnerClient({
               href={`/strategies/${strategy.id}`}
               className="button-secondary"
             >
-              Detail
+              상세
             </Link>
             <Link
               href={`/strategies/${strategy.id}/edit`}
               className="button-primary"
             >
-              Edit
+              편집
             </Link>
           </div>
         </section>
 
         <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
-          <h2 className="section-title">Run Overview</h2>
+          <h2 className="section-title">실행 요약</h2>
           <p className="section-copy">
             실행 설정과 데이터 커버리지를 먼저 확인하고 백테스트를 시작합니다.
           </p>
           <dl className="mt-4 grid gap-3 text-sm text-slate-600">
             <div>
-              <dt className="font-semibold text-slate-900">Version</dt>
+              <dt className="font-semibold text-slate-900">버전</dt>
               <dd>{versions.find((version) => version.id === selectedVersionId)?.versionNumber ?? "?"}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-slate-900">Coverage</dt>
-              <dd>{coverage ? (coverage.covered ? "ready" : "missing") : "checking"}</dd>
+              <dt className="font-semibold text-slate-900">커버리지</dt>
+              <dd>{coverage ? (coverage.covered ? "준비 완료" : "누락 있음") : "확인 중"}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-slate-900">Symbols</dt>
+              <dt className="font-semibold text-slate-900">종목 수</dt>
               <dd>{resolvedSymbols.length}</dd>
             </div>
           </dl>
@@ -229,7 +229,7 @@ export function BacktestRunnerClient({
           >
             <div className="page-intro-row">
               <div className="page-intro">
-                <h2 className="section-title">Run Config</h2>
+                <h2 className="section-title">실행 설정</h2>
                 <p className="section-copy">
                   전략 버전, 기간, 수수료 모델을 고정한 뒤 실행합니다.
                 </p>
@@ -247,7 +247,7 @@ export function BacktestRunnerClient({
             <div className="mt-4 grid gap-4">
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-2">
-                  <span>Version</span>
+                  <span>버전</span>
                   <select
                     value={selectedVersionId}
                     onChange={(event) => setSelectedVersionId(event.target.value)}
@@ -263,7 +263,7 @@ export function BacktestRunnerClient({
                   </select>
                 </label>
                 <label className="grid gap-2">
-                  <span>Initial Capital</span>
+                  <span>초기 자본</span>
                   <input
                     value={initialCapital}
                     onChange={(event) => setInitialCapital(event.target.value)}
@@ -273,7 +273,7 @@ export function BacktestRunnerClient({
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-2">
-                  <span>Start Date</span>
+                  <span>시작일</span>
                   <input
                     type="date"
                     value={startDate}
@@ -281,7 +281,7 @@ export function BacktestRunnerClient({
                   />
                 </label>
                 <label className="grid gap-2">
-                  <span>End Date</span>
+                  <span>종료일</span>
                   <input
                     type="date"
                     value={endDate}
@@ -292,21 +292,21 @@ export function BacktestRunnerClient({
 
               <div className="grid gap-3 md:grid-cols-3">
                 <label className="grid gap-2">
-                  <span>Commission</span>
+                  <span>수수료율</span>
                   <input
                     value={commissionRate}
                     onChange={(event) => setCommissionRate(event.target.value)}
                   />
                 </label>
                 <label className="grid gap-2">
-                  <span>Tax</span>
+                  <span>세금률</span>
                   <input
                     value={taxRate}
                     onChange={(event) => setTaxRate(event.target.value)}
                   />
                 </label>
                 <label className="grid gap-2">
-                  <span>Slippage</span>
+                  <span>슬리피지율</span>
                   <input
                     value={slippageRate}
                     onChange={(event) => setSlippageRate(event.target.value)}
@@ -325,7 +325,7 @@ export function BacktestRunnerClient({
             <section className="doc-panel">
               <div className="page-intro-row">
                 <div className="page-intro">
-                  <h2 className="section-title">Market Data CSV</h2>
+                  <h2 className="section-title">시세 데이터 CSV</h2>
                   <p className="section-copy">
                     <code className="inline-code">
                       symbol,date,open,high,low,close,volume
@@ -354,7 +354,7 @@ export function BacktestRunnerClient({
             <section className="doc-panel doc-panel-code">
               <div className="page-intro-row">
                 <div className="page-intro">
-                  <h2 className="section-title">Symbol Source</h2>
+                  <h2 className="section-title">종목 소스</h2>
                   <p className="section-copy">
                     연결된 유니버스를 그대로 사용하거나 직접 심볼 목록을 입력할 수 있습니다.
                   </p>
@@ -365,7 +365,7 @@ export function BacktestRunnerClient({
                     checked={useDirectSymbols}
                     onChange={(event) => setUseDirectSymbols(event.target.checked)}
                   />
-                  직접 symbol 입력 사용
+                  직접 종목 입력
                 </label>
               </div>
 
@@ -380,9 +380,10 @@ export function BacktestRunnerClient({
               ) : (
                 <div className="mt-4 stack-list">
                   {linkedUniverses.length === 0 ? (
-                    <p className="section-copy">
-                      연결된 유니버스가 없습니다. 직접 symbol 입력으로 전환하세요.
-                    </p>
+                    <div className="empty-state empty-state-compact">
+                      <p className="empty-state-message">연결된 유니버스가 없습니다</p>
+                      <p className="empty-state-hint">직접 종목 입력으로 전환하세요.</p>
+                    </div>
                   ) : (
                     linkedUniverses.map((universe) => (
                       <label
@@ -417,9 +418,9 @@ export function BacktestRunnerClient({
             id="backtest-coverage"
             className="doc-panel"
           >
-            <h2 className="section-title">Coverage</h2>
+            <h2 className="section-title">데이터 커버리지</h2>
             <p className="section-copy">
-              현재 실행 대상 symbol {resolvedSymbols.length}개
+              현재 실행 대상 종목 {resolvedSymbols.length}개
             </p>
             {coverageError ? (
               <p className="mt-3 text-sm text-rose-600">{coverageError}</p>
@@ -443,15 +444,15 @@ export function BacktestRunnerClient({
                     <div className="doc-nav-title">{item.symbol}</div>
                     <div className="doc-nav-description">
                       {item.firstDate ?? "n/a"} - {item.lastDate ?? "n/a"} /{" "}
-                      {item.covered ? "covered" : "missing"}
+                      {item.covered ? "충분" : "누락"}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="section-copy">
-                symbol과 기간을 지정하면 커버리지를 확인합니다.
-              </p>
+              <div className="empty-state empty-state-compact">
+                <p className="empty-state-message">종목과 기간을 지정하면 커버리지를 확인합니다</p>
+              </div>
             )}
           </section>
 
@@ -459,10 +460,13 @@ export function BacktestRunnerClient({
             id="backtest-runs"
             className="doc-panel"
           >
-            <h2 className="section-title">Recent Runs</h2>
+            <h2 className="section-title">최근 실행</h2>
             <div className="mt-4 stack-list">
               {runs.length === 0 ? (
-                <p className="section-copy">아직 실행 이력이 없습니다.</p>
+                <div className="empty-state empty-state-compact">
+                  <p className="empty-state-message">아직 실행 이력이 없습니다</p>
+                  <p className="empty-state-hint">위 설정을 완료한 뒤 백테스트를 실행하세요.</p>
+                </div>
               ) : (
                 runs.map((run) => (
                   <Link
@@ -471,7 +475,7 @@ export function BacktestRunnerClient({
                     className="doc-nav-link list-card"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="doc-nav-title">{run.status}</span>
+                      <span className="doc-nav-title">{statusLabel(run.status)}</span>
                       <span className="metric-card-label">
                         v{versionNumberFor(run.strategyVersionId, versions)}
                       </span>
@@ -479,8 +483,8 @@ export function BacktestRunnerClient({
                     <p className="doc-nav-description">{formatDate(run.requestedAt)}</p>
                     {run.headlineMetrics ? (
                       <p className="section-copy">
-                        return {(run.headlineMetrics.totalReturnRate * 100).toFixed(2)}% /
-                        trades {run.headlineMetrics.tradeCount}
+                        수익률 {(run.headlineMetrics.totalReturnRate * 100).toFixed(2)}% /
+                        거래 {run.headlineMetrics.tradeCount}건
                       </p>
                     ) : null}
                   </Link>
@@ -510,4 +514,14 @@ function versionNumberFor(strategyVersionId: string, versions: StrategyVersion[]
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString("ko-KR");
+}
+
+function statusLabel(status: string) {
+  const map: Record<string, string> = {
+    queued: "대기",
+    running: "실행 중",
+    completed: "완료",
+    failed: "실패",
+  };
+  return map[status] ?? status;
 }

@@ -61,7 +61,7 @@ export function UniverseDetailClient({
           id="universe-basic-info"
           className="doc-panel"
         >
-          <h2 className="section-title">Basic Info</h2>
+          <h2 className="section-title">기본 정보</h2>
           <div className="mt-4 grid gap-3">
             <input
               name="name"
@@ -81,7 +81,7 @@ export function UniverseDetailClient({
         </form>
 
         <section className="doc-panel">
-          <h2 className="section-title">Actions</h2>
+          <h2 className="section-title">관리</h2>
           <p className="section-copy">보존이 필요한 정보는 먼저 다른 유니버스로 옮긴 뒤 보관 처리합니다.</p>
           <button
             type="button"
@@ -91,15 +91,15 @@ export function UniverseDetailClient({
             }}
             className="button-danger mt-4"
           >
-            Archive
+            보관 처리
           </button>
         </section>
       </section>
 
       <section className="doc-panel doc-panel-code">
-        <h2 className="section-title">Replace Symbols</h2>
+        <h2 className="section-title">심볼 구성</h2>
         <p className="section-copy">
-          한 줄에 `symbol,displayName` 형식으로 입력합니다.
+          한 줄에 <code className="inline-code">종목코드,표시명</code> 형식으로 입력합니다.
         </p>
         <textarea
           value={symbolsText}
