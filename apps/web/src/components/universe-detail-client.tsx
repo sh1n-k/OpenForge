@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   archiveUniverse,
   collectSymbols,
@@ -30,6 +30,35 @@ export function UniverseDetailClient({
       .join("\n"),
   );
 
+  const symbolSectionRef = useRef<HTMLElement>(null);
+
+  const addedCodes = useMemo(() => {
+    const codes = new Set<string>();
+    for (const line of symbolsText.split("\n")) {
+      const code = line.split(",")[0]?.trim();
+      if (code) codes.add(code);
+    }
+    return codes;
+  }, [symbolsText]);
+
+  const handleAddSymbol = useCallback((item: SymbolSearchItem) => {
+    setSymbolsText((current) => {
+      const lines = current.split("\n").filter((line) => line.trim());
+      const exists = lines.some((line) => line.startsWith(`${item.code},`));
+      if (exists) return current;
+      const newLine = `${item.code},${item.name}`;
+
+      const el = symbolSectionRef.current;
+      if (el) {
+        el.classList.remove("symbol-section-pulse");
+        void el.offsetWidth;
+        el.classList.add("symbol-section-pulse");
+      }
+
+      return lines.length > 0 ? `${current.trimEnd()}\n${newLine}` : newLine;
+    });
+  }, []);
+
   async function handleUpdate(formData: FormData) {
     await updateUniverse(universe.id, {
       name: String(formData.get("name")),
@@ -55,16 +84,6 @@ export function UniverseDetailClient({
 
     await replaceUniverseSymbols(universe.id, symbols);
     startTransition(() => router.refresh());
-  }
-
-  function handleAddSymbol(item: SymbolSearchItem) {
-    setSymbolsText((current) => {
-      const lines = current.split("\n").filter((line) => line.trim());
-      const exists = lines.some((line) => line.startsWith(`${item.code},`));
-      if (exists) return current;
-      const newLine = `${item.code},${item.name}`;
-      return lines.length > 0 ? `${current.trimEnd()}\n${newLine}` : newLine;
-    });
   }
 
   return (
@@ -115,9 +134,10 @@ export function UniverseDetailClient({
       <SymbolSearchSection
         symbolMasterStatus={symbolMasterStatus}
         onAdd={handleAddSymbol}
+        addedCodes={addedCodes}
       />
 
-      <section className="doc-panel doc-panel-code">
+      <section ref={symbolSectionRef} className="doc-panel doc-panel-code">
         <h2 className="section-title">심볼 구성</h2>
         <p className="section-copy">
           한 줄에 <code className="inline-code">종목코드,표시명</code> 형식으로 입력합니다.
@@ -143,15 +163,18 @@ export function UniverseDetailClient({
 function SymbolSearchSection({
   symbolMasterStatus,
   onAdd,
+  addedCodes,
 }: {
   symbolMasterStatus: SymbolMasterStatusResponse;
   onAdd: (item: SymbolSearchItem) => void;
+  addedCodes: Set<string>;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SymbolSearchItem[]>([]);
   const [isCollecting, setIsCollecting] = useState(false);
   const [collectError, setCollectError] = useState<string | null>(null);
   const [masterStatus, setMasterStatus] = useState(symbolMasterStatus);
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -172,6 +195,19 @@ function SymbolSearchSection({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query]);
+
+  function handleAdd(item: SymbolSearchItem) {
+    if (addedCodes.has(item.code)) return;
+    onAdd(item);
+    setRecentlyAdded((prev) => new Set(prev).add(item.code));
+    setTimeout(() => {
+      setRecentlyAdded((prev) => {
+        const next = new Set(prev);
+        next.delete(item.code);
+        return next;
+      });
+    }, 1200);
+  }
 
   async function handleCollect() {
     try {
@@ -226,20 +262,35 @@ function SymbolSearchSection({
       />
       {results.length > 0 ? (
         <div className="stack-list" style={{ marginTop: 12, maxHeight: 320, overflowY: "auto" }}>
-          {results.map((item) => (
-            <button
-              key={`${item.code}-${item.exchange}`}
-              type="button"
-              onClick={() => onAdd(item)}
-              className="list-card flex-between w-full text-left"
-            >
-              <div>
-                <span className="font-semibold">{item.code}</span>
-                <span className="ml-3 text-slate-600">{item.name}</span>
-              </div>
-              <span className="text-xs text-slate-400">{item.exchange}</span>
-            </button>
-          ))}
+          {results.map((item) => {
+            const isRecent = recentlyAdded.has(item.code);
+            const isAdded = addedCodes.has(item.code);
+            return (
+              <button
+                key={`${item.code}-${item.exchange}`}
+                type="button"
+                onClick={() => handleAdd(item)}
+                className={[
+                  "list-card flex-between w-full text-left",
+                  isRecent ? "symbol-added-flash" : "",
+                  isAdded && !isRecent ? "opacity-50" : "",
+                ].join(" ")}
+                style={isAdded && !isRecent ? { cursor: "default" } : undefined}
+              >
+                <div>
+                  <span className="font-semibold">{item.code}</span>
+                  <span className="ml-3 text-slate-600">{item.name}</span>
+                </div>
+                {isRecent ? (
+                  <span className="text-xs font-medium" style={{ color: "var(--success)" }}>추가됨</span>
+                ) : isAdded ? (
+                  <span className="text-xs text-slate-400">추가됨</span>
+                ) : (
+                  <span className="text-xs text-slate-400">{item.exchange}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </section>
