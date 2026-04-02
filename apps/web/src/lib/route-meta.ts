@@ -28,7 +28,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/",
     label: "Dashboard",
     description: "운영 대시보드와 현황 요약",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/$/,
     sections: [
       { id: "dashboard-summary", label: "운영 요약" },
@@ -54,7 +54,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/strategies/[strategyId]",
     label: "Strategy Detail",
     description: "전략 실행, 리스크, 주문 현황",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/strategies\/[^/]+$/,
     sections: [
       { id: "strategy-overview", label: "개요" },
@@ -69,7 +69,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/strategies/[strategyId]/edit",
     label: "Strategy Editor",
     description: "전략 편집과 검증",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/strategies\/[^/]+\/edit$/,
     sections: [
       { id: "editor-summary", label: "편집기 개요" },
@@ -82,7 +82,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/strategies/[strategyId]/backtest",
     label: "Backtest Runner",
     description: "백테스트 실행과 데이터 준비",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/strategies\/[^/]+\/backtest$/,
     sections: [
       { id: "backtest-summary", label: "개요" },
@@ -133,7 +133,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/backtests/[runId]",
     label: "Backtest Result",
     description: "백테스트 결과와 차트",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/backtests\/[^/]+$/,
     sections: [
       { id: "run-summary", label: "요약" },
@@ -146,7 +146,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/orders",
     label: "Orders",
     description: "전체 주문 및 체결 조회",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/orders$/,
     sections: [
       { id: "orders-summary", label: "요약" },
@@ -158,7 +158,7 @@ const routeMetaList: RouteMeta[] = [
     href: "/positions",
     label: "Positions",
     description: "전체 포지션 현황",
-    mode: "workbench",
+    mode: "docs",
     match: /^\/positions$/,
     sections: [
       { id: "positions-summary", label: "포지션 요약" },
@@ -181,7 +181,7 @@ const routeMetaList: RouteMeta[] = [
 
 export function getPrimaryRoutes() {
   return routeMetaList.filter((route) =>
-    ["/", "/strategies", "/orders", "/positions", "/universes", "/settings", "/logs"].includes(route.href),
+    ["/", "/strategies", "/universes", "/orders", "/positions", "/logs", "/settings"].includes(route.href),
   );
 }
 

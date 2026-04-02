@@ -15,11 +15,10 @@ describe("AppNav", () => {
     push.mockReset();
   });
 
-  it("marks the current primary route on docs screens", () => {
+  it("marks the current primary route", () => {
     render(
       <AppNav
         pathname="/strategies"
-        mode="docs"
       />,
     );
 
@@ -29,11 +28,10 @@ describe("AppNav", () => {
     );
   });
 
-  it("filters page sections with local search on docs screens", () => {
+  it("filters page sections with local search", () => {
     render(
       <AppNav
         pathname="/settings"
-        mode="docs"
       />,
     );
 
@@ -49,7 +47,6 @@ describe("AppNav", () => {
     render(
       <AppNav
         pathname="/strategies/strategy-1/edit"
-        mode="workbench"
       />,
     );
 
@@ -63,7 +60,6 @@ describe("AppNav", () => {
     render(
       <AppNav
         pathname="/"
-        mode="docs"
       />,
     );
 
@@ -74,17 +70,19 @@ describe("AppNav", () => {
     expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
   });
 
-  it("shows compact workbench chrome and can navigate from the palette", () => {
+  it("shows context commands in sidebar for strategy pages and navigates from the palette", () => {
     render(
       <AppNav
         pathname="/strategies/strategy-1/backtest"
-        mode="workbench"
       />,
     );
 
-    expect(screen.getByText("Workbench")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "탐색" })).toBeInTheDocument();
+    // Context commands should appear in the sidebar
+    expect(screen.getByText("Strategy Detail")).toBeInTheDocument();
+    expect(screen.getByText("Strategy Editor")).toBeInTheDocument();
+    expect(screen.getByText("Backtest Runner")).toBeInTheDocument();
 
+    // Navigate via command palette
     fireEvent.click(screen.getByRole("button", { name: /검색/i }));
     fireEvent.click(screen.getByRole("option", { name: /Strategy Editor/ }));
 
