@@ -494,6 +494,38 @@ export type CrossStrategyPosition = {
 };
 
 // ---------------------------------------------------------------------------
+// Symbol master
+// ---------------------------------------------------------------------------
+
+export type SymbolSearchItem = {
+  code: string;
+  name: string;
+  exchange: string;
+};
+
+export type SymbolSearchResponse = {
+  query: string;
+  total: number;
+  items: SymbolSearchItem[];
+};
+
+export type SymbolMasterStatusResponse = {
+  kospiCount: number;
+  kosdaqCount: number;
+  totalCount: number;
+  collectedAt: string | null;
+  needsUpdate: boolean;
+};
+
+export type SymbolCollectResponse = {
+  success: boolean;
+  kospiCount: number;
+  kosdaqCount: number;
+  totalCount: number;
+  errors: string[];
+};
+
+// ---------------------------------------------------------------------------
 // Activity events
 // ---------------------------------------------------------------------------
 

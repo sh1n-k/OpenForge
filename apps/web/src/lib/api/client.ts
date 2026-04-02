@@ -33,6 +33,9 @@ import type {
   CrossStrategyFill,
   CrossStrategyPosition,
   ActivityEvent,
+  SymbolSearchResponse,
+  SymbolCollectResponse,
+  SymbolMasterStatusResponse,
 } from "./types";
 
 const defaultBaseUrl = "http://127.0.0.1:8080";
@@ -512,6 +515,24 @@ export async function loadSystemActivity(limit = 100, category?: string) {
   params.set("limit", String(limit));
   if (category) params.set("category", category);
   return apiFetch<ActivityEvent[]>(`/api/v1/system/activity?${params}`);
+}
+
+export async function searchSymbols(q: string, exchange?: string, limit = 20) {
+  const params = new URLSearchParams();
+  params.set("q", q);
+  if (exchange) params.set("exchange", exchange);
+  params.set("limit", String(limit));
+  return apiFetch<SymbolSearchResponse>(`/api/v1/symbols/search?${params}`);
+}
+
+export async function collectSymbols() {
+  return apiFetch<SymbolCollectResponse>("/api/v1/symbols/collect", {
+    method: "POST",
+  });
+}
+
+export async function loadSymbolMasterStatus() {
+  return apiFetch<SymbolMasterStatusResponse>("/api/v1/symbols/status");
 }
 
 export async function login(password: string) {
