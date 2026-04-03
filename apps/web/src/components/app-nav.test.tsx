@@ -10,6 +10,16 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("@/lib/api", () => ({
+  logout: vi.fn().mockResolvedValue(undefined),
+  loadSystemBrokerStatus: vi.fn().mockResolvedValue({
+    currentSystemMode: "paper",
+    paper: { lastConnectionTestStatus: "success" },
+    live: { lastConnectionTestStatus: null },
+    isCurrentModeConfigured: true,
+  }),
+}));
+
 describe("AppNav", () => {
   beforeEach(() => {
     push.mockReset();
@@ -43,19 +53,19 @@ describe("AppNav", () => {
     expect(brokerPrimaryLink).toHaveAttribute("aria-current", "page");
   });
 
-  it("filters page sections with local search", () => {
+  it("filters nav items with local search", () => {
     render(
       <AppNav
-        pathname="/settings"
+        pathname="/"
       />,
     );
 
     fireEvent.change(screen.getByPlaceholderText("섹션 또는 페이지 검색"), {
-      target: { value: "브로커" },
+      target: { value: "Broker" },
     });
 
-    expect(screen.getByText("브로커 연결")).toBeInTheDocument();
-    expect(screen.queryByText("Overview")).not.toBeInTheDocument();
+    expect(screen.getByText("Broker")).toBeInTheDocument();
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
   });
 
   it("opens the command palette with the keyboard shortcut", () => {
@@ -102,5 +112,31 @@ describe("AppNav", () => {
     fireEvent.click(screen.getByRole("option", { name: /Strategy Editor/ }));
 
     expect(push).toHaveBeenCalledWith("/strategies/strategy-1/edit");
+  });
+
+  it("renders grouped nav sections", () => {
+    render(
+      <AppNav
+        pathname="/"
+      />,
+    );
+
+    expect(screen.getByText("개요")).toBeInTheDocument();
+    expect(screen.getByText("전략 관리")).toBeInTheDocument();
+    expect(screen.getByText("운영")).toBeInTheDocument();
+  });
+
+  it("renders Settings in the footer", () => {
+    render(
+      <AppNav
+        pathname="/settings"
+      />,
+    );
+
+    const settingsLink = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("href") === "/settings");
+
+    expect(settingsLink).toBeDefined();
   });
 });

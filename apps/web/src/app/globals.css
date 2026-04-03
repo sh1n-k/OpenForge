@@ -213,8 +213,35 @@ kbd {
   color: var(--primary);
 }
 
-.doc-nav-link-secondary {
-  padding-left: 20px;
+.doc-nav-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-nav-icon {
+  flex-shrink: 0;
+  color: var(--subtle-foreground);
+}
+
+.doc-nav-link-active .doc-nav-icon {
+  color: var(--primary);
+}
+
+.nav-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.nav-status-dot-ok {
+  background: var(--success);
+}
+
+.nav-status-dot-error {
+  background: var(--error);
 }
 
 .doc-nav-title {
@@ -225,6 +252,7 @@ kbd {
 .doc-nav-description {
   font-size: 0.75rem;
   color: var(--subtle-foreground);
+  padding-left: 24px;
 }
 
 .doc-empty-copy {
@@ -1259,6 +1287,58 @@ kbd {
 }
 
 /* ---------------------------------------------------------------------------
+   Page TOC (right side, desktop only)
+   --------------------------------------------------------------------------- */
+
+.page-toc {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .app-main-with-toc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 200px;
+    gap: 32px;
+  }
+
+  .page-toc {
+    display: block;
+    position: sticky;
+    top: 32px;
+    align-self: start;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    padding-top: 48px;
+  }
+
+  .page-toc-overline {
+    margin: 0 0 12px;
+    color: var(--subtle-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .page-toc-list {
+    display: grid;
+    gap: 4px;
+  }
+
+  .page-toc-link {
+    display: block;
+    padding: 4px 0;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    transition: color 120ms ease;
+  }
+
+  .page-toc-link:hover {
+    color: var(--primary);
+  }
+}
+
+/* ---------------------------------------------------------------------------
    Login
    --------------------------------------------------------------------------- */
 
@@ -1339,9 +1419,36 @@ kbd {
    --------------------------------------------------------------------------- */
 
 .doc-sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid var(--border-soft);
+}
+
+.doc-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.doc-footer-link:hover {
+  background: var(--border-soft);
+  color: var(--foreground);
+}
+
+.doc-footer-link-active {
+  color: var(--primary);
 }
 
 /* ---------------------------------------------------------------------------

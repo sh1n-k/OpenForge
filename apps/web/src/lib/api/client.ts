@@ -74,21 +74,26 @@ async function getServerCookieHeader(): Promise<Record<string, string>> {
   return {};
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const isFormData = init?.body instanceof FormData;
+type ApiFetchOptions = RequestInit & {
+  suppressAuthRedirect?: boolean;
+};
+
+async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise<T> {
+  const { suppressAuthRedirect, ...requestInit } = init ?? {};
+  const isFormData = requestInit.body instanceof FormData;
   const serverCookies = await getServerCookieHeader();
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     cache: "no-store",
     credentials: "include",
-    ...init,
+    ...requestInit,
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...serverCookies,
-      ...(init?.headers ?? {}),
+      ...(requestInit.headers ?? {}),
     },
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !suppressAuthRedirect) {
     if (typeof window !== "undefined") {
       window.location.href = "/login";
       throw new Error("Session expired");
@@ -221,8 +226,12 @@ export async function loadSystemRiskEvents(limit = 20) {
   );
 }
 
-export async function loadSystemBrokerStatus() {
-  return apiFetch<SystemBrokerStatus>("/api/v1/system/broker");
+export async function loadSystemBrokerStatus(
+  options?: { suppressAuthRedirect?: boolean },
+) {
+  return apiFetch<SystemBrokerStatus>("/api/v1/system/broker", {
+    suppressAuthRedirect: options?.suppressAuthRedirect,
+  });
 }
 
 export async function loadSystemBrokerEvents(limit = 20) {

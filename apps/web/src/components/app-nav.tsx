@@ -4,18 +4,41 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Cpu,
+  Globe,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  PieChart,
+  ScrollText,
+  Settings,
+  ShoppingCart,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { CommandPalette } from "@/components/command-palette";
 import {
   getCommandEntries,
   getContextCommands,
-  getPageSections,
-  getPrimaryRoutes,
+  getGroupedRoutes,
+  getSettingsRoute,
   isRouteActive,
   type CommandEntry,
-  type PageSection,
+  type NavIconKey,
   type RouteMeta,
 } from "@/lib/route-meta";
-import { logout } from "@/lib/api";
+import { logout, loadSystemBrokerStatus } from "@/lib/api";
+
+const ICON_MAP: Record<NavIconKey, LucideIcon> = {
+  LayoutDashboard,
+  Cpu,
+  Globe,
+  Landmark,
+  ShoppingCart,
+  PieChart,
+  ScrollText,
+  Settings,
+};
 
 export function AppNav({
   pathname,
@@ -28,13 +51,24 @@ export function AppNav({
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSession, setPaletteSession] = useState(0);
-  const sections = useMemo(() => getPageSections(pathname), [pathname]);
-  const primaryRoutes = useMemo(() => getPrimaryRoutes(), []);
+  const groupedRoutes = useMemo(() => getGroupedRoutes(), []);
+  const settingsRoute = useMemo(() => getSettingsRoute(), []);
   const contextCommands = useMemo(() => getContextCommands(pathname), [pathname]);
   const commands = useMemo(() => getCommandEntries(pathname), [pathname]);
-  const normalizedSearch = search.trim().toLowerCase();
-  const filteredPrimaryRoutes = filterPrimaryItems(primaryRoutes, normalizedSearch);
-  const filteredSections = filterSections(sections, normalizedSearch);
+  const [brokerOk, setBrokerOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    loadSystemBrokerStatus({ suppressAuthRedirect: true })
+      .then((status) => {
+        const conn =
+          status.currentSystemMode === "paper" ? status.paper : status.live;
+        setBrokerOk(
+          status.isCurrentModeConfigured &&
+            conn.lastConnectionTestStatus === "success",
+        );
+      })
+      .catch(() => setBrokerOk(null));
+  }, []);
 
   function openPalette() {
     setPaletteSession((current) => current + 1);
@@ -66,6 +100,7 @@ export function AppNav({
   return (
     <>
       <MobileNav
+        navOpen={navOpen}
         onOpenNav={() => setNavOpen(true)}
         onOpenPalette={() => {
           openPalette();
@@ -77,9 +112,10 @@ export function AppNav({
         search={search}
         onSearchChange={setSearch}
         inputRef={inputRef}
-        primaryRoutes={filteredPrimaryRoutes}
-        sections={filteredSections}
+        groupedRoutes={groupedRoutes}
+        settingsRoute={settingsRoute}
         contextCommands={contextCommands}
+        brokerOk={brokerOk}
       />
       {navOpen ? (
         <div className="doc-mobile-overlay">
@@ -102,9 +138,10 @@ export function AppNav({
               search={search}
               onSearchChange={setSearch}
               inputRef={inputRef}
-              primaryRoutes={filteredPrimaryRoutes}
-              sections={filteredSections}
+              groupedRoutes={groupedRoutes}
+              settingsRoute={settingsRoute}
               contextCommands={contextCommands}
+              brokerOk={brokerOk}
               onNavigate={() => setNavOpen(false)}
             />
           </div>
@@ -121,38 +158,27 @@ export function AppNav({
   );
 }
 
-function DocsSidebar({
-  pathname,
-  search,
-  onSearchChange,
-  inputRef,
-  primaryRoutes,
-  sections,
-  contextCommands,
-}: {
+type GroupedRoutes = { group: string; routes: RouteMeta[] }[];
+
+type SidebarProps = {
   pathname: string;
   search: string;
   onSearchChange: (value: string) => void;
   inputRef: RefObject<HTMLInputElement | null>;
-  primaryRoutes: RouteMeta[];
-  sections: PageSection[];
+  groupedRoutes: GroupedRoutes;
+  settingsRoute: RouteMeta | undefined;
   contextCommands: CommandEntry[];
-}) {
+  brokerOk: boolean | null;
+  onNavigate?: () => void;
+};
+
+function DocsSidebar(props: Omit<SidebarProps, "onNavigate">) {
   return (
     <aside
       className="doc-sidebar"
       aria-label="주요 탐색"
     >
-      <SidebarContent
-        pathname={pathname}
-        search={search}
-        onSearchChange={onSearchChange}
-        inputRef={inputRef}
-        primaryRoutes={primaryRoutes}
-        sections={sections}
-        contextCommands={contextCommands}
-        onNavigate={() => {}}
-      />
+      <SidebarContent {...props} onNavigate={() => {}} />
     </aside>
   );
 }
@@ -162,21 +188,13 @@ function SidebarContent({
   search,
   onSearchChange,
   inputRef,
-  primaryRoutes,
-  sections,
+  groupedRoutes,
+  settingsRoute,
   contextCommands,
-  onNavigate,
-}: {
-  pathname: string;
-  search: string;
-  onSearchChange: (value: string) => void;
-  inputRef: RefObject<HTMLInputElement | null>;
-  primaryRoutes: RouteMeta[];
-  sections: PageSection[];
-  contextCommands: CommandEntry[];
-  onNavigate: () => void;
-}) {
-  const showSections = getPageSections(pathname).length >= 3;
+  brokerOk,
+  onNavigate = () => {},
+}: SidebarProps) {
+  const normalizedSearch = search.trim().toLowerCase();
 
   return (
     <div className="doc-sidebar-scroll">
@@ -205,27 +223,30 @@ function SidebarContent({
         <span className="doc-search-shortcut">⌘K</span>
       </label>
 
-      <nav className="doc-nav-group">
-        <p className="doc-nav-overline">Primary</p>
-        <div className="doc-nav-list">
-          {primaryRoutes.length === 0 ? (
-            <p className="doc-empty-copy">일치하는 페이지가 없습니다.</p>
-          ) : (
-            primaryRoutes.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={navLinkClassName(isRouteActive(pathname, item.href))}
-                aria-current={isRouteActive(pathname, item.href) ? "page" : undefined}
-                onClick={onNavigate}
-              >
-                <span className="doc-nav-title">{item.label}</span>
-                <span className="doc-nav-description">{item.description}</span>
-              </Link>
-            ))
-          )}
-        </div>
-      </nav>
+      {groupedRoutes.map(({ group, routes }) => {
+        const filtered = filterRoutes(routes, normalizedSearch);
+        if (normalizedSearch && filtered.length === 0) return null;
+        return (
+          <nav key={group} className="doc-nav-group">
+            <p className="doc-nav-overline">{group}</p>
+            <div className="doc-nav-list">
+              {filtered.length === 0 ? (
+                <p className="doc-empty-copy">일치하는 페이지가 없습니다.</p>
+              ) : (
+                filtered.map((item) => (
+                  <NavItem
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    onNavigate={onNavigate}
+                    badge={item.href === "/broker" ? brokerOk : undefined}
+                  />
+                ))
+              )}
+            </div>
+          </nav>
+        );
+      })}
 
       {contextCommands.length > 0 ? (
         <nav className="doc-nav-group">
@@ -246,39 +267,65 @@ function SidebarContent({
         </nav>
       ) : null}
 
-      {showSections ? (
-        <nav className="doc-nav-group">
-          <p className="doc-nav-overline">On This Page</p>
-          <div className="doc-nav-list">
-            {sections.length === 0 ? (
-              <p className="doc-empty-copy">일치하는 섹션이 없습니다.</p>
-            ) : (
-              sections.map((section) => (
-                <a
-                  key={section.id}
-                  href={`#${section.id}`}
-                  className="doc-nav-link doc-nav-link-secondary"
-                  onClick={onNavigate}
-                >
-                  <span className="doc-nav-title">{section.label}</span>
-                </a>
-              ))
-            )}
-          </div>
-        </nav>
-      ) : null}
-
       <div className="doc-sidebar-footer">
+        {settingsRoute ? (
+          <Link
+            href={settingsRoute.href}
+            className={`doc-footer-link ${isRouteActive(pathname, settingsRoute.href) ? "doc-footer-link-active" : ""}`}
+            onClick={onNavigate}
+          >
+            <Settings size={16} />
+            <span>{settingsRoute.label}</span>
+          </Link>
+        ) : null}
         <LogoutButton />
       </div>
     </div>
   );
 }
 
+function NavItem({
+  item,
+  pathname,
+  onNavigate,
+  badge,
+}: {
+  item: RouteMeta;
+  pathname: string;
+  onNavigate: () => void;
+  badge?: boolean | null;
+}) {
+  const Icon = item.icon ? ICON_MAP[item.icon] : null;
+  const active = isRouteActive(pathname, item.href);
+
+  return (
+    <Link
+      href={item.href}
+      className={navLinkClassName(active)}
+      aria-current={active ? "page" : undefined}
+      onClick={onNavigate}
+    >
+      <span className="doc-nav-link-row">
+        {Icon ? <Icon size={16} className="doc-nav-icon" /> : null}
+        <span className="doc-nav-title">{item.label}</span>
+        {badge !== undefined && badge !== null ? (
+          <span
+            className={`nav-status-dot ${badge ? "nav-status-dot-ok" : "nav-status-dot-error"}`}
+            aria-label={badge ? "연결됨" : "연결 안됨"}
+          />
+        ) : null}
+      </span>
+      <span className="doc-nav-description">{item.description}</span>
+    </Link>
+  );
+}
+
 function MobileNav({
+  navOpen,
   onOpenNav,
   onOpenPalette,
 }: {
+  navOpen: boolean;
   onOpenNav: () => void;
   onOpenPalette: () => void;
 }) {
@@ -288,7 +335,7 @@ function MobileNav({
         type="button"
         className="button-secondary"
         onClick={onOpenNav}
-        aria-expanded={false}
+        aria-expanded={navOpen}
         aria-controls="mobile-doc-nav"
       >
         메뉴
@@ -321,29 +368,16 @@ function CommandPaletteTrigger({
   );
 }
 
-function filterPrimaryItems(
-  items: RouteMeta[],
+function filterRoutes(
+  routes: RouteMeta[],
   search: string,
 ): RouteMeta[] {
   if (!search) {
-    return items;
+    return routes;
   }
 
-  return items.filter((item) =>
+  return routes.filter((item) =>
     `${item.label} ${item.description}`.toLowerCase().includes(search),
-  );
-}
-
-function filterSections(
-  sections: PageSection[],
-  search: string,
-): PageSection[] {
-  if (!search) {
-    return sections;
-  }
-
-  return sections.filter((section) =>
-    section.label.toLowerCase().includes(search),
   );
 }
 
@@ -366,10 +400,11 @@ function LogoutButton() {
   return (
     <button
       type="button"
-      className="button-ghost"
+      className="doc-footer-link"
       onClick={handleLogout}
     >
-      로그아웃
+      <LogOut size={16} />
+      <span>로그아웃</span>
     </button>
   );
 }
