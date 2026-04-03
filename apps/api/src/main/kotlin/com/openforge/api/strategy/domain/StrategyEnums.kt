@@ -64,7 +64,10 @@ enum class MarketType(
         @JvmStatic
         @JsonCreator
         fun fromValue(value: String): MarketType =
-            entries.firstOrNull { it.value == value }
+            entries.firstOrNull {
+                it.value.equals(value.trim(), ignoreCase = true) ||
+                    it.name.equals(value.trim(), ignoreCase = true)
+            }
                 ?: throw IllegalArgumentException("Unsupported marketType: $value")
     }
 }

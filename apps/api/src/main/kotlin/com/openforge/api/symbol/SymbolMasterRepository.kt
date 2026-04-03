@@ -1,6 +1,5 @@
 package com.openforge.api.symbol
 
-import com.openforge.api.strategy.domain.MarketType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -71,4 +70,4 @@ interface SymbolMasterRepository : JpaRepository<SymbolMasterEntity, SymbolMaste
     )
 }
 
-interface SymbolMasterStatusRepository : JpaRepository<SymbolMasterStatusEntity, MarketType>
+interface SymbolMasterStatusRepository : JpaRepository<SymbolMasterStatusEntity, String>

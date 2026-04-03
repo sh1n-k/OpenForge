@@ -36,6 +36,22 @@ class BrokerLedgerApiIntegrationTest : PostgresIntegrationTestSupport() {
     private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
     @Test
+    fun `status returns liveConfigured false when no live broker config exists`() {
+        mockMvc
+            .perform(get("/api/v1/system/broker/ledger/status"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.brokerType").value("kis"))
+            .andExpect(jsonPath("$.liveConfigured").value(false))
+            .andExpect(jsonPath("$.latestSyncRun").doesNotExist())
+            .andExpect(jsonPath("$.latestSuccessfulSyncRun").doesNotExist())
+
+        mockMvc
+            .perform(get("/api/v1/system/broker/ledger/sync-runs").param("limit", "20"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(0))
+    }
+
+    @Test
     fun `sync run succeeds and stores trades balances and profits`() {
         saveLiveBrokerConfig()
 

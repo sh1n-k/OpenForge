@@ -1,9 +1,9 @@
 package com.openforge.api.strategy.domain
 
+import com.openforge.api.common.jpa.MarketTypeConverter
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.util.UUID
@@ -18,7 +18,7 @@ class UniverseSymbolEntity(
     var universeId: UUID,
     @Column(nullable = false, length = 32)
     var symbol: String,
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = MarketTypeConverter::class)
     @Column(nullable = false, length = 32)
     var market: MarketType = MarketType.DOMESTIC,
     @Column(nullable = false, length = 16)

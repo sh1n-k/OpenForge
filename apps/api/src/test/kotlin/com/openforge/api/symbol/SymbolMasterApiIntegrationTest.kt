@@ -16,6 +16,27 @@ class SymbolMasterApiIntegrationTest : PostgresIntegrationTestSupport() {
     lateinit var symbolMasterRepository: SymbolMasterRepository
 
     @Test
+    fun `status reads lowercase legacy market scope rows`() {
+        jdbcTemplate.update(
+            """
+            insert into symbol_master_status (market_scope, collected_at)
+            values (?, now()), (?, now())
+            """.trimIndent(),
+            "domestic",
+            "us",
+        )
+
+        mockMvc
+            .perform(get("/api/v1/symbols/status"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.markets.length()").value(2))
+            .andExpect(jsonPath("$.markets[0].marketScope").value("domestic"))
+            .andExpect(jsonPath("$.markets[0].needsUpdate").value(false))
+            .andExpect(jsonPath("$.markets[1].marketScope").value("us"))
+            .andExpect(jsonPath("$.markets[1].needsUpdate").value(false))
+    }
+
+    @Test
     fun `status returns initial state when never collected`() {
         mockMvc
             .perform(get("/api/v1/symbols/status"))

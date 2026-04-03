@@ -215,6 +215,9 @@ class BrokerConnectionService(
         )
     }
 
+    fun hasEnabledConfig(targetMode: OrderMode): Boolean =
+        findConfig(targetMode)?.let { isConfigured(it) && it.enabled } ?: false
+
     private fun performConnectionTest(config: StoredBrokerConfig): ConnectionTestResult {
         val appKey = decrypt(config.appKeyCiphertext!!)
         val appSecret = decrypt(config.appSecretCiphertext!!)

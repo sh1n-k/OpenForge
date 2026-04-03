@@ -38,10 +38,7 @@ class BrokerLedgerService(
     }
 
     fun getStatus(): BrokerLedgerStatusResponse {
-        val liveConfigured = runCatching {
-            brokerConnectionService.loadCredentials(OrderMode.LIVE)
-            true
-        }.getOrDefault(false)
+        val liveConfigured = brokerConnectionService.hasEnabledConfig(OrderMode.LIVE)
 
         return BrokerLedgerStatusResponse(
             brokerType = BROKER_TYPE,

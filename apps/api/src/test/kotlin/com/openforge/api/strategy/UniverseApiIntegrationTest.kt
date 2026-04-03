@@ -10,11 +10,13 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.json.JsonMapper
+import java.util.UUID
 
 class UniverseApiIntegrationTest : PostgresIntegrationTestSupport() {
     @Autowired
@@ -28,6 +30,28 @@ class UniverseApiIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Autowired
     lateinit var strategyService: StrategyService
+
+    @Test
+    fun `lists universes when market scope was stored as lowercase legacy data`() {
+        val legacyUniverseId = UUID.randomUUID()
+        jdbcTemplate.update(
+            """
+            insert into universe (id, market_scope, name, description, is_archived)
+            values (?, ?, ?, ?, false)
+            """.trimIndent(),
+            legacyUniverseId,
+            "domestic",
+            "Legacy KR",
+            "legacy row",
+        )
+
+        mockMvc
+            .perform(get("/api/v1/universes"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(legacyUniverseId.toString()))
+            .andExpect(jsonPath("$[0].marketScope").value("domestic"))
+    }
 
     @Test
     fun `replaces universe symbols and updates strategy links`() {

@@ -33,7 +33,10 @@ class SymbolMasterPersistence(
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun updateStatus(marketScope: MarketType) {
-        val status = statusRepository.findById(marketScope).orElse(SymbolMasterStatusEntity(marketScope = marketScope))
+        val status =
+            statusRepository
+                .findById(marketScope.value)
+                .orElse(SymbolMasterStatusEntity(marketScope = marketScope.value))
         status.collectedAt = OffsetDateTime.now()
         statusRepository.save(status)
     }
@@ -50,15 +53,17 @@ class SymbolMasterService(
 
     private val marketConfigurations =
         mapOf(
-            MarketType.DOMESTIC to linkedMapOf(
-                "kospi" to "https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip",
-                "kosdaq" to "https://new.real.download.dws.co.kr/common/master/kosdaq_code.mst.zip",
-            ),
-            MarketType.US to linkedMapOf(
-                "nasdaq" to "https://new.real.download.dws.co.kr/common/master/nasmst.cod.zip",
-                "nyse" to "https://new.real.download.dws.co.kr/common/master/nysmst.cod.zip",
-                "amex" to "https://new.real.download.dws.co.kr/common/master/amsmst.cod.zip",
-            ),
+            MarketType.DOMESTIC to
+                linkedMapOf(
+                    "kospi" to "https://new.real.download.dws.co.kr/common/master/kospi_code.mst.zip",
+                    "kosdaq" to "https://new.real.download.dws.co.kr/common/master/kosdaq_code.mst.zip",
+                ),
+            MarketType.US to
+                linkedMapOf(
+                    "nasdaq" to "https://new.real.download.dws.co.kr/common/master/nasmst.cod.zip",
+                    "nyse" to "https://new.real.download.dws.co.kr/common/master/nysmst.cod.zip",
+                    "amex" to "https://new.real.download.dws.co.kr/common/master/amsmst.cod.zip",
+                ),
         )
 
     private val restClient =
@@ -87,14 +92,15 @@ class SymbolMasterService(
         return SymbolSearchResponse(
             query = query,
             total = results.size,
-            items = results.map {
-                SymbolSearchItemResponse(
-                    code = it.code,
-                    name = it.name,
-                    exchange = it.exchange,
-                    marketScope = MarketType.fromValue(it.marketScope),
-                )
-            },
+            items =
+                results.map {
+                    SymbolSearchItemResponse(
+                        code = it.code,
+                        name = it.name,
+                        exchange = it.exchange,
+                        marketScope = MarketType.fromValue(it.marketScope),
+                    )
+                },
         )
     }
 
@@ -111,7 +117,10 @@ class SymbolMasterService(
                             )
                         }
                     val totalCount = symbolMasterRepository.countByMarketScope(marketScope.value)
-                    val status = statusRepository.findById(marketScope).orElse(SymbolMasterStatusEntity(marketScope = marketScope))
+                    val status =
+                        statusRepository
+                            .findById(marketScope.value)
+                            .orElse(SymbolMasterStatusEntity(marketScope = marketScope.value))
                     SymbolMasterMarketStatusResponse(
                         marketScope = marketScope,
                         exchangeCounts = exchangeCounts,
