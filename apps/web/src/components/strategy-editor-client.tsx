@@ -123,27 +123,27 @@ export function StrategyEditorClient({
   const canSave = validation?.valid === true && !isValidating && !isSaving;
 
   return (
-    <main className="page-shell docs-page-shell page-shell-workbench">
-      <section className="workbench-hero-grid">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+      <section className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(280px,360px)] gap-6 items-start">
         <section
           id="editor-summary"
-          className="doc-panel"
+          className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
         >
-          <div className="page-intro-row">
-            <div className="page-intro">
-              <p className="page-eyebrow">Strategy Editor</p>
-              <h1 className="page-title">
+          <div className="flex flex-wrap items-start justify-between gap-6 mb-2 pb-6 border-b border-border-soft">
+            <div className="grid gap-2">
+              <p className="m-0 text-primary font-bold tracking-wider uppercase text-xs">Strategy Editor</p>
+              <h1 className="m-0 font-sans text-3xl font-bold tracking-tight text-foreground">
                 {strategy.name} Editor
               </h1>
-              <p className="page-description">
+              <p className="m-0 text-muted font-medium flex items-center gap-2">
                 {strategy.strategyType} / latest validation{" "}
                 {strategy.latestValidationStatus ?? "unknown"}
               </p>
             </div>
-            <div className="page-actions">
+            <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-border-soft lg:border-t-0 lg:pt-0 lg:mt-0">
               <Link
                 href={`/strategies/${strategy.id}`}
-                className="button-secondary"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-lg bg-surface border border-border text-foreground hover:bg-[#fafafa] hover:border-gray-300 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-border disabled:opacity-50"
               >
                 Detail
               </Link>
@@ -151,40 +151,40 @@ export function StrategyEditorClient({
                 type="button"
                 onClick={handleSave}
                 disabled={!canSave}
-                className="button-primary"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2 font-medium rounded-lg bg-primary text-white hover:bg-primary-hover shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
               >
                 {isSaving ? "저장 중..." : "새 버전 저장"}
               </button>
             </div>
           </div>
           {strategy.latestValidationStatus === "invalid_legacy_draft" ? (
-            <p className="doc-panel doc-panel-warn section-stack-top text-sm text-amber-700">
+            <p className="p-4 rounded-xl bg-warning-soft text-warning flex items-start gap-2 border border-warning/20 mb-6 text-[0.9375rem] font-medium mt-6">
               이전 단계의 legacy payload가 감지되었습니다. 편집 후 새 버전으로 저장하면 최신 규약으로 승격됩니다.
             </p>
           ) : null}
         </section>
 
-        <aside className="doc-panel doc-panel-soft workbench-sticky-panel">
-          <h2 className="section-title">Workbench Status</h2>
-          <dl className="workbench-summary-list">
-            <div>
-              <dt className="font-semibold text-slate-900">Validation</dt>
-              <dd>{validation?.summary ?? validationError ?? "검증 대기 중"}</dd>
+        <aside className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm lg:sticky lg:top-8">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">Workbench Status</h2>
+          <dl className="grid gap-4 mt-6">
+            <div className="grid gap-1 border-b border-border-soft pb-3">
+              <dt className="text-subtle text-xs font-semibold tracking-wider uppercase">Validation</dt>
+              <dd className="text-foreground font-medium text-[0.9375rem]">{validation?.summary ?? validationError ?? "검증 대기 중"}</dd>
             </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Version</dt>
-              <dd>v{strategy.latestVersionNumber ?? 0}</dd>
+            <div className="grid gap-1 border-b border-border-soft pb-3">
+              <dt className="text-subtle text-xs font-semibold tracking-wider uppercase">Version</dt>
+              <dd className="text-foreground font-medium text-[0.9375rem]">v{strategy.latestVersionNumber ?? 0}</dd>
             </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Type</dt>
-              <dd>{strategy.strategyType}</dd>
+            <div className="grid gap-1">
+              <dt className="text-subtle text-xs font-semibold tracking-wider uppercase">Type</dt>
+              <dd className="text-foreground font-medium text-[0.9375rem]">{strategy.strategyType}</dd>
             </div>
           </dl>
         </aside>
       </section>
 
-      <section className="workbench-main-grid">
-        <section className="workbench-main-column">
+      <section className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(280px,360px)] gap-6 items-start mt-4">
+        <section className="grid gap-6">
           {strategy.strategyType === "builder" ? (
             <BuilderEditor
               state={builderState}
@@ -199,16 +199,18 @@ export function StrategyEditorClient({
 
           <section
             id="editor-note"
-            className="doc-panel"
+            className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
           >
-            <h2 className="section-title">
-              Version Note
-            </h2>
+            <div className="mb-6 pb-4 border-b border-border/60">
+              <h2 className="m-0 font-sans text-xl font-bold text-foreground">
+                Version Note
+              </h2>
+            </div>
             <input
               value={changeSummary}
               onChange={(event) => setChangeSummary(event.target.value)}
               placeholder="변경 메모"
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm section-stack-top"
+              className="w-full px-4 py-3 bg-surface text-foreground border border-border hover:border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
             />
             {saveError ? (
               <p className="mt-3 text-sm text-rose-600">{saveError}</p>
@@ -293,34 +295,36 @@ function BuilderEditor({
     <>
       <section
         id="editor-builder"
-        className="doc-panel"
+        className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
       >
-        <h2 className="section-title">Metadata</h2>
-        <div className="mt-4 grid gap-3">
+        <div className="mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">Metadata</h2>
+        </div>
+        <div className="grid gap-4">
           <input
             value={state.metadata.name}
             onChange={(event) => updateMetadata("name", event.target.value)}
             placeholder="전략 이름"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="w-full px-4 py-3 bg-surface text-foreground border border-border hover:border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
           />
           <input
             value={state.metadata.description}
             onChange={(event) => updateMetadata("description", event.target.value)}
             placeholder="설명"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="w-full px-4 py-3 bg-surface text-foreground border border-border hover:border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
           />
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <input
               value={state.metadata.category}
               onChange={(event) => updateMetadata("category", event.target.value)}
               placeholder="category"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+              className="w-full px-4 py-3 bg-surface text-foreground border border-border hover:border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
             />
             <input
               value={state.metadata.author}
               onChange={(event) => updateMetadata("author", event.target.value)}
               placeholder="author"
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+              className="w-full px-4 py-3 bg-surface text-foreground border border-border hover:border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
             />
           </div>
           <input
@@ -335,14 +339,14 @@ function BuilderEditor({
               )
             }
             placeholder="tag1, tag2"
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="w-full px-4 py-3 bg-surface text-foreground border border-border hover:border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
           />
         </div>
       </section>
 
-      <section className="doc-panel">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="section-title">Indicators</h2>
+      <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">Indicators</h2>
           <select
             defaultValue=""
             onChange={(event) => {
@@ -351,7 +355,7 @@ function BuilderEditor({
                 event.target.value = "";
               }
             }}
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="px-4 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all cursor-pointer font-medium"
           >
             <option value="" disabled>
               지표 추가
@@ -366,9 +370,9 @@ function BuilderEditor({
             ))}
           </select>
         </div>
-        <div className="mt-4 grid gap-4">
+        <div className="grid gap-4">
           {state.indicators.length === 0 ? (
-            <p className="text-sm text-slate-500">지표를 하나 이상 추가하세요.</p>
+            <p className="m-0 text-muted text-[0.9375rem]">지표를 하나 이상 추가하세요.</p>
           ) : (
             state.indicators.map((indicator) => (
               <IndicatorCard
@@ -397,9 +401,11 @@ function BuilderEditor({
         onChange={(nextGroup) => updateGroup("exit", nextGroup)}
       />
 
-      <section className="doc-panel">
-        <h2 className="section-title">Risk</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+      <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
+        <div className="mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">Risk</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
           <RiskCard
             title="Stop Loss"
             value={state.risk.stopLoss}
@@ -431,14 +437,16 @@ function CodeEditor({
   return (
     <section
       id="editor-builder"
-      className="doc-panel doc-panel-code"
+      className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
     >
-      <h2 className="section-title">OpenForge YAML DSL</h2>
+      <div className="mb-6 pb-4 border-b border-border/60">
+        <h2 className="m-0 font-sans text-xl font-bold text-foreground">OpenForge YAML DSL</h2>
+      </div>
       <textarea
         value={source}
         onChange={(event) => onChange(event.target.value)}
         rows={28}
-        className="mt-4 font-mono text-sm"
+        className="w-full px-4 py-4 bg-[#fafafa] text-foreground border border-border hover:border-gray-300 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all font-mono leading-relaxed resize-y"
       />
     </section>
   );
@@ -457,10 +465,12 @@ function ValidationPanel({
     <aside className="flex flex-col gap-6 lg:sticky lg:top-8 lg:self-start">
       <section
         id="editor-validation"
-        className="doc-panel"
+        className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
       >
-        <h2 className="section-title">Validation</h2>
-        <p className="section-copy">
+        <div className="mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">Validation</h2>
+        </div>
+        <p className="m-0 text-muted font-medium text-[0.9375rem] leading-relaxed">
           {isValidating
             ? "검증 중..."
             : validation
@@ -468,12 +478,12 @@ function ValidationPanel({
               : "검증 결과가 아직 없습니다."}
         </p>
         {validationError ? (
-          <p className="mt-3 text-sm text-rose-600">{validationError}</p>
+          <p className="mt-3 text-sm font-medium text-error flex items-start gap-2">{validationError}</p>
         ) : null}
         {validation?.errors.length ? (
-          <div className="doc-panel doc-panel-error mt-4 p-4">
-            <p className="text-sm font-semibold text-rose-700">Errors</p>
-            <ul className="mt-2 grid gap-2 text-sm text-rose-700">
+          <div className="p-4 rounded-xl bg-error-soft text-error border border-error/20 flex flex-col items-start gap-2 text-[0.9375rem] font-medium mt-4">
+            <p className="font-bold tracking-wider uppercase text-xs">Errors</p>
+            <ul className="grid gap-2 text-sm pl-4 list-disc marker:text-error/50">
               {validation.errors.map((error, index) => (
                 <li key={`${error.category}-${index}`}>
                   [{error.category}] {error.message}
@@ -483,9 +493,9 @@ function ValidationPanel({
           </div>
         ) : null}
         {validation?.warnings.length ? (
-          <div className="doc-panel doc-panel-warn mt-4 p-4">
-            <p className="text-sm font-semibold text-amber-700">Warnings</p>
-            <ul className="mt-2 grid gap-2 text-sm text-amber-700">
+          <div className="p-4 rounded-xl bg-warning-soft text-warning border border-warning/20 flex flex-col items-start gap-2 text-[0.9375rem] font-medium mt-4">
+            <p className="font-bold tracking-wider uppercase text-xs">Warnings</p>
+            <ul className="grid gap-2 text-sm pl-4 list-disc marker:text-warning/50">
               {validation.warnings.map((warning, index) => (
                 <li key={`${warning.category}-${index}`}>
                   [{warning.category}] {warning.message}
@@ -496,9 +506,11 @@ function ValidationPanel({
         ) : null}
       </section>
 
-      <section className="doc-panel doc-panel-code">
-        <h2 className="section-title">YAML Preview</h2>
-        <pre className="code-block mt-4">
+      <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
+        <div className="mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">YAML Preview</h2>
+        </div>
+        <pre className="p-5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-mono overflow-auto whitespace-pre mt-4 shadow-inner">
           {validation?.yamlPreview || "# validation preview"}
         </pre>
       </section>
@@ -518,14 +530,14 @@ function IndicatorCard({
   const definition = getIndicatorDefinition(indicator.indicatorId);
 
   return (
-    <article className="list-card">
+    <article className="p-5 bg-[#fafafa] border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-gray-300 transition-all group">
       <div className="grid gap-3 md:grid-cols-[1fr_1fr_0.8fr_auto]">
         <select
           value={indicator.indicatorId}
           onChange={(event) =>
             onChange(createDefaultIndicator(event.target.value as BuilderIndicatorType))
           }
-          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          className="px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all cursor-pointer font-medium"
         >
           {indicatorCatalog.map((item) => (
             <option
@@ -545,7 +557,7 @@ function IndicatorCard({
             })
           }
           placeholder="alias"
-          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          className="px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all font-mono"
         />
         <select
           value={indicator.output}
@@ -555,7 +567,7 @@ function IndicatorCard({
               output: event.target.value,
             })
           }
-          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          className="px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all cursor-pointer font-medium"
         >
           {definition.outputs.map((output) => (
             <option
@@ -569,18 +581,18 @@ function IndicatorCard({
         <button
           type="button"
           onClick={onRemove}
-          className="button-danger"
+          className="inline-flex items-center justify-center gap-2 px-3 py-2 font-medium rounded-lg bg-error hover:bg-red-700 text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-error disabled:opacity-50 text-sm"
         >
           Remove
         </button>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 pt-4 border-t border-border-soft grid gap-3 md:grid-cols-3">
         {Object.entries(definition.defaults).map(([key]) => (
           <label
             key={key}
-            className="grid gap-2 text-sm text-slate-600"
+            className="grid gap-1 focus-within:text-primary"
           >
-            <span>{key}</span>
+            <span className="text-subtle text-xs font-semibold tracking-wider uppercase">{key}</span>
             <input
               type="number"
               value={indicator.params[key] ?? definition.defaults[key]}
@@ -593,7 +605,7 @@ function IndicatorCard({
                   },
                 })
               }
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              className="w-full px-3 py-1.5 bg-surface text-foreground border border-border hover:border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all font-mono"
             />
           </label>
         ))}
@@ -630,9 +642,9 @@ function ConditionGroupEditor({
   }
 
   return (
-    <section className="doc-panel">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="section-title">{title}</h2>
+    <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-border/60">
+        <h2 className="m-0 font-sans text-xl font-bold text-foreground">{title}</h2>
         <div className="flex items-center gap-3">
           <select
             value={group.logic}
@@ -642,7 +654,7 @@ function ConditionGroupEditor({
                 logic: event.target.value as BuilderConditionGroup["logic"],
               })
             }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="px-4 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all cursor-pointer font-bold"
           >
             <option value="AND">AND</option>
             <option value="OR">OR</option>
@@ -655,15 +667,15 @@ function ConditionGroupEditor({
                 conditions: [...group.conditions, createEmptyCondition()],
               })
             }
-            className="button-primary"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-lg bg-primary text-white hover:bg-primary-hover shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 text-sm"
           >
             Condition 추가
           </button>
         </div>
       </div>
-      <div className="mt-4 grid gap-4">
+      <div className="grid gap-4">
         {group.conditions.length === 0 ? (
-          <p className="text-sm text-slate-500">조건이 없습니다.</p>
+          <p className="m-0 text-muted text-[0.9375rem]">조건이 없습니다.</p>
         ) : (
           group.conditions.map((condition) => (
             <ConditionCard
@@ -694,8 +706,8 @@ function ConditionCard({
   onRemove: () => void;
 }) {
   return (
-    <article className="list-card">
-      <div className="grid gap-3">
+    <article className="p-5 bg-surface border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-gray-300 transition-all group">
+      <div className="grid gap-4">
         <OperandEditor
           label="Left"
           operand={condition.left}
@@ -707,7 +719,8 @@ function ConditionCard({
             })
           }
         />
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <div className="grid gap-3 md:grid-cols-[1fr_auto] items-center border-y border-border-soft py-4 my-2 relative">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-surface px-2 text-muted text-[0.6875rem] font-bold tracking-wider uppercase invisible md:visible">Op</div>
           <select
             value={condition.operator}
             onChange={(event) =>
@@ -716,7 +729,7 @@ function ConditionCard({
                 operator: event.target.value as BuilderCondition["operator"],
               })
             }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="px-4 py-2.5 bg-[#fafafa] text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary font-bold text-center transition-all cursor-pointer"
           >
             {conditionOperators.map((operator) => (
               <option
@@ -730,7 +743,7 @@ function ConditionCard({
           <button
             type="button"
             onClick={onRemove}
-            className="button-danger"
+            className="inline-flex items-center justify-center gap-2 px-3 py-2.5 font-medium rounded-lg bg-surface border border-error/50 text-error hover:bg-error-soft hover:border-error shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-error disabled:opacity-50 text-sm"
           >
             Remove
           </button>
@@ -770,7 +783,7 @@ function OperandEditor({
 
   return (
     <div className="grid gap-2">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <span className="text-subtle text-xs font-bold tracking-wider uppercase text-primary">{label}</span>
       <div className="grid gap-3 md:grid-cols-3">
         <select
           value={operand.type}
@@ -790,7 +803,7 @@ function OperandEditor({
               onChange({ type, value: 0 });
             }
           }}
-          className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+          className="px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all cursor-pointer font-medium"
         >
           <option value="price">price</option>
           <option value="indicator">indicator</option>
@@ -806,7 +819,7 @@ function OperandEditor({
                 field: event.target.value as BuilderPriceField,
               })
             }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="col-span-2 px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all cursor-pointer font-medium"
           >
             {priceFields.map((field) => (
               <option
@@ -834,7 +847,7 @@ function OperandEditor({
                     : "value",
                 });
               }}
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+              className="px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all cursor-pointer font-medium"
             >
               {aliases.length === 0 ? (
                 <option value="">indicator 없음</option>
@@ -858,7 +871,7 @@ function OperandEditor({
                   output: event.target.value,
                 })
               }
-              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+              className="px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all cursor-pointer font-medium"
             >
               {outputOptions.map((output) => (
                 <option
@@ -882,7 +895,7 @@ function OperandEditor({
                 value: Number(event.target.value),
               })
             }
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+            className="col-span-2 px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-sm transition-all font-mono"
           />
         ) : null}
       </div>
@@ -900,12 +913,13 @@ function RiskCard({
   onChange: (value: { enabled: boolean; percent: number }) => void;
 }) {
   return (
-    <article className="list-card">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-semibold text-slate-900">{title}</h3>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+    <article className="p-5 bg-surface border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-gray-300 transition-all group flex flex-col justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-border/60">
+        <h3 className="m-0 font-sans text-[0.9375rem] font-bold text-foreground">{title}</h3>
+        <label className="flex items-center gap-2 p-1 border border-transparent rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
           <input
             type="checkbox"
+            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
             checked={value.enabled}
             onChange={(event) =>
               onChange({
@@ -914,20 +928,23 @@ function RiskCard({
               })
             }
           />
-          enabled
+          <span className="text-subtle text-xs font-semibold tracking-wider uppercase">enabled</span>
         </label>
       </div>
-      <input
-        type="number"
-        value={value.percent}
-        onChange={(event) =>
-          onChange({
-            ...value,
-            percent: Number(event.target.value),
-          })
-        }
-        className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
-      />
+      <div className="relative">
+        <input
+          type="number"
+          value={value.percent}
+          onChange={(event) =>
+            onChange({
+              ...value,
+              percent: Number(event.target.value),
+            })
+          }
+          className="w-full pl-3 pr-8 py-2 bg-[#fafafa] text-foreground border border-border hover:border-gray-300 rounded-lg shadow-inner focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-lg transition-all font-mono text-right font-bold"
+        />
+        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-muted font-bold">%</div>
+      </div>
     </article>
   );
 }

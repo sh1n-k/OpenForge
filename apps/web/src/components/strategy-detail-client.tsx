@@ -56,10 +56,10 @@ export function StrategyDetailClient({
   const hasOverseasUniverses = strategy.universes.some((universe) => universe.marketScope === "us");
 
   return (
-    <main className="page-shell docs-page-shell page-shell-detail">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
       <StrategyOverviewHeader strategy={strategy} execution={execution} />
 
-      <section className="summary-grid summary-grid-columns-2">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <StrategyInfoPanel strategy={strategy} />
         <StrategyExecutionSection
           strategyId={strategy.id}

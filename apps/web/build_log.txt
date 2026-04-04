@@ -1,0 +1,22 @@
+
+> web@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.2.1 (Turbopack)
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 2.6s
+  Running TypeScript ...
+Failed to type check.
+
+./src/components/dashboard-client.tsx:281:42
+Type error: This comparison appears to be unintentional because the types 'OrderSide' and '"BUY"' have no overlap.
+
+  279 |                       <td className="py-3 border-b border-border-soft font-mono text-mute...
+  280 |                       <td className="py-3 border-b border-border-soft">
+> 281 |                         <span className={fill.side === "BUY" ? "text-success font-medium"...
+      |                                          ^
+  282 |                       </td>
+  283 |                       <td className="py-3 border-b border-border-soft text-right font-mon...
+  284 |                       <td className="py-3 border-b border-border-soft text-right font-mon...
+Next.js build worker exited with code: 1 and signal: null

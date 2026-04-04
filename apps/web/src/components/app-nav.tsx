@@ -14,6 +14,7 @@ import {
   ScrollText,
   Settings,
   ShoppingCart,
+  Menu,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CommandPalette } from "@/components/command-palette";
@@ -118,16 +119,16 @@ export function AppNav({
         brokerOk={brokerOk}
       />
       {navOpen ? (
-        <div className="doc-mobile-overlay">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity">
           <div
             id="mobile-doc-nav"
-            className="doc-mobile-drawer"
+            className="fixed inset-y-0 left-0 z-50 w-full max-w-xs bg-surface border-r border-border shadow-2xl flex flex-col translate-x-0 transition-transform duration-300 ease-in-out"
           >
-            <div className="doc-mobile-drawer-head">
-              <p className="doc-nav-overline">Navigation</p>
+            <div className="flex items-center justify-between p-4 px-6 border-b border-border/50">
+              <p className="m-0 text-subtle text-[0.6875rem] font-semibold tracking-wider uppercase">Navigation</p>
               <button
                 type="button"
-                className="button-ghost"
+                className="p-2 -mr-2 text-muted hover:text-foreground hover:bg-slate-100 rounded-lg transition-colors focus:ring-2 focus:ring-primary focus:outline-none"
                 onClick={() => setNavOpen(false)}
               >
                 닫기
@@ -181,7 +182,7 @@ const BROKER_LEDGER_LINK = {
 function DocsSidebar(props: Omit<SidebarProps, "onNavigate">) {
   return (
     <aside
-      className="doc-sidebar"
+      className="hidden lg:flex fixed inset-y-0 left-0 z-20 w-[var(--sidebar-width)] flex-col bg-surface border-r border-border"
       aria-label="주요 탐색"
     >
       <SidebarContent {...props} onNavigate={() => {}} />
@@ -207,44 +208,44 @@ function SidebarContent({
     : contextCommands;
 
   return (
-    <div className="doc-sidebar-scroll">
-      <div className="doc-sidebar-head">
+    <div className="flex flex-col h-full overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-border-soft scrollbar-track-transparent">
+      <div className="px-2 mb-6">
         <Link
           href="/"
-          className="doc-brand-link"
+          className="font-sans text-[1.375rem] font-black tracking-tight text-foreground hover:text-primary transition-colors inline-block"
         >
           OpenForge
         </Link>
-        <p className="doc-sidebar-copy">
+        <p className="m-0 text-muted font-medium text-sm mt-1 -tracking-wide">
           개인용 자동매매 운영 콘솔
         </p>
       </div>
 
-      <label className="doc-search-shell">
+      <label className="relative flex items-center mb-6 px-2 text-foreground focus-within:text-primary">
         <span className="sr-only">탐색 검색</span>
         <input
           ref={inputRef}
           type="search"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="섹션 또는 페이지 검색"
-          className="doc-search-input"
+          placeholder="검색"
+          className="w-full h-10 pl-4 pr-12 bg-surface text-[0.9375rem] transition-all border border-border hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary rounded-xl shadow-sm placeholder-slate-400"
         />
-        <span className="doc-search-shortcut">⌘K</span>
+        <span className="absolute right-4 text-xs font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 pointer-events-none">⌘K</span>
       </label>
 
       {groupedRoutes.map(({ group, routes }) => {
         const filtered = filterRoutes(routes, normalizedSearch);
         if (normalizedSearch && filtered.length === 0) return null;
         return (
-          <nav key={group} className="doc-nav-group">
-            <p className="doc-nav-overline">{group}</p>
-            <div className="doc-nav-list">
+          <nav key={group} className="mb-6 px-2">
+            <p className="m-0 mb-3 text-subtle text-[0.6875rem] font-bold tracking-wider uppercase pl-1">{group}</p>
+            <div className="grid gap-1">
               {filtered.length === 0 ? (
-                <p className="doc-empty-copy">일치하는 페이지가 없습니다.</p>
+                <p className="m-0 text-muted text-sm italic pl-1">일치하는 페이지가 없습니다.</p>
               ) : (
                 filtered.map((item) => (
-                  <div key={item.href} className="doc-nav-entry">
+                  <div key={item.href} className="grid">
                     <NavItem
                       item={item}
                       pathname={pathname}
@@ -266,33 +267,33 @@ function SidebarContent({
       })}
 
       {sidebarContextCommands.length > 0 ? (
-        <nav className="doc-nav-group">
-          <p className="doc-nav-overline">Context</p>
-          <div className="doc-nav-list">
+        <nav className="mb-6 px-2">
+          <p className="m-0 mb-3 text-subtle text-[0.6875rem] font-bold tracking-wider uppercase pl-1">Context</p>
+          <div className="grid gap-1">
             {sidebarContextCommands.map((cmd) => (
               <Link
                 key={cmd.id}
                 href={cmd.href}
-                className={navLinkClassName(cmd.href === pathname)}
+                className={`group block p-3 rounded-xl border border-transparent transition-all overflow-hidden ${cmd.href === pathname ? "bg-primary-soft border-blue-200/50" : "hover:bg-slate-50 hover:border-border-soft"}`}
                 onClick={onNavigate}
               >
-                <span className="doc-nav-title">{cmd.label}</span>
-                <span className="doc-nav-description">{cmd.description}</span>
+                <span className={`block font-semibold text-[0.9375rem] truncate transition-colors ${cmd.href === pathname ? "text-primary" : "text-slate-700 group-hover:text-foreground"}`}>{cmd.label}</span>
+                <span className={`block text-[0.8125rem] truncate mt-0.5 transition-colors ${cmd.href === pathname ? "text-blue-600/80" : "text-muted"}`}>{cmd.description}</span>
               </Link>
             ))}
           </div>
         </nav>
       ) : null}
 
-      <div className="doc-sidebar-footer">
+      <div className="mt-auto pt-4 border-t border-border/50 px-2 grid gap-1">
         {settingsRoute ? (
           <Link
             href={settingsRoute.href}
-            className={`doc-footer-link ${isRouteActive(pathname, settingsRoute.href) ? "doc-footer-link-active" : ""}`}
+            className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all ${isRouteActive(pathname, settingsRoute.href) ? "border-blue-200/50 bg-primary-soft text-primary font-semibold" : "border-transparent text-muted hover:bg-slate-50 hover:text-foreground hover:border-border-soft font-medium"}`}
             onClick={onNavigate}
           >
-            <Settings size={16} />
-            <span>{settingsRoute.label}</span>
+            <Settings size={18} />
+            <span className="text-[0.9375rem]">{settingsRoute.label}</span>
           </Link>
         ) : null}
         <LogoutButton />
@@ -311,15 +312,15 @@ function BrokerSubnav({
   const active = pathname === BROKER_LEDGER_LINK.href;
 
   return (
-    <div className="doc-subnav-list">
+    <div className="mt-1 ml-4 pl-3 border-l-2 border-border/60 grid gap-1 relative before:absolute before:-top-3 before:-left-[2px] before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-border/60 before:to-transparent">
       <Link
         href={BROKER_LEDGER_LINK.href}
-        className={subnavLinkClassName(active)}
+        className={`group block p-2.5 rounded-xl border transition-all overflow-hidden relative ${active ? "bg-primary-soft border-blue-200/50" : "border-transparent hover:bg-slate-50 hover:border-border-soft"}`}
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
       >
-        <span className="doc-subnav-title">{BROKER_LEDGER_LINK.label}</span>
-        <span className="doc-subnav-description">
+        <span className={`block font-semibold text-[0.875rem] truncate transition-colors ${active ? "text-primary" : "text-slate-700 group-hover:text-foreground"}`}>{BROKER_LEDGER_LINK.label}</span>
+        <span className={`block text-[0.75rem] truncate mt-0.5 transition-colors ${active ? "text-blue-600/80" : "text-muted"}`}>
           {BROKER_LEDGER_LINK.description}
         </span>
       </Link>
@@ -345,21 +346,21 @@ function NavItem({
   return (
     <Link
       href={item.href}
-      className={navLinkClassName(active)}
+      className={`group block p-3 rounded-xl border transition-all overflow-hidden relative ${active ? "bg-primary-soft border-blue-200/50" : "border-transparent hover:bg-slate-50 hover:border-border-soft"}`}
       aria-current={current ? "page" : undefined}
       onClick={onNavigate}
     >
-      <span className="doc-nav-link-row">
-        {Icon ? <Icon size={16} className="doc-nav-icon" /> : null}
-        <span className="doc-nav-title">{item.label}</span>
+      <span className="flex items-center gap-2.5">
+        {Icon ? <Icon size={18} className={`flex-shrink-0 transition-colors ${active ? "text-primary" : "text-slate-400 group-hover:text-slate-500"}`} /> : null}
+        <span className={`font-semibold text-[0.9375rem] truncate transition-colors flex-1 ${active ? "text-primary" : "text-slate-700 group-hover:text-foreground"}`}>{item.label}</span>
         {badge !== undefined && badge !== null ? (
           <span
-            className={`nav-status-dot ${badge ? "nav-status-dot-ok" : "nav-status-dot-error"}`}
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${badge ? "bg-success shadow-[0_0_0_2px_rgba(22,163,74,0.1)]" : "bg-warning shadow-[0_0_0_2px_rgba(202,138,4,0.1)]"}`}
             aria-label={badge ? "연결됨" : "연결 안됨"}
           />
         ) : null}
       </span>
-      <span className="doc-nav-description">{item.description}</span>
+      <span className={`block text-[0.8125rem] truncate mt-1 transition-colors pl-7 ${active ? "text-blue-600/80" : "text-muted"}`}>{item.description}</span>
     </Link>
   );
 }
@@ -374,19 +375,19 @@ function MobileNav({
   onOpenPalette: () => void;
 }) {
   return (
-    <div className="doc-mobile-bar">
+    <div className="sticky top-0 z-30 lg:hidden flex items-center justify-between h-14 px-4 bg-surface/95 backdrop-blur border-b border-border shadow-sm">
       <button
         type="button"
-        className="button-secondary"
+        className="p-2 -ml-2 text-muted hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
         onClick={onOpenNav}
         aria-expanded={navOpen}
         aria-controls="mobile-doc-nav"
       >
-        메뉴
+        <Menu size={20} />
       </button>
       <Link
         href="/"
-        className="doc-brand-link"
+        className="font-sans text-[1.125rem] font-black tracking-tight text-foreground"
       >
         OpenForge
       </Link>
@@ -403,11 +404,11 @@ function CommandPaletteTrigger({
   return (
     <button
       type="button"
-      className="button-ghost"
+      className="p-1 px-2 -mr-2 text-muted hover:text-foreground hover:bg-slate-50 transition-colors flex items-center gap-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
       onClick={onOpen}
     >
-      검색
-      <span className="doc-search-shortcut">⌘K</span>
+      <span className="text-sm font-medium">검색</span>
+      <span className="text-[0.625rem] font-semibold text-slate-400 bg-slate-100 px-1 rounded border border-slate-200 hidden sm:inline-block pointer-events-none">⌘K</span>
     </button>
   );
 }
@@ -423,18 +424,6 @@ function filterRoutes(
   return routes.filter((item) =>
     `${item.label} ${item.description}`.toLowerCase().includes(search),
   );
-}
-
-function navLinkClassName(isActive: boolean) {
-  return ["doc-nav-link", isActive ? "doc-nav-link-active" : ""]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function subnavLinkClassName(isActive: boolean) {
-  return ["doc-subnav-link", isActive ? "doc-subnav-link-active" : ""]
-    .filter(Boolean)
-    .join(" ");
 }
 
 function isBrokerContextPath(pathname: string) {
@@ -458,11 +447,11 @@ function LogoutButton() {
   return (
     <button
       type="button"
-      className="doc-footer-link"
+      className="flex w-full items-center gap-2 p-2.5 rounded-xl border border-transparent text-muted hover:bg-slate-50 hover:text-foreground hover:border-border-soft transition-all font-medium text-left focus:outline-none focus:ring-2 focus:ring-primary"
       onClick={handleLogout}
     >
-      <LogOut size={16} />
-      <span>로그아웃</span>
+      <LogOut size={18} />
+      <span className="text-[0.9375rem]">로그아웃</span>
     </button>
   );
 }

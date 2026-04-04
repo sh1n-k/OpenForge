@@ -9,10 +9,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusChipClass: Record<string, string> = {
-  running: "status-chip status-chip-success",
-  stopped: "status-chip status-chip-warning",
-  draft: "status-chip",
-  backtest_completed: "status-chip status-chip-info",
+  running: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase border bg-success-soft text-success border-success/20",
+  stopped: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase border bg-warning-soft text-warning border-warning/20",
+  draft: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase border bg-surface text-foreground border-border",
+  backtest_completed: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase border bg-primary-soft text-primary border-primary/20",
 };
 
 const typeLabels: Record<string, string> = {
@@ -29,11 +29,11 @@ type StrategyListViewProps = {
 export function StrategyListView({ strategies, onClone, onArchive }: StrategyListViewProps) {
   if (strategies.length === 0) {
     return (
-      <div className="empty-state empty-state-compact">
-        <p className="empty-state-message">저장된 전략이 없습니다</p>
-        <p className="empty-state-hint">상단 폼에서 첫 전략을 생성하세요.</p>
-        <div className="page-actions">
-          <a href="#strategies-create" className="button-primary">
+      <div className="grid gap-3 justify-items-center p-12 px-6 border border-dashed border-border rounded-xl text-center bg-surface shadow-sm">
+        <p className="m-0 text-foreground font-semibold text-[1.0625rem]">저장된 전략이 없습니다</p>
+        <p className="m-0 text-muted max-w-sm text-sm">상단 폼에서 첫 전략을 생성하세요.</p>
+        <div className="mt-4">
+          <a href="#strategies-create" className="inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-lg bg-primary text-white hover:bg-primary-hover shadow-sm transition-all">
             전략 만들기
           </a>
         </div>
@@ -42,47 +42,47 @@ export function StrategyListView({ strategies, onClone, onArchive }: StrategyLis
   }
 
   return (
-    <div className="stack-list">
+    <div className="grid gap-3">
       {strategies.map((strategy) => (
-        <div key={strategy.id} className="list-card">
-          <div className="flex-between">
-            <div className="strategy-list-card-body">
-              <div className="flex-center strategy-list-card-topline">
-                <span className={statusChipClass[strategy.status] ?? "status-chip"}>
+        <div key={strategy.id} className="p-5 bg-surface border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-gray-300 transition-all group">
+          <div className="flex flex-wrap items-start md:items-center justify-between gap-4">
+            <div className="grid gap-1.5 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={statusChipClass[strategy.status] ?? "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-surface text-foreground border border-border"}>
                   {statusLabels[strategy.status] ?? strategy.status}
                 </span>
-                <span className="text-subtle strategy-list-card-type">
+                <span className="text-subtle text-xs font-medium bg-border-soft px-1.5 py-0.5 rounded">
                   {typeLabels[strategy.strategyType] ?? strategy.strategyType}
                 </span>
               </div>
               <Link
                 href={`/strategies/${strategy.id}`}
-                className="table-link strategy-list-link"
+                className="font-semibold text-[1.0625rem] text-foreground hover:text-primary transition-colors"
               >
                 {strategy.name}
               </Link>
               {strategy.description ? (
-                <p className="section-copy strategy-list-description">
+                <p className="m-0 text-muted text-[0.9375rem] line-clamp-1">
                   {strategy.description}
                 </p>
               ) : null}
             </div>
-            <div className="flex-center strategy-list-card-meta">
-              <div className="strategy-list-metadata">
-                <div className="text-subtle strategy-list-stat">
-                  v{strategy.latestVersionNumber ?? 0}
+            <div className="flex items-center gap-4">
+              <div className="flex flex-wrap md:flex-nowrap items-center gap-3 md:gap-5">
+                <div className="text-subtle text-sm">
+                  <span className="font-mono font-medium text-muted">v{strategy.latestVersionNumber ?? 0}</span>
                 </div>
-                <div className="text-subtle strategy-list-stat">
-                  {strategy.universeCount ?? 0}개 유니버스
+                <div className="text-subtle text-sm">
+                  <span className="font-mono font-medium text-muted">{strategy.universeCount ?? 0}</span>개 유니버스
                 </div>
               </div>
               {onClone || onArchive ? (
-                <div className="page-actions strategy-list-actions">
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   {onClone ? (
                     <button
                       type="button"
                       onClick={() => onClone(strategy.id)}
-                      className="button-ghost"
+                      className="px-3 py-1.5 text-sm font-medium text-muted hover:text-primary hover:bg-primary-soft rounded-lg transition-all"
                     >
                       복제
                     </button>
@@ -91,7 +91,7 @@ export function StrategyListView({ strategies, onClone, onArchive }: StrategyLis
                     <button
                       type="button"
                       onClick={() => onArchive(strategy.id)}
-                      className="button-ghost strategy-list-archive"
+                      className="px-3 py-1.5 text-sm font-medium text-muted hover:text-error hover:bg-error-soft rounded-lg transition-all"
                     >
                       보관
                     </button>

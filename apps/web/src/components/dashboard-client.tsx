@@ -24,10 +24,10 @@ const strategyStatusLabel: Record<string, string> = {
 };
 
 const strategyStatusChip: Record<string, string> = {
-  running: "status-chip status-chip-success",
-  stopped: "status-chip status-chip-warning",
-  draft: "status-chip",
-  backtest_completed: "status-chip status-chip-info",
+  running: "inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border bg-success-soft text-success border-success/20",
+  stopped: "inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border bg-warning-soft text-warning border-warning/20",
+  draft: "inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border bg-surface text-foreground border-border",
+  backtest_completed: "inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border bg-primary-soft text-primary border-primary/20",
 };
 
 function formatPnl(value: number): string {
@@ -88,7 +88,7 @@ export function DashboardClient({
       : "가동 시작";
 
   return (
-    <main className="page-shell docs-page-shell page-shell-dashboard">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
       <PageIntroSection
         id="dashboard-summary"
         eyebrow="Dashboard"
@@ -97,35 +97,35 @@ export function DashboardClient({
       />
 
       <div
-        className={`dashboard-killswitch ${killSwitch ? "dashboard-killswitch-on" : "dashboard-killswitch-off"}`}
+        className={`flex flex-wrap items-start justify-between gap-6 p-6 rounded-xl border ${killSwitch ? "border-success bg-success-soft" : "border-warning bg-warning-soft"}`}
       >
-        <div className="dashboard-killswitch-body">
-          <div className="dashboard-killswitch-indicator">
+        <div className="grid gap-3">
+          <div className="flex items-center gap-2">
             <span
-              className={`dashboard-killswitch-dot ${killSwitch ? "dashboard-killswitch-dot-on" : "dashboard-killswitch-dot-off"}`}
+              className={`w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse ${killSwitch ? "bg-success shadow-[0_0_8px_rgba(22,163,74,0.5)]" : "bg-warning shadow-[0_0_8px_rgba(202,138,4,0.5)]"}`}
             />
-            <span className="dashboard-killswitch-label">{killSwitchLabel}</span>
+            <span className={`font-sans font-bold tracking-tight text-lg ${killSwitch ? "text-success" : "text-warning"}`}>{killSwitchLabel}</span>
           </div>
-          <p className="dashboard-killswitch-description">
+          <p className="m-0 text-foreground font-medium text-[0.9375rem]">
             {killSwitchDescription}
           </p>
-          <div className="dashboard-killswitch-meta">
+          <div className="flex flex-wrap items-center gap-3">
             <span
-              className={`status-chip ${killSwitch ? "status-chip-success" : "status-chip-warning"}`}
+              className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border ${killSwitch ? "bg-success-soft text-success border-success/20" : "bg-warning-soft text-warning border-warning/20"}`}
             >
               {killSwitch ? "주문 실행 가능" : "주문 실행 차단"}
             </span>
-            <span className="text-subtle">
+            <span className="text-subtle text-sm">
               전략 설정과 무관하게 현재 상태가 실제 주문 실행을 제어합니다.
             </span>
           </div>
         </div>
-        <div className="dashboard-killswitch-actions">
+        <div>
           <button
             type="button"
             disabled={isToggling}
             onClick={handleToggleKillSwitch}
-            className={killSwitch ? "button-danger" : "button-primary"}
+            className={`inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${killSwitch ? "bg-error hover:bg-red-700 focus:ring-error" : "bg-primary hover:bg-primary-hover focus:ring-primary"} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {killSwitchActionLabel}
           </button>
@@ -133,36 +133,36 @@ export function DashboardClient({
       </div>
 
       {error ? (
-        <div className="doc-panel doc-panel-error">
-          <p className="section-copy">{error}</p>
+        <div className="p-6 border rounded-xl shadow-sm border-red-200 bg-red-50 text-error">
+          <p className="m-0 text-[0.9375rem]">{error}</p>
         </div>
       ) : null}
 
       {/* Metric Cards */}
-      <div className="summary-grid summary-grid-metrics">
-        <article className="metric-card metric-card-accent-primary">
-          <p className="metric-card-label">실행 중 전략</p>
-          <p className="metric-card-value">{dashboard.runningStrategyCount}</p>
-          <p className="metric-card-copy">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 justify-start">
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-l-primary">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">실행 중 전략</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{dashboard.runningStrategyCount}</p>
+          <p className="m-0 text-muted text-sm">
             총 {dashboard.strategySummaries.length}개 전략 중 활성 전략 수
           </p>
         </article>
-        <article className="metric-card metric-card-accent-info">
-          <p className="metric-card-label">금일 주문</p>
-          <p className="metric-card-value">{dashboard.todayOrderCount}</p>
-          <p className="metric-card-copy">오늘 접수된 주문 요청 수</p>
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-l-secondary">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">금일 주문</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{dashboard.todayOrderCount}</p>
+          <p className="m-0 text-muted text-sm">오늘 접수된 주문 요청 수</p>
         </article>
-        <article className="metric-card metric-card-accent-pnl">
-          <p className="metric-card-label">금일 손익</p>
-          <p className={`metric-card-value ${pnlClassName(dashboard.todayPnl)}`}>
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-l-success">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">금일 손익</p>
+          <p className={`m-0 font-sans text-3xl leading-snug font-bold ${pnlClassName(dashboard.todayPnl)}`}>
             {formatPnl(dashboard.todayPnl)}
           </p>
-          <p className="metric-card-copy">실현 손익 기준의 일간 누적 값</p>
+          <p className="m-0 text-muted text-sm">실현 손익 기준의 일간 누적 값</p>
         </article>
-        <article className="metric-card metric-card-accent-secondary">
-          <p className="metric-card-label">보유 포지션</p>
-          <p className="metric-card-value">{dashboard.positionCount}</p>
-          <p className="metric-card-copy">현재 보유 중인 심볼 포지션 수</p>
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-l-warning">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">보유 포지션</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{dashboard.positionCount}</p>
+          <p className="m-0 text-muted text-sm">현재 보유 중인 심볼 포지션 수</p>
         </article>
       </div>
 
@@ -170,64 +170,64 @@ export function DashboardClient({
       <section id="dashboard-strategies">
         <SectionHeaderBlock title="전략 현황" />
         {hasStrategies ? (
-          <div className="doc-panel">
-            <div className="table-shell">
-              <table className="doc-table">
+          <div className="p-6 border border-border-soft rounded-xl bg-surface shadow-sm overflow-hidden">
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
                 <thead>
                   <tr>
-                    <th>이름</th>
-                    <th>타입</th>
-                    <th>상태</th>
-                    <th>실행</th>
-                    <th>최근 실행</th>
-                    <th>포지션</th>
-                    <th>금일 주문</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">이름</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">타입</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">상태</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">실행</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">최근 실행</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">포지션</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">금일 주문</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="align-baseline">
                   {dashboard.strategySummaries.map((s) => (
-                    <tr key={s.id}>
-                      <td>
+                    <tr key={s.id} className="group hover:bg-slate-50/50">
+                      <td className="py-3 border-b border-border-soft">
                         <Link
                           href={`/strategies/${s.id}`}
-                          className="table-link"
+                          className="font-medium text-foreground hover:text-primary transition-colors"
                         >
                           {s.name}
                         </Link>
                       </td>
-                      <td>{s.strategyType}</td>
-                      <td>
+                      <td className="py-3 border-b border-border-soft text-muted">{s.strategyType}</td>
+                      <td className="py-3 border-b border-border-soft">
                         <span
                           className={
-                            strategyStatusChip[s.status] ?? "status-chip"
+                            strategyStatusChip[s.status] ?? "inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium border bg-surface text-foreground border-border"
                           }
                         >
                           {strategyStatusLabel[s.status] ?? s.status}
                         </span>
                       </td>
-                      <td>{s.executionEnabled ? "ON" : "OFF"}</td>
-                      <td>
+                      <td className="py-3 border-b border-border-soft text-foreground">{s.executionEnabled ? "ON" : "OFF"}</td>
+                      <td className="py-3 border-b border-border-soft text-muted">
                         {s.lastRunStatus ? (
-                          <>
+                          <div className="flex items-center gap-2">
                             <span
                               className={
                                 s.lastRunStatus === "completed"
-                                  ? "status-chip status-chip-success"
+                                  ? "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-success-soft text-success"
                                   : s.lastRunStatus === "failed"
-                                    ? "status-chip status-chip-error"
-                                    : "status-chip status-chip-info"
+                                    ? "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-error-soft text-error"
+                                    : "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-primary-soft text-primary"
                               }
                             >
                               {s.lastRunStatus}
-                            </span>{" "}
-                            {formatDateTime(s.lastRunAt)}
-                          </>
+                            </span>
+                            <span className="text-[0.8125rem]">{formatDateTime(s.lastRunAt)}</span>
+                          </div>
                         ) : (
                           <span className="text-subtle">—</span>
                         )}
                       </td>
-                      <td>{s.positionCount}</td>
-                      <td>{s.todayOrderCount}</td>
+                      <td className="py-3 border-b border-border-soft text-right font-mono text-muted">{s.positionCount}</td>
+                      <td className="py-3 border-b border-border-soft text-right font-mono text-muted">{s.todayOrderCount}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -235,12 +235,12 @@ export function DashboardClient({
             </div>
           </div>
         ) : (
-          <div className="empty-state">
-            <p className="empty-state-message">등록된 전략이 없습니다</p>
-            <p className="empty-state-hint">
+          <div className="grid gap-3 justify-items-center p-12 px-6 border border-dashed border-border rounded-xl text-center">
+            <p className="m-0 text-muted font-medium">등록된 전략이 없습니다</p>
+            <p className="m-0 text-subtle text-sm max-w-sm">
               전략을 만들어 자동매매를 시작하세요.
             </p>
-            <Link href="/strategies" className="button-primary">
+            <Link href="/strategies" className="mt-2 inline-flex items-center justify-center px-4 py-2 font-medium rounded-lg bg-primary !text-white hover:bg-primary-hover shadow-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-primary">
               전략 만들기
             </Link>
           </div>
@@ -251,39 +251,41 @@ export function DashboardClient({
       <section id="dashboard-fills">
         <SectionHeaderBlock title="최근 체결" />
         {hasFills ? (
-          <div className="doc-panel">
-            <div className="table-shell">
-              <table className="doc-table">
+          <div className="p-6 border border-border-soft rounded-xl bg-surface shadow-sm overflow-hidden">
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
                 <thead>
                   <tr>
-                    <th>전략</th>
-                    <th>심볼</th>
-                    <th>방향</th>
-                    <th>수량</th>
-                    <th>가격</th>
-                    <th>손익</th>
-                    <th>시간</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">전략</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">심볼</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">방향</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">수량</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">가격</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">손익</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">시간</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="align-baseline">
                   {dashboard.recentFills.map((fill) => (
-                    <tr key={fill.id}>
-                      <td>
+                    <tr key={fill.id} className="group hover:bg-slate-50/50">
+                      <td className="py-3 border-b border-border-soft">
                         <Link
                           href={`/strategies/${fill.strategyId}`}
-                          className="table-link"
+                          className="font-medium text-foreground hover:text-primary transition-colors"
                         >
                           {fill.strategyName}
                         </Link>
                       </td>
-                      <td>{fill.symbol}</td>
-                      <td>{fill.side}</td>
-                      <td>{fill.quantity}</td>
-                      <td>{fill.price.toLocaleString()}</td>
-                      <td className={pnlClassName(fill.realizedPnl)}>
+                      <td className="py-3 border-b border-border-soft font-mono text-muted">{fill.symbol}</td>
+                      <td className="py-3 border-b border-border-soft">
+                        <span className={fill.side === "buy" ? "text-success font-medium" : "text-error font-medium"}>{fill.side}</span>
+                      </td>
+                      <td className="py-3 border-b border-border-soft text-right font-mono text-muted">{fill.quantity}</td>
+                      <td className="py-3 border-b border-border-soft text-right font-mono text-muted">{fill.price.toLocaleString()}</td>
+                      <td className={`py-3 border-b border-border-soft text-right font-mono ${pnlClassName(fill.realizedPnl)}`}>
                         {formatPnl(fill.realizedPnl)}
                       </td>
-                      <td>{formatDateTime(fill.filledAt)}</td>
+                      <td className="py-3 border-b border-border-soft text-right text-muted text-[0.8125rem]">{formatDateTime(fill.filledAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -291,13 +293,13 @@ export function DashboardClient({
             </div>
           </div>
         ) : (
-          <div className="empty-state empty-state-compact">
-            <p className="empty-state-message">체결 내역이 없습니다</p>
-            <p className="empty-state-hint">
+          <div className="grid gap-3 justify-items-center p-8 px-6 border border-dashed border-border rounded-xl text-center">
+            <p className="m-0 text-muted font-medium">체결 내역이 없습니다</p>
+            <p className="m-0 text-subtle text-sm max-w-sm">
               주문이 체결되면 최신 체결 흐름이 이 영역에 표시됩니다.
             </p>
-            <div className="page-actions">
-              <Link href="/orders" className="button-secondary">
+            <div className="flex flex-wrap gap-3 mt-2">
+              <Link href="/orders" className="inline-flex items-center justify-center px-4 py-2 font-medium rounded-lg bg-surface border border-border text-foreground hover:bg-[#fafafa] shadow-sm transition-all text-sm">
                 주문 현황 보기
               </Link>
             </div>
@@ -309,33 +311,33 @@ export function DashboardClient({
       <section id="dashboard-positions">
         <SectionHeaderBlock title="현재 포지션" />
         {hasPositions ? (
-          <div className="doc-panel">
-            <div className="table-shell">
-              <table className="doc-table">
+          <div className="p-6 border border-border-soft rounded-xl bg-surface shadow-sm overflow-hidden">
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
                 <thead>
                   <tr>
-                    <th>전략</th>
-                    <th>심볼</th>
-                    <th>순수량</th>
-                    <th>평균단가</th>
-                    <th>최근 체결</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">전략</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">심볼</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">순수량</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">평균단가</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">최근 체결</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="align-baseline">
                   {dashboard.currentPositions.map((pos) => (
-                    <tr key={`${pos.strategyId}-${pos.symbol}`}>
-                      <td>
+                    <tr key={`${pos.strategyId}-${pos.symbol}`} className="group hover:bg-slate-50/50">
+                      <td className="py-3 border-b border-border-soft">
                         <Link
                           href={`/strategies/${pos.strategyId}`}
-                          className="table-link"
+                          className="font-medium text-foreground hover:text-primary transition-colors"
                         >
                           {pos.strategyName}
                         </Link>
                       </td>
-                      <td>{pos.symbol}</td>
-                      <td>{pos.netQuantity}</td>
-                      <td>{pos.avgEntryPrice.toLocaleString()}</td>
-                      <td>{formatDateTime(pos.lastFillAt)}</td>
+                      <td className="py-3 border-b border-border-soft font-mono text-muted">{pos.symbol}</td>
+                      <td className="py-3 border-b border-border-soft text-right font-mono text-muted">{pos.netQuantity}</td>
+                      <td className="py-3 border-b border-border-soft text-right font-mono text-muted">{pos.avgEntryPrice.toLocaleString()}</td>
+                      <td className="py-3 border-b border-border-soft text-right text-muted text-[0.8125rem]">{formatDateTime(pos.lastFillAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -343,17 +345,16 @@ export function DashboardClient({
             </div>
           </div>
         ) : (
-          <div className="empty-state empty-state-compact">
-            <p className="empty-state-message">보유 포지션이 없습니다</p>
-            <p className="empty-state-hint">
-              브로커 원장 또는 포지션 화면에서 실시간 보유 현황을 확인할 수
-              있습니다.
+          <div className="grid gap-3 justify-items-center p-8 px-6 border border-dashed border-border rounded-xl text-center">
+            <p className="m-0 text-muted font-medium">보유 포지션이 없습니다</p>
+            <p className="m-0 text-subtle text-sm max-w-sm">
+              브로커 원장 또는 포지션 화면에서 실시간 보유 현황을 확인할 수 있습니다.
             </p>
-            <div className="page-actions">
-              <Link href="/positions" className="button-secondary">
+            <div className="flex flex-wrap gap-3 mt-2">
+              <Link href="/positions" className="inline-flex items-center justify-center px-4 py-2 font-medium rounded-lg bg-surface border border-border text-foreground hover:bg-[#fafafa] shadow-sm transition-all text-sm">
                 포지션 보기
               </Link>
-              <Link href="/broker" className="button-ghost">
+              <Link href="/broker" className="inline-flex items-center justify-center px-4 py-2 font-medium rounded-lg text-primary hover:bg-primary-soft transition-all text-sm">
                 브로커 원장 보기
               </Link>
             </div>
@@ -365,34 +366,34 @@ export function DashboardClient({
       <section id="dashboard-errors">
         <SectionHeaderBlock title="최근 오류" />
         {hasErrors ? (
-          <div className="stack-list">
+          <div className="grid gap-3">
             {dashboard.recentErrors.map((err, index) => (
-              <div key={`${err.occurredAt}-${index}`} className="list-card list-card-error">
-                <div className="flex-between">
-                  <div className="flex-center">
-                    <span className="mono-pill">{err.source}</span>
+              <div key={`${err.occurredAt}-${index}`} className="flex flex-col gap-3 p-4 border border-red-200 bg-red-50/50 rounded-xl">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[0.6875rem] font-mono border bg-surface text-foreground border-border">{err.source}</span>
                     {err.strategyName ? (
-                      <span className="text-muted">{err.strategyName}</span>
+                      <span className="text-muted text-sm">{err.strategyName}</span>
                     ) : null}
                   </div>
-                  <span className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+                  <span className="text-subtle text-[0.8125rem]">
                     {formatDateTime(err.occurredAt)}
                   </span>
                 </div>
-                <p className="section-copy text-error">{err.message}</p>
+                <p className="m-0 text-[0.9375rem] text-error font-medium">{err.message}</p>
               </div>
             ))}
           </div>
         ) : (
-          <div className="doc-panel dashboard-status-panel dashboard-status-panel-success">
-            <div className="flex-between">
-              <div className="dashboard-status-panel-body">
-                <p className="section-title">최근 오류가 없습니다</p>
-                <p className="section-copy">
+          <div className="p-6 border border-success/30 rounded-xl bg-success-soft shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div className="grid gap-1.5">
+                <p className="m-0 font-sans text-lg leading-snug font-semibold text-success">최근 오류가 없습니다</p>
+                <p className="m-0 text-success/80 text-[0.9375rem]">
                   최근 운영 이벤트에서 치명적 오류가 감지되지 않았습니다.
                 </p>
               </div>
-              <span className="status-chip status-chip-success">정상</span>
+              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold uppercase bg-success text-white border-success">정상</span>
             </div>
           </div>
         )}
@@ -400,13 +401,13 @@ export function DashboardClient({
 
       {/* Health */}
       <section id="dashboard-health">
-        <div className="dashboard-health-bar">
-          <h2 className="section-title">시스템 상태</h2>
-          <div className="flex-center">
-            <span className={dashboard.health.apiStatus === "UP" ? "status-chip status-chip-success" : "status-chip status-chip-error"}>
+        <div className="flex flex-wrap items-center justify-between gap-6 pt-8 mt-8 border-t border-border-soft">
+          <h2 className="m-0 font-sans text-[1.375rem] leading-snug font-semibold text-foreground">시스템 상태</h2>
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase border ${dashboard.health.apiStatus === "UP" ? "bg-success-soft text-success border-success/20" : "bg-error-soft text-error border-error/20"}`}>
               API {dashboard.health.apiStatus}
             </span>
-            <span className={dashboard.health.dbStatus === "UP" ? "status-chip status-chip-success" : "status-chip status-chip-error"}>
+            <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase border ${dashboard.health.dbStatus === "UP" ? "bg-success-soft text-success border-success/20" : "bg-error-soft text-error border-error/20"}`}>
               DB {dashboard.health.dbStatus}
             </span>
           </div>
