@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import type { ActivityEvent } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import {
+  OperationsControlPanel,
+  PageIntroSection,
+  SectionHeaderBlock,
+} from "@/components/page-layout";
 
 type LogsPageClientProps = {
   events: ActivityEvent[];
@@ -73,62 +78,87 @@ export function LogsPageClient({ events }: LogsPageClientProps) {
   const errorCount = events.filter((e) => e.severity === "error").length;
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="logs-summary" className="page-intro">
-        <p className="page-eyebrow">Logs</p>
-        <h1 className="page-title">실행 로그</h1>
-        <p className="page-description">
-          전략 실행, 주문, 리스크, 브로커 이벤트를 시간순으로 조회합니다.
+    <main className="page-shell docs-page-shell page-shell-operations">
+      <PageIntroSection
+        id="logs-summary"
+        eyebrow="Logs"
+        title="실행 로그"
+        description="전략 실행, 주문, 리스크, 브로커 이벤트를 시간순으로 조회합니다."
+      />
+
+      <section className="doc-panel doc-panel-info doc-panel-compact">
+        <p className="section-copy doc-panel-copy">
+          이 화면은 OpenForge 운영 이벤트 기록을 표시합니다. 실제 주문 및 계좌 원장은{" "}
+          <Link href="/broker" className="table-link">
+            Broker
+          </Link>
+          와 함께 확인하세요.
         </p>
       </section>
 
-      <div className="summary-grid summary-grid-columns-2">
+      <div className="summary-grid summary-grid-metrics">
         <article className="metric-card metric-card-accent-primary">
           <p className="metric-card-label">전체 이벤트</p>
           <p className="metric-card-value">{events.length}</p>
+          <p className="metric-card-copy">누적 저장 이벤트 수</p>
         </article>
         <article className={`metric-card ${errorCount > 0 ? "metric-card-accent-pnl" : "metric-card-accent-info"}`}>
           <p className="metric-card-label">오류</p>
           <p className={`metric-card-value ${errorCount > 0 ? "text-error" : ""}`}>{errorCount}</p>
+          <p className="metric-card-copy">오류 심각도 이벤트 수</p>
         </article>
       </div>
 
-      <section id="logs-filters">
-        <div className="filter-bar">
-          <span className="form-label">카테고리</span>
-          {categoryItems.map((cat) => (
-            <button
-              key={cat.value}
-              type="button"
-              className={selectedCategory === cat.value ? "status-chip status-chip-info" : "status-chip"}
-              onClick={() => setSelectedCategory(cat.value === selectedCategory ? null : cat.value)}
+      <OperationsControlPanel
+        id="logs-filters"
+        title="조회 기준"
+        description="카테고리와 심각도로 이벤트 타임라인을 좁혀 볼 수 있습니다."
+      >
+        <div className="filter-panel-form filter-panel-grid-2">
+          <label className="form-field filter-panel-field">
+            <span className="form-label">카테고리</span>
+            <select
+              className="filter-select"
+              value={selectedCategory ?? ""}
+              onChange={(e) => setSelectedCategory(e.target.value || null)}
             >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-        <div className="filter-bar" style={{ marginTop: 8 }}>
-          <span className="form-label">심각도</span>
-          {severityItems.map((sev) => (
-            <button
-              key={sev.value}
-              type="button"
-              className={selectedSeverity === sev.value ? "status-chip status-chip-info" : "status-chip"}
-              onClick={() => setSelectedSeverity(sev.value === selectedSeverity ? null : sev.value)}
+              <option value="">전체</option>
+              {categoryItems.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field filter-panel-field">
+            <span className="form-label">심각도</span>
+            <select
+              className="filter-select"
+              value={selectedSeverity ?? ""}
+              onChange={(e) => setSelectedSeverity(e.target.value || null)}
             >
-              {sev.label}
-            </button>
-          ))}
+              <option value="">전체</option>
+              {severityItems.map((sev) => (
+                <option key={sev.value} value={sev.value}>
+                  {sev.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-      </section>
+      </OperationsControlPanel>
 
       <section id="logs-timeline">
-        <h2 className="section-title">
-          이벤트 타임라인
-          {filteredEvents.length !== events.length ? (
-            <span className="section-count">{filteredEvents.length}건 / {events.length}건</span>
-          ) : null}
-        </h2>
+        <SectionHeaderBlock
+          title="이벤트 타임라인"
+          count={
+            filteredEvents.length !== events.length
+              ? `${filteredEvents.length}건 / ${events.length}건`
+              : undefined
+          }
+          countStrong
+          description="최신 이벤트부터 시간순으로 표시합니다."
+        />
         {filteredEvents.length === 0 ? (
           <div className="empty-state empty-state-compact">
             <p className="empty-state-message">

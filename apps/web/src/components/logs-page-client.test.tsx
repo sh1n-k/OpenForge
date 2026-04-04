@@ -38,14 +38,18 @@ describe("LogsPageClient", () => {
     expect(screen.getAllByText("정보").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders category filter buttons", () => {
+  it("renders category and severity filter selects", () => {
     render(<LogsPageClient events={[]} />);
 
-    expect(screen.getByRole("button", { name: "실행" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "시그널" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "리스크" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "브로커" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "시스템" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "카테고리" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "심각도" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "실행" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "시그널" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "리스크" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "브로커" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "시스템" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "오류" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "경고" })).toBeInTheDocument();
   });
 
   it("shows empty message when no events", () => {

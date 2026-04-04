@@ -14,3 +14,4 @@ apps/web/out/
 apps/api/.gradle/
 apps/api/build/
 apps/api/out/
+.artifacts/

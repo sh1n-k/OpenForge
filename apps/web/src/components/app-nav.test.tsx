@@ -50,7 +50,38 @@ describe("AppNav", () => {
       .find((link) => link.getAttribute("href") === "/broker");
 
     expect(brokerPrimaryLink).toBeDefined();
-    expect(brokerPrimaryLink).toHaveAttribute("aria-current", "page");
+    expect(brokerPrimaryLink).not.toHaveAttribute("aria-current");
+  });
+
+  it("renders broker ledger as an inline subnav item on broker pages", () => {
+    render(
+      <AppNav
+        pathname="/broker"
+      />,
+    );
+
+    const brokerLedgerLink = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("href") === "/broker/ledger");
+
+    expect(brokerLedgerLink).toBeDefined();
+    expect(screen.queryByText("Context")).not.toBeInTheDocument();
+  });
+
+  it("marks broker ledger subnav item as active on broker ledger route", () => {
+    render(
+      <AppNav
+        pathname="/broker/ledger"
+      />,
+    );
+
+    const brokerLedgerLink = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("href") === "/broker/ledger");
+
+    expect(brokerLedgerLink).toBeDefined();
+    expect(brokerLedgerLink).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Context")).not.toBeInTheDocument();
   });
 
   it("filters nav items with local search", () => {
@@ -106,6 +137,7 @@ describe("AppNav", () => {
     expect(screen.getByText("Strategy Detail")).toBeInTheDocument();
     expect(screen.getByText("Strategy Editor")).toBeInTheDocument();
     expect(screen.getByText("Backtest Runner")).toBeInTheDocument();
+    expect(screen.getByText("Context")).toBeInTheDocument();
 
     // Navigate via command palette
     fireEvent.click(screen.getByRole("button", { name: /검색/i }));

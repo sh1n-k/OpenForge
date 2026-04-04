@@ -25,7 +25,7 @@ export function AppShell({
       <AppNav pathname={pathname} />
       <div className={`app-main ${showToc ? "app-main-with-toc" : ""}`}>
         {children}
-        {showToc ? <PageToc sections={sections} /> : null}
+        {showToc ? <PageToc key={pathname} sections={sections} /> : null}
       </div>
     </div>
   );

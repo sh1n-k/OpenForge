@@ -8,6 +8,11 @@ import type {
   StrategySummary,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import {
+  OperationsControlPanel,
+  PageIntroSection,
+  SectionHeaderBlock,
+} from "@/components/page-layout";
 
 type OrdersPageClientProps = {
   orders: CrossStrategyOrderRequest[];
@@ -62,15 +67,16 @@ export function OrdersPageClient({
     : fills;
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="orders-summary" className="page-intro">
-        <p className="page-eyebrow">Orders</p>
-        <h1 className="page-title">주문 및 체결</h1>
-        <p className="page-description">모든 전략의 주문 요청과 체결 내역을 통합 조회합니다.</p>
-      </section>
+    <main className="page-shell docs-page-shell page-shell-operations">
+      <PageIntroSection
+        id="orders-summary"
+        eyebrow="Orders"
+        title="주문 및 체결"
+        description="모든 전략의 주문 요청과 체결 내역을 통합 조회합니다."
+      />
 
-      <section className="doc-panel doc-panel-info">
-        <p className="section-copy" style={{ marginTop: 0 }}>
+      <section className="doc-panel doc-panel-info doc-panel-compact">
+        <p className="section-copy doc-panel-copy">
           이 화면은 OpenForge 내부 주문 기록만 표시합니다. 실제 계좌 원장은{" "}
           <Link href="/broker" className="table-link">
             Broker
@@ -79,35 +85,51 @@ export function OrdersPageClient({
         </p>
       </section>
 
-      <div className="summary-grid summary-grid-columns-2">
+      <div className="summary-grid summary-grid-metrics">
         <article className="metric-card metric-card-accent-primary">
           <p className="metric-card-label">주문 요청</p>
           <p className="metric-card-value">{filteredOrders.length}</p>
+          <p className="metric-card-copy">현재 필터 기준 주문 요청 수</p>
         </article>
         <article className="metric-card metric-card-accent-info">
           <p className="metric-card-label">체결 내역</p>
           <p className="metric-card-value">{filteredFills.length}</p>
+          <p className="metric-card-copy">현재 필터 기준 체결 건수</p>
         </article>
       </div>
 
-      {strategies.length > 0 ? (
-        <div className="filter-bar">
-          <span className="form-label">전략 필터</span>
-          <select
-            className="filter-select"
-            value={selectedStrategyId ?? ""}
-            onChange={(e) => setSelectedStrategyId(e.target.value || null)}
-          >
-            <option value="">전체</option>
-            {strategies.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-      ) : null}
+      <OperationsControlPanel
+        id="orders-filters"
+        title="조회 기준"
+        description="전략 기준으로 주문 요청과 체결 내역을 함께 필터링합니다."
+      >
+        {strategies.length > 0 ? (
+          <div className="filter-panel-form">
+            <label className="form-field filter-panel-field">
+              <span className="form-label">전략 필터</span>
+              <select
+                className="filter-select"
+                value={selectedStrategyId ?? ""}
+                onChange={(e) => setSelectedStrategyId(e.target.value || null)}
+              >
+                <option value="">전체</option>
+                {strategies.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : (
+          <p className="filter-panel-note">
+            저장된 전략이 없어 전체 기준으로 주문과 체결을 표시합니다.
+          </p>
+        )}
+      </OperationsControlPanel>
 
       <section id="orders-requests">
-        <h2 className="section-title">주문 요청</h2>
+        <SectionHeaderBlock title="주문 요청" />
         {filteredOrders.length === 0 ? (
           <div className="empty-state empty-state-compact">
             <p className="empty-state-message">주문 내역이 없습니다</p>
@@ -159,7 +181,7 @@ export function OrdersPageClient({
       </section>
 
       <section id="orders-fills">
-        <h2 className="section-title">체결 내역</h2>
+        <SectionHeaderBlock title="체결 내역" />
         {filteredFills.length === 0 ? (
           <div className="empty-state empty-state-compact">
             <p className="empty-state-message">체결 내역이 없습니다</p>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { HealthSnapshot } from "@/lib/health";
+import { PageIntroSection, SectionHeaderBlock } from "@/components/page-layout";
 
 type SettingsPageClientProps = {
   systemBroker: SystemBrokerStatus;
@@ -116,12 +117,13 @@ export function SettingsPageClient({
   const isHealthy = health.status === "UP" && health.database.status === "UP";
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="settings-summary" className="page-intro">
-        <p className="page-eyebrow">Settings</p>
-        <h1 className="page-title">시스템 설정</h1>
-        <p className="page-description">브로커 연결, 전역 리스크, 시스템 상태를 관리합니다.</p>
-      </section>
+    <main className="page-shell docs-page-shell page-shell-operations">
+      <PageIntroSection
+        id="settings-summary"
+        eyebrow="Settings"
+        title="시스템 설정"
+        description="브로커 연결, 전역 리스크, 시스템 상태를 관리합니다."
+      />
 
       {error ? (
         <div className="doc-panel doc-panel-error">
@@ -131,7 +133,7 @@ export function SettingsPageClient({
 
       {/* ── 전역 킬스위치 ── */}
       <section id="settings-risk">
-        <h2 className="section-title">전역 리스크</h2>
+        <SectionHeaderBlock title="전역 리스크" />
         <div className={`dashboard-killswitch ${killSwitch ? "dashboard-killswitch-on" : "dashboard-killswitch-off"}`}>
           <div className="dashboard-killswitch-body">
             <div className="dashboard-killswitch-indicator">
@@ -157,7 +159,7 @@ export function SettingsPageClient({
         </div>
 
         {systemRiskEvents.length > 0 ? (
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="stack-list section-stack-top">
             {systemRiskEvents.map((event) => (
               <div key={event.id} className="list-card">
                 <div className="flex-between">
@@ -165,7 +167,7 @@ export function SettingsPageClient({
                     <span className="mono-pill">{event.eventType}</span>
                     <span className="text-muted">{event.message}</span>
                   </div>
-                  <span className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+                  <span className="text-subtle-xs">
                     {formatDateTime(event.occurredAt)}
                   </span>
                 </div>
@@ -177,14 +179,13 @@ export function SettingsPageClient({
 
       {/* ── 브로커 연결 ── */}
       <section id="settings-broker">
-        <h2 className="section-title">브로커 연결</h2>
-        <p className="section-copy">
-          한국투자증권 Open API 연결 정보를 관리합니다.
-          현재 시스템 모드: <strong>{modeLabel[systemBroker.currentSystemMode as OrderMode] ?? systemBroker.currentSystemMode}</strong>
-        </p>
+        <SectionHeaderBlock
+          title="브로커 연결"
+          description={`한국투자증권 Open API 연결 정보를 관리합니다. 현재 시스템 모드: ${modeLabel[systemBroker.currentSystemMode as OrderMode] ?? systemBroker.currentSystemMode}`}
+        />
 
         {/* 모드 탭 */}
-        <div className="settings-tabs">
+        <div className="settings-tabs section-stack-top">
           {(["paper", "live"] as OrderMode[]).map((mode) => (
             <button
               key={mode}
@@ -280,7 +281,7 @@ export function SettingsPageClient({
               />
               <span className="form-label">연결 설정 활성화</span>
             </label>
-            <p className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+            <p className="text-subtle-xs">
               저장된 자격증명은 AES-256-GCM으로 암호화됩니다. 빈 칸은 기존 값을 유지합니다.
             </p>
             <div className="page-actions">
@@ -295,7 +296,7 @@ export function SettingsPageClient({
         </div>
 
         {systemBrokerEvents.length > 0 ? (
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="stack-list section-stack-top">
             {systemBrokerEvents.map((event) => (
               <div key={event.id} className="list-card">
                 <div className="flex-between">
@@ -303,7 +304,7 @@ export function SettingsPageClient({
                     <span className="mono-pill">{event.eventType}</span>
                     <span className="text-muted">{event.message}</span>
                   </div>
-                  <span className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+                  <span className="text-subtle-xs">
                     {formatDateTime(event.occurredAt)}
                   </span>
                 </div>
@@ -315,11 +316,11 @@ export function SettingsPageClient({
 
       {/* ── 시스템 상태 ── */}
       <section id="settings-system">
-        <h2 className="section-title">시스템 상태</h2>
+        <SectionHeaderBlock title="시스템 상태" />
         <div className={`dashboard-health-bar ${isHealthy ? "" : "dashboard-health-bar-degraded"}`}>
           <div className="flex-center">
             <span className={`dashboard-killswitch-dot ${isHealthy ? "dashboard-killswitch-dot-on" : "dashboard-killswitch-dot-off"}`} />
-            <span style={{ fontWeight: 600 }}>{isHealthy ? "정상 운영 중" : "일부 서비스 이상"}</span>
+            <span className="doc-nav-title">{isHealthy ? "정상 운영 중" : "일부 서비스 이상"}</span>
           </div>
           <div className="flex-center">
             <span className={health.status === "UP" ? "status-chip status-chip-success" : "status-chip status-chip-error"}>
@@ -330,16 +331,18 @@ export function SettingsPageClient({
             </span>
           </div>
         </div>
-        <div className="summary-grid summary-grid-columns-2" style={{ marginTop: 16 }}>
-          <article className="metric-card">
+        <div className="summary-grid summary-grid-metrics section-stack-top">
+          <article className="metric-card metric-card-accent-primary">
             <p className="metric-card-label">버전</p>
-            <p className="metric-card-value" style={{ fontSize: "1.25rem" }}>{health.version}</p>
+            <p className="metric-card-value metric-card-value-compact">{health.version}</p>
+            <p className="metric-card-copy">현재 실행 중인 애플리케이션 버전</p>
           </article>
-          <article className="metric-card">
+          <article className="metric-card metric-card-accent-info">
             <p className="metric-card-label">환경</p>
-            <p className="metric-card-value" style={{ fontSize: "1.25rem" }}>
+            <p className="metric-card-value metric-card-value-compact">
               {health.environment} · {health.mode}
             </p>
+            <p className="metric-card-copy">배포 환경과 주문 실행 모드</p>
           </article>
         </div>
       </section>

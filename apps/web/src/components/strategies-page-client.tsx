@@ -14,6 +14,11 @@ import {
   makeBuilderPayload,
   makeCodeTemplate,
 } from "@/lib/strategy-editor";
+import {
+  PageIntroSection,
+  RegistryCreatePanel,
+  SectionHeaderBlock,
+} from "@/components/page-layout";
 
 type StrategiesPageClientProps = {
   strategies: StrategySummary[];
@@ -112,26 +117,27 @@ export function StrategiesPageClient({
   }
 
   return (
-    <main className="page-shell page-shell-wide docs-page-shell">
-      <section id="strategies-summary" className="page-intro">
-        <p className="page-eyebrow">Strategies</p>
-        <h1 className="page-title">전략 레지스트리</h1>
-        <p className="page-description">
-          전략 등록과 실행 관리를 한 화면에서 관리합니다.
-        </p>
-      </section>
+    <main className="page-shell docs-page-shell page-shell-registry">
+      <PageIntroSection
+        id="strategies-summary"
+        eyebrow="Strategies"
+        title="전략 레지스트리"
+        description="전략 등록과 실행 관리를 한 화면에서 관리합니다."
+      />
 
-      <section id="strategies-create" className="doc-panel">
-        <h2 className="section-title">전략 생성</h2>
-        <p className="section-copy">이름과 유형을 선택하면 기본 템플릿으로 전략이 생성됩니다. 상세 편집은 생성 후 편집 화면에서 할 수 있습니다.</p>
+      <RegistryCreatePanel
+        id="strategies-create"
+        title="전략 생성"
+        description="이름과 유형을 선택하면 기본 템플릿으로 전략이 생성됩니다. 상세 편집은 생성 후 편집 화면에서 할 수 있습니다."
+      >
         <form
-          className="grid-section"
+          className="registry-create-form"
           onSubmit={async (event) => {
             event.preventDefault();
             await handleCreate(new FormData(event.currentTarget));
           }}
         >
-          <div className="form-row">
+          <div className="registry-create-fields">
             <div className="form-field">
               <label className="form-label">전략 이름</label>
               <input name="name" required placeholder="예: SMA 골든크로스" />
@@ -149,26 +155,26 @@ export function StrategiesPageClient({
               </select>
             </div>
           </div>
-          <div className="form-field">
+          <div className="form-field registry-field-span-2">
             <label className="form-label">설명 (선택)</label>
             <input name="description" placeholder="전략에 대한 간단한 설명" />
           </div>
           {error ? <p className="inline-error">{error}</p> : null}
-          <div>
+          <div className="registry-create-action">
             <button type="submit" className="button-primary" disabled={isCreating}>
               {isCreating ? "생성 중..." : "전략 생성"}
             </button>
           </div>
         </form>
-      </section>
+      </RegistryCreatePanel>
 
-      <section id="strategies-registry">
-        <h2 className="section-title">
-          전략 목록
-          {strategies.length > 0 ? (
-            <span className="section-count">{strategies.length}개</span>
-          ) : null}
-        </h2>
+      <section id="strategies-registry" className="registry-section">
+        <SectionHeaderBlock
+          title="전략 목록"
+          count={`총 ${strategies.length}개`}
+          countStrong
+          description="저장된 전략을 확인하고 상세 화면에서 실행, 편집, 백테스트로 이어집니다."
+        />
         <StrategyListView
           strategies={strategies}
           onClone={handleClone}

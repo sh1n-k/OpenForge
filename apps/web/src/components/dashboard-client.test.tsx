@@ -76,6 +76,7 @@ describe("DashboardClient", () => {
 
     expect(screen.getByText("자동매매 가동 중")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "전체 중지" })).toBeInTheDocument();
+    expect(screen.getByText("주문 실행 가능")).toBeInTheDocument();
   });
 
   it("should_show_kill_switch_stopped_label_when_disabled", () => {
@@ -110,6 +111,10 @@ describe("DashboardClient", () => {
     );
 
     expect(screen.getByText("체결 내역이 없습니다")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "주문 현황 보기" })).toHaveAttribute(
+      "href",
+      "/orders",
+    );
   });
 
   it("should_show_empty_positions_message_when_no_positions", () => {
@@ -121,6 +126,10 @@ describe("DashboardClient", () => {
     );
 
     expect(screen.getByText("보유 포지션이 없습니다")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "포지션 보기" })).toHaveAttribute(
+      "href",
+      "/positions",
+    );
   });
 
   it("should_show_no_errors_message_when_no_recent_errors", () => {
@@ -132,5 +141,6 @@ describe("DashboardClient", () => {
     );
 
     expect(screen.getByText("최근 오류가 없습니다")).toBeInTheDocument();
+    expect(screen.getByText("정상")).toBeInTheDocument();
   });
 });

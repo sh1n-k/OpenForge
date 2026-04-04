@@ -123,8 +123,8 @@ export function StrategyEditorClient({
   const canSave = validation?.valid === true && !isValidating && !isSaving;
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <main className="page-shell docs-page-shell page-shell-workbench">
+      <section className="workbench-hero-grid">
         <section
           id="editor-summary"
           className="doc-panel"
@@ -158,15 +158,15 @@ export function StrategyEditorClient({
             </div>
           </div>
           {strategy.latestValidationStatus === "invalid_legacy_draft" ? (
-            <p className="doc-panel doc-panel-warn mt-4 p-4 text-sm text-amber-700">
+            <p className="doc-panel doc-panel-warn section-stack-top text-sm text-amber-700">
               이전 단계의 legacy payload가 감지되었습니다. 편집 후 새 버전으로 저장하면 최신 규약으로 승격됩니다.
             </p>
           ) : null}
         </section>
 
-        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
+        <aside className="doc-panel doc-panel-soft workbench-sticky-panel">
           <h2 className="section-title">Workbench Status</h2>
-          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+          <dl className="workbench-summary-list">
             <div>
               <dt className="font-semibold text-slate-900">Validation</dt>
               <dd>{validation?.summary ?? validationError ?? "검증 대기 중"}</dd>
@@ -183,8 +183,8 @@ export function StrategyEditorClient({
         </aside>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="flex flex-col gap-6">
+      <section className="workbench-main-grid">
+        <section className="workbench-main-column">
           {strategy.strategyType === "builder" ? (
             <BuilderEditor
               state={builderState}
@@ -208,7 +208,7 @@ export function StrategyEditorClient({
               value={changeSummary}
               onChange={(event) => setChangeSummary(event.target.value)}
               placeholder="변경 메모"
-              className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm section-stack-top"
             />
             {saveError ? (
               <p className="mt-3 text-sm text-rose-600">{saveError}</p>

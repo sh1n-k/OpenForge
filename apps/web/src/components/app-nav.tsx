@@ -172,6 +172,12 @@ type SidebarProps = {
   onNavigate?: () => void;
 };
 
+const BROKER_LEDGER_LINK = {
+  href: "/broker/ledger",
+  label: "Broker Ledger",
+  description: "브로커 원장 상세 조회",
+};
+
 function DocsSidebar(props: Omit<SidebarProps, "onNavigate">) {
   return (
     <aside
@@ -195,6 +201,10 @@ function SidebarContent({
   onNavigate = () => {},
 }: SidebarProps) {
   const normalizedSearch = search.trim().toLowerCase();
+  const showBrokerSubnav = isBrokerContextPath(pathname);
+  const sidebarContextCommands = showBrokerSubnav
+    ? contextCommands.filter((cmd) => !isBrokerContextHref(cmd.href))
+    : contextCommands;
 
   return (
     <div className="doc-sidebar-scroll">
@@ -234,13 +244,20 @@ function SidebarContent({
                 <p className="doc-empty-copy">일치하는 페이지가 없습니다.</p>
               ) : (
                 filtered.map((item) => (
-                  <NavItem
-                    key={item.href}
-                    item={item}
-                    pathname={pathname}
-                    onNavigate={onNavigate}
-                    badge={item.href === "/broker" ? brokerOk : undefined}
-                  />
+                  <div key={item.href} className="doc-nav-entry">
+                    <NavItem
+                      item={item}
+                      pathname={pathname}
+                      onNavigate={onNavigate}
+                      badge={item.href === "/broker" ? brokerOk : undefined}
+                    />
+                    {showBrokerSubnav && item.href === "/broker" ? (
+                      <BrokerSubnav
+                        pathname={pathname}
+                        onNavigate={onNavigate}
+                      />
+                    ) : null}
+                  </div>
                 ))
               )}
             </div>
@@ -248,11 +265,11 @@ function SidebarContent({
         );
       })}
 
-      {contextCommands.length > 0 ? (
+      {sidebarContextCommands.length > 0 ? (
         <nav className="doc-nav-group">
           <p className="doc-nav-overline">Context</p>
           <div className="doc-nav-list">
-            {contextCommands.map((cmd) => (
+            {sidebarContextCommands.map((cmd) => (
               <Link
                 key={cmd.id}
                 href={cmd.href}
@@ -284,6 +301,32 @@ function SidebarContent({
   );
 }
 
+function BrokerSubnav({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const active = pathname === BROKER_LEDGER_LINK.href;
+
+  return (
+    <div className="doc-subnav-list">
+      <Link
+        href={BROKER_LEDGER_LINK.href}
+        className={subnavLinkClassName(active)}
+        aria-current={active ? "page" : undefined}
+        onClick={onNavigate}
+      >
+        <span className="doc-subnav-title">{BROKER_LEDGER_LINK.label}</span>
+        <span className="doc-subnav-description">
+          {BROKER_LEDGER_LINK.description}
+        </span>
+      </Link>
+    </div>
+  );
+}
+
 function NavItem({
   item,
   pathname,
@@ -297,12 +340,13 @@ function NavItem({
 }) {
   const Icon = item.icon ? ICON_MAP[item.icon] : null;
   const active = isRouteActive(pathname, item.href);
+  const current = pathname === item.href;
 
   return (
     <Link
       href={item.href}
       className={navLinkClassName(active)}
-      aria-current={active ? "page" : undefined}
+      aria-current={current ? "page" : undefined}
       onClick={onNavigate}
     >
       <span className="doc-nav-link-row">
@@ -385,6 +429,20 @@ function navLinkClassName(isActive: boolean) {
   return ["doc-nav-link", isActive ? "doc-nav-link-active" : ""]
     .filter(Boolean)
     .join(" ");
+}
+
+function subnavLinkClassName(isActive: boolean) {
+  return ["doc-subnav-link", isActive ? "doc-subnav-link-active" : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isBrokerContextPath(pathname: string) {
+  return isBrokerContextHref(pathname);
+}
+
+function isBrokerContextHref(href: string) {
+  return href === "/broker" || href === "/broker/ledger";
 }
 
 function LogoutButton() {

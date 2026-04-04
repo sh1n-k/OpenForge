@@ -13,9 +13,9 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
   return (
     <section
       id="universe-overview"
-      className="doc-panel"
+      className="doc-panel detail-section-card"
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="detail-hero-grid">
         <div className="page-intro">
           <p className="page-eyebrow">
             유니버스 상세
@@ -27,18 +27,18 @@ export function UniverseDetailView({ universe }: UniverseDetailViewProps) {
             {universe.description ?? "설명이 아직 없습니다."}
           </p>
         </div>
-        <div className="list-card">
-          <div className="status-chip status-chip-info" style={{ marginBottom: 8 }}>
+        <div className="detail-hero-meta-card">
+          <div className="status-chip status-chip-info">
             {marketScopeLabel[universe.marketScope]}
           </div>
-          <div>{universe.symbolCount}개 종목</div>
-          <div>{universe.strategyCount}개 연결 전략</div>
+          <div className="text-muted">{universe.symbolCount}개 종목</div>
+          <div className="text-muted">{universe.strategyCount}개 연결 전략</div>
         </div>
       </div>
 
       <div
         id="universe-symbols"
-        className="mt-6 stack-list"
+        className="stack-list section-stack-top"
       >
         {universe.symbols.length === 0 ? (
           <div className="empty-state empty-state-compact">

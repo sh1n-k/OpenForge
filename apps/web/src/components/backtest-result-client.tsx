@@ -48,8 +48,8 @@ export function BacktestResultClient({
   const profitFactor = numberValue(summary.profitFactor);
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <main className="page-shell docs-page-shell page-shell-workbench">
+      <section className="workbench-hero-grid">
         <section
           id="run-summary"
           className="doc-panel"
@@ -66,7 +66,7 @@ export function BacktestResultClient({
               <span className="status-chip status-chip-info">{statusLabel(run.status)}</span>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="panel-actions-row">
             <Link
               href={`/strategies/${run.strategyId}`}
               className="button-secondary"
@@ -82,9 +82,9 @@ export function BacktestResultClient({
           </div>
         </section>
 
-        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
+        <aside className="doc-panel doc-panel-soft workbench-sticky-panel">
           <h2 className="section-title">실행 상태</h2>
-          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+          <dl className="workbench-summary-list">
             <div>
               <dt className="font-semibold text-slate-900">상태</dt>
               <dd>{statusLabel(run.status)}</dd>
@@ -106,7 +106,7 @@ export function BacktestResultClient({
         <section className="doc-panel doc-panel-error">{run.errorMessage}</section>
       ) : null}
 
-      <section className="summary-grid summary-grid-columns-3">
+      <section className="summary-grid summary-grid-metrics">
         <MetricCard label="총 수익률" value={`${(totalReturnRate * 100).toFixed(2)}%`} accent="metric-card-accent-primary" />
         <MetricCard label="최대낙폭" value={`${(maxDrawdownRate * 100).toFixed(2)}%`} accent="metric-card-accent-secondary" />
         <MetricCard label="승률" value={`${(winRate * 100).toFixed(2)}%`} accent="metric-card-accent-info" />
@@ -115,10 +115,10 @@ export function BacktestResultClient({
         <MetricCard label="손익비" value={profitFactor.toFixed(2)} accent="metric-card-accent-pnl" />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="workbench-main-grid">
         <section
           id="run-charts"
-          className="grid gap-6"
+          className="workbench-main-column"
         >
           <ChartCard
             title="자산 곡선"
@@ -138,13 +138,13 @@ export function BacktestResultClient({
           />
         </section>
 
-        <section className="grid gap-6">
+        <section className="workbench-side-column">
           <section
             id="run-config"
             className="doc-panel"
           >
             <h2 className="section-title">실행 설정</h2>
-            <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+            <dl className="workbench-summary-list">
               {Object.entries(run.config).map(([key, value]) => (
                 <div key={key}>
                   <dt className="doc-nav-title">{key}</dt>
@@ -159,7 +159,7 @@ export function BacktestResultClient({
             className="doc-panel"
           >
             <h2 className="section-title">거래 내역</h2>
-            <div className="table-shell mt-4">
+            <div className="table-shell table-shell-offset">
               <table className="doc-table">
                 <thead>
                   <tr>

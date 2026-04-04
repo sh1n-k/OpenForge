@@ -29,9 +29,14 @@ type StrategyListViewProps = {
 export function StrategyListView({ strategies, onClone, onArchive }: StrategyListViewProps) {
   if (strategies.length === 0) {
     return (
-      <div className="empty-state">
+      <div className="empty-state empty-state-compact">
         <p className="empty-state-message">저장된 전략이 없습니다</p>
         <p className="empty-state-hint">상단 폼에서 첫 전략을 생성하세요.</p>
+        <div className="page-actions">
+          <a href="#strategies-create" className="button-primary">
+            전략 만들기
+          </a>
+        </div>
       </div>
     );
   }
@@ -41,36 +46,53 @@ export function StrategyListView({ strategies, onClone, onArchive }: StrategyLis
       {strategies.map((strategy) => (
         <div key={strategy.id} className="list-card">
           <div className="flex-between">
-            <div>
-              <div className="flex-center" style={{ marginBottom: 4 }}>
+            <div className="strategy-list-card-body">
+              <div className="flex-center strategy-list-card-topline">
                 <span className={statusChipClass[strategy.status] ?? "status-chip"}>
                   {statusLabels[strategy.status] ?? strategy.status}
                 </span>
-                <span className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+                <span className="text-subtle strategy-list-card-type">
                   {typeLabels[strategy.strategyType] ?? strategy.strategyType}
                 </span>
               </div>
-              <Link href={`/strategies/${strategy.id}`} className="table-link" style={{ fontSize: "1.0625rem", fontWeight: 600 }}>
+              <Link
+                href={`/strategies/${strategy.id}`}
+                className="table-link strategy-list-link"
+              >
                 {strategy.name}
               </Link>
               {strategy.description ? (
-                <p className="section-copy" style={{ marginTop: 2 }}>{strategy.description}</p>
+                <p className="section-copy strategy-list-description">
+                  {strategy.description}
+                </p>
               ) : null}
             </div>
-            <div className="flex-center" style={{ gap: 12 }}>
-              <div style={{ textAlign: "right" }}>
-                <div className="text-subtle" style={{ fontSize: "0.75rem" }}>v{strategy.latestVersionNumber ?? 0}</div>
-                <div className="text-subtle" style={{ fontSize: "0.75rem" }}>{strategy.universeCount ?? 0}개 유니버스</div>
+            <div className="flex-center strategy-list-card-meta">
+              <div className="strategy-list-metadata">
+                <div className="text-subtle strategy-list-stat">
+                  v{strategy.latestVersionNumber ?? 0}
+                </div>
+                <div className="text-subtle strategy-list-stat">
+                  {strategy.universeCount ?? 0}개 유니버스
+                </div>
               </div>
               {onClone || onArchive ? (
-                <div className="page-actions">
+                <div className="page-actions strategy-list-actions">
                   {onClone ? (
-                    <button type="button" onClick={() => onClone(strategy.id)} className="button-ghost">
+                    <button
+                      type="button"
+                      onClick={() => onClone(strategy.id)}
+                      className="button-ghost"
+                    >
                       복제
                     </button>
                   ) : null}
                   {onArchive ? (
-                    <button type="button" onClick={() => onArchive(strategy.id)} className="button-ghost" style={{ color: "var(--error)" }}>
+                    <button
+                      type="button"
+                      onClick={() => onArchive(strategy.id)}
+                      className="button-ghost strategy-list-archive"
+                    >
                       보관
                     </button>
                   ) : null}

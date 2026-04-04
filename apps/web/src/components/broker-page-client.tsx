@@ -11,6 +11,11 @@ import {
   type BrokerLedgerSyncRun,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import {
+  OperationsControlPanel,
+  PageIntroSection,
+  SectionHeaderBlock,
+} from "@/components/page-layout";
 
 type BrokerPageClientProps = {
   initialStatus: BrokerLedgerStatus;
@@ -146,25 +151,24 @@ export function BrokerPageClient({
   const latestRun = status.latestSuccessfulSyncRun;
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="broker-summary" className="page-intro">
-        <p className="page-eyebrow">Broker</p>
-        <h1 className="page-title">계좌 원장</h1>
-        <p className="page-description">
-          한국투자증권 실전 계좌 원장을 읽기 전용으로 조회합니다.
-        </p>
-      </section>
+    <main className="page-shell docs-page-shell page-shell-operations">
+      <PageIntroSection
+        id="broker-summary"
+        eyebrow="Broker"
+        title="계좌 원장"
+        description="한국투자증권 실전 계좌 원장을 읽기 전용으로 조회합니다."
+      />
 
-      <section className="doc-panel doc-panel-warn">
-        <p className="section-copy" style={{ marginTop: 0 }}>
+      <section className="doc-panel doc-panel-warn doc-panel-compact">
+        <p className="section-copy doc-panel-copy">
           이 화면은 OpenForge 전략 기록이 아니라 한국투자증권 실전 계좌 원장입니다.
           HTS, MTS, 다른 프로그램에서 발생한 거래도 포함될 수 있습니다.
         </p>
       </section>
 
       {!status.liveConfigured ? (
-        <section className="doc-panel doc-panel-error">
-          <p className="section-copy" style={{ marginTop: 0 }}>
+        <section className="doc-panel doc-panel-error doc-panel-compact">
+          <p className="section-copy doc-panel-copy">
             실전 브로커 연결이 설정되지 않았습니다.{" "}
             <Link href="/settings" className="table-link">
               Settings
@@ -175,42 +179,44 @@ export function BrokerPageClient({
       ) : null}
 
       {error ? (
-        <section className="doc-panel doc-panel-error">
-          <p className="section-copy" style={{ marginTop: 0 }}>{error}</p>
+        <section className="doc-panel doc-panel-error doc-panel-compact">
+          <p className="section-copy doc-panel-copy">{error}</p>
         </section>
       ) : null}
 
-      <div className="summary-grid summary-grid-columns-3">
+      <div className="summary-grid summary-grid-metrics">
         <article className="metric-card metric-card-accent-primary">
           <p className="metric-card-label">최신 주문/체결</p>
           <p className="metric-card-value">{latestRun?.tradeCount ?? 0}</p>
+          <p className="metric-card-copy">가장 최근 성공 동기화 기준 거래 건수</p>
         </article>
         <article className="metric-card metric-card-accent-info">
           <p className="metric-card-label">최신 잔고 종목</p>
           <p className="metric-card-value">{latestRun?.balanceCount ?? 0}</p>
+          <p className="metric-card-copy">가장 최근 성공 동기화 기준 잔고 종목 수</p>
         </article>
         <article className="metric-card metric-card-accent-secondary">
           <p className="metric-card-label">최신 손익 항목</p>
           <p className="metric-card-value">{latestRun?.profitCount ?? 0}</p>
+          <p className="metric-card-copy">가장 최근 성공 동기화 기준 손익 항목 수</p>
         </article>
       </div>
 
-      <section id="broker-sync" className="doc-panel">
-        <div className="flex-between">
-          <div>
-            <h2 className="section-title">수동 동기화</h2>
-            <p className="section-copy">
-              조회 기간과 시장을 선택해 계좌 원장을 DB에 적재합니다.
-            </p>
-          </div>
-          {activeRun ? (
+      <OperationsControlPanel
+        id="broker-sync"
+        className="operations-control-panel"
+        title="수동 동기화"
+        description="조회 기간과 시장을 선택해 계좌 원장을 DB에 적재합니다."
+      >
+        {activeRun ? (
+          <div className="page-actions">
             <span className={runStatusChip[activeRun.status]}>
               {runStatusLabel[activeRun.status]}
             </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="form-row" style={{ marginTop: 16 }}>
+        <div className="form-row broker-sync-dates">
           <label className="form-field">
             <span className="form-label">시작일</span>
             <input
@@ -239,7 +245,7 @@ export function BrokerPageClient({
           </label>
         </div>
 
-        <div className="filter-bar" style={{ marginTop: 16 }}>
+        <div className="filter-bar broker-sync-markets">
           <span className="form-label">시장 선택</span>
           {(["domestic", "overseas"] as BrokerLedgerMarket[]).map((market) => (
             <button
@@ -257,7 +263,7 @@ export function BrokerPageClient({
           ))}
         </div>
 
-        <div className="page-actions" style={{ marginTop: 16 }}>
+        <div className="page-actions broker-sync-actions">
           <button
             type="button"
             className="button-primary"
@@ -272,7 +278,7 @@ export function BrokerPageClient({
         </div>
 
         {activeRun ? (
-          <div className="detail-row" style={{ marginTop: 16 }}>
+          <div className="detail-row broker-sync-current">
             <span className="detail-label">현재 실행</span>
             <span className="detail-value">
               {activeRun.startDate} ~ {activeRun.endDate} /{" "}
@@ -280,28 +286,23 @@ export function BrokerPageClient({
             </span>
           </div>
         ) : null}
-      </section>
+      </OperationsControlPanel>
 
       <section id="broker-sync-runs">
-        <div className="flex-between">
-          <div>
-            <h2 className="section-title">
-              동기화 이력
-              <span className="section-count">{runs.length}건</span>
-            </h2>
-            <p className="section-copy">
-              최신 동기화부터 순서대로 표시합니다. 원장 상세는 가장 최근 성공 run을 기본으로 사용합니다.
-            </p>
-          </div>
-        </div>
+        <SectionHeaderBlock
+          title="동기화 이력"
+          count={`${runs.length}건`}
+          countStrong
+          description="최신 동기화부터 순서대로 표시합니다. 원장 상세는 가장 최근 성공 run을 기본으로 사용합니다."
+        />
 
         {runs.length === 0 ? (
-          <div className="empty-state empty-state-compact" style={{ marginTop: 16 }}>
+          <div className="empty-state empty-state-compact">
             <p className="empty-state-message">동기화 이력이 없습니다</p>
             <p className="empty-state-hint">실전 계좌 원장 동기화를 한 번 실행해 주세요.</p>
           </div>
         ) : (
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="stack-list">
             {runs.map((run) => (
               <article key={run.id} className="list-card">
                 <div className="flex-between">
@@ -316,18 +317,18 @@ export function BrokerPageClient({
                       {run.markets.map((market) => marketLabel[market]).join(", ")}
                     </span>
                   </div>
-                  <span className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+                  <span className="text-subtle-xs">
                     {formatDateTime(run.completedAt ?? run.startedAt ?? run.requestedAt)}
                   </span>
                 </div>
-                <div className="detail-row" style={{ marginTop: 12 }}>
+                <div className="detail-row section-stack-top-sm">
                   <span className="detail-label">건수</span>
                   <span className="detail-value">
                     거래 {run.tradeCount} / 잔고 {run.balanceCount} / 손익 {run.profitCount}
                   </span>
                 </div>
                 {run.errorMessage ? (
-                  <p className="section-copy text-error" style={{ marginTop: 8 }}>
+                  <p className="section-copy text-error">
                     {run.errorMessage}
                   </p>
                 ) : null}

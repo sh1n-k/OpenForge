@@ -62,7 +62,7 @@ export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderPr
   return (
     <section
       id="strategy-overview"
-      className="doc-panel"
+      className="doc-panel detail-section-card"
     >
       <div className="page-intro-row">
         <div className="page-intro">
@@ -78,7 +78,7 @@ export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderPr
         </span>
       </div>
 
-      <div className="summary-grid summary-grid-columns-3" style={{ marginTop: 16 }}>
+      <div className="summary-grid summary-grid-metrics section-stack-top">
         <div className="metric-card">
           <p className="metric-card-label">버전 수</p>
           <p className="metric-card-value">{strategy.versionCount}</p>
@@ -93,7 +93,7 @@ export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderPr
         </div>
       </div>
 
-      <div className="stack-list" style={{ marginTop: 16 }}>
+      <div className="detail-info-list">
         <div className="detail-row">
           <span className="detail-label">최신 검증</span>
           <span className="detail-value">{strategy.latestValidationStatus ?? "미검증"}</span>
@@ -109,12 +109,12 @@ export function StrategyOverviewHeader({ strategy, execution }: OverviewHeaderPr
       </div>
 
       {error ? (
-        <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
+        <div className="doc-panel doc-panel-error section-stack-top-sm">
           {error}
         </div>
       ) : null}
 
-      <div className="page-actions" style={{ marginTop: 16 }}>
+      <div className="detail-actions">
         <Link
           href={`/strategies/${strategy.id}/backtest`}
           className="button-secondary"
@@ -152,9 +152,9 @@ type InfoPanelProps = {
 
 export function StrategyInfoPanel({ strategy }: InfoPanelProps) {
   return (
-    <section className="doc-panel">
+    <section className="doc-panel detail-section-card">
       <h2 className="detail-heading">개요</h2>
-      <div className="stack-list" style={{ marginTop: 16 }}>
+      <div className="detail-info-list">
         <div>
           <p className="detail-label">설명</p>
           <p className="detail-value">{strategy.description ?? "설명 없음"}</p>
@@ -173,7 +173,7 @@ export function StrategyInfoPanel({ strategy }: InfoPanelProps) {
         </div>
       </div>
       {strategy.latestValidationErrors.length > 0 ? (
-        <div className="doc-panel doc-panel-error" style={{ marginTop: 16 }}>
+        <div className="doc-panel doc-panel-error section-stack-top">
           {strategy.latestValidationErrors.map((item, index) => (
             <p key={`${item.category}-${index}`} className="inline-error">
               [{item.category}] {item.message}
@@ -182,7 +182,7 @@ export function StrategyInfoPanel({ strategy }: InfoPanelProps) {
         </div>
       ) : null}
       {strategy.latestValidationWarnings.length > 0 ? (
-        <div className="doc-panel doc-panel-warn" style={{ marginTop: 16 }}>
+        <div className="doc-panel doc-panel-warn section-stack-top">
           {strategy.latestValidationWarnings.map((item, index) => (
             <p key={`${item.category}-${index}`} className="inline-warning">
               [{item.category}] {item.message}

@@ -165,8 +165,8 @@ export function BacktestRunnerClient({
   }
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <main className="page-shell docs-page-shell page-shell-workbench">
+      <section className="workbench-hero-grid">
         <section
           id="backtest-summary"
           className="doc-panel"
@@ -185,7 +185,7 @@ export function BacktestRunnerClient({
               </span>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="panel-actions-row">
             <Link
               href={`/strategies/${strategy.id}`}
               className="button-secondary"
@@ -200,23 +200,23 @@ export function BacktestRunnerClient({
             </Link>
           </div>
           {hasOverseasUniverses ? (
-            <div className="doc-panel doc-panel-warn mt-4">
+            <div className="doc-panel doc-panel-warn section-stack-top">
               미국 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다.
             </div>
           ) : null}
         </section>
 
-        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
+        <aside className="doc-panel doc-panel-soft workbench-sticky-panel">
           <h2 className="section-title">실행 요약</h2>
           <p className="section-copy">
             실행 설정과 데이터 커버리지를 먼저 확인하고 백테스트를 시작합니다.
           </p>
           {hasOverseasUniverses ? (
-            <p className="inline-warning" style={{ marginTop: 12 }}>
+            <p className="inline-warning section-stack-top-sm">
               미국 유니버스가 포함된 전략은 현재 백테스트가 차단됩니다.
             </p>
           ) : null}
-          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
+          <dl className="workbench-summary-list">
             <div>
               <dt className="font-semibold text-slate-900">버전</dt>
               <dd>{versions.find((version) => version.id === selectedVersionId)?.versionNumber ?? "?"}</dd>
@@ -233,8 +233,8 @@ export function BacktestRunnerClient({
         </aside>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="grid gap-6">
+      <section className="workbench-main-grid">
+        <section className="workbench-main-column">
           <section
             id="backtest-config"
             className="doc-panel"
@@ -256,7 +256,7 @@ export function BacktestRunnerClient({
               </button>
             </div>
 
-            <div className="mt-4 grid gap-4">
+            <div className="page-stack-16">
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-2">
                   <span>버전</span>
@@ -430,7 +430,7 @@ export function BacktestRunnerClient({
           </section>
         </section>
 
-        <aside className="grid gap-6">
+        <aside className="workbench-side-column">
           <section
             id="backtest-coverage"
             className="doc-panel"

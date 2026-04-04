@@ -96,25 +96,29 @@ export function BrokerLedgerPageClient({
   const showProfits = dataFilter === "all" || dataFilter === "profits";
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="broker-ledger-summary" className="page-intro">
-        <p className="page-eyebrow">Broker Ledger</p>
-        <h1 className="page-title">원장 상세</h1>
-        <p className="page-description">
-          브로커 원장 기준 주문, 체결, 잔고, 손익 스냅샷을 조회합니다.
-        </p>
+    <main className="page-shell docs-page-shell page-shell-detail">
+      <section id="broker-ledger-summary" className="page-intro page-intro-wide">
+        <div className="page-intro-row">
+          <div className="page-intro-stack">
+            <p className="page-eyebrow">Broker Ledger</p>
+            <h1 className="page-title">원장 상세</h1>
+            <p className="page-description">
+              브로커 원장 기준 주문, 체결, 잔고, 손익 스냅샷을 조회합니다.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="doc-panel doc-panel-warn">
-        <p className="section-copy" style={{ marginTop: 0 }}>
+      <section className="doc-panel doc-panel-warn doc-panel-compact">
+        <p className="section-copy doc-panel-copy">
           이 화면은 OpenForge 내부 주문 이력이 아니라 한국투자증권 실전 계좌 원장입니다.
           전략 매핑 없이 계좌 사실 데이터만 보여줍니다.
         </p>
       </section>
 
       {!initialStatus.liveConfigured ? (
-        <section className="doc-panel doc-panel-error">
-          <p className="section-copy" style={{ marginTop: 0 }}>
+        <section className="doc-panel doc-panel-error doc-panel-compact">
+          <p className="section-copy doc-panel-copy">
             실전 브로커 연결이 설정되지 않았습니다.{" "}
             <Link href="/settings" className="table-link">
               Settings
@@ -125,23 +129,23 @@ export function BrokerLedgerPageClient({
       ) : null}
 
       {error ? (
-        <section className="doc-panel doc-panel-error">
-          <p className="section-copy" style={{ marginTop: 0 }}>{error}</p>
+        <section className="doc-panel doc-panel-error doc-panel-compact">
+          <p className="section-copy doc-panel-copy">{error}</p>
         </section>
       ) : null}
 
-      <section id="broker-ledger-filters" className="doc-panel">
-        <div className="flex-between">
-          <div>
+      <section id="broker-ledger-filters" className="doc-panel detail-filter-panel">
+        <div className="section-header">
+          <div className="section-header-row">
             <h2 className="section-title">조회 기준</h2>
-            <p className="section-copy">
-              가장 최근 성공 동기화를 기본값으로 사용하며, 원하는 run으로 변경할 수 있습니다.
-            </p>
           </div>
+          <p className="section-header-copy text-subtle">
+            가장 최근 성공 동기화를 기본값으로 사용하며, 원하는 run으로 변경할 수 있습니다.
+          </p>
         </div>
 
         {successfulRuns.length === 0 ? (
-          <div className="empty-state empty-state-compact" style={{ marginTop: 16 }}>
+          <div className="empty-state empty-state-compact">
             <p className="empty-state-message">성공한 동기화 run이 없습니다</p>
             <p className="empty-state-hint">
               <Link href="/broker" className="table-link">
@@ -152,7 +156,7 @@ export function BrokerLedgerPageClient({
           </div>
         ) : (
           <>
-            <div className="form-row" style={{ marginTop: 16 }}>
+            <div className="form-row">
               <label className="form-field">
                 <span className="form-label">동기화 run</span>
                 <select
@@ -185,7 +189,7 @@ export function BrokerLedgerPageClient({
               </label>
             </div>
 
-            <div className="filter-bar" style={{ marginTop: 16 }}>
+            <div className="filter-bar">
               <span className="form-label">표시 데이터</span>
               {[
                 ["all", "전체"],
@@ -213,18 +217,21 @@ export function BrokerLedgerPageClient({
             </div>
 
             {selectedRun ? (
-              <div className="summary-grid summary-grid-columns-3" style={{ marginTop: 16 }}>
+              <div className="summary-grid summary-grid-metrics">
                 <article className="metric-card metric-card-accent-primary">
                   <p className="metric-card-label">거래 원장</p>
                   <p className="metric-card-value">{selectedRun.tradeCount}</p>
+                  <p className="metric-card-copy">선택한 동기화 run 기준 거래 건수</p>
                 </article>
                 <article className="metric-card metric-card-accent-info">
                   <p className="metric-card-label">잔고 스냅샷</p>
                   <p className="metric-card-value">{selectedRun.balanceCount}</p>
+                  <p className="metric-card-copy">선택한 동기화 run 기준 잔고 종목 수</p>
                 </article>
                 <article className="metric-card metric-card-accent-secondary">
                   <p className="metric-card-label">손익 스냅샷</p>
                   <p className="metric-card-value">{selectedRun.profitCount}</p>
+                  <p className="metric-card-copy">선택한 동기화 run 기준 손익 항목 수</p>
                 </article>
               </div>
             ) : null}
@@ -234,16 +241,18 @@ export function BrokerLedgerPageClient({
 
       {showTrades ? (
         <section id="broker-ledger-trades">
-          <h2 className="section-title">
-            거래 원장
-            <span className="section-count">{trades.length}건</span>
-          </h2>
+          <div className="section-header">
+            <div className="section-header-row">
+              <h2 className="section-title">거래 원장</h2>
+              <span className="section-count">{trades.length}건</span>
+            </div>
+          </div>
           {trades.length === 0 ? (
-            <div className="empty-state empty-state-compact" style={{ marginTop: 16 }}>
+            <div className="empty-state empty-state-compact">
               <p className="empty-state-message">조회된 거래 원장 데이터가 없습니다</p>
             </div>
           ) : (
-            <div className="doc-panel" style={{ marginTop: 16 }}>
+            <div className="doc-panel">
               <div className="table-shell">
                 <table className="doc-table">
                   <thead>
@@ -283,16 +292,18 @@ export function BrokerLedgerPageClient({
 
       {showBalances ? (
         <section id="broker-ledger-balances">
-          <h2 className="section-title">
-            잔고 스냅샷
-            <span className="section-count">{balances.length}건</span>
-          </h2>
+          <div className="section-header">
+            <div className="section-header-row">
+              <h2 className="section-title">잔고 스냅샷</h2>
+              <span className="section-count">{balances.length}건</span>
+            </div>
+          </div>
           {balances.length === 0 ? (
-            <div className="empty-state empty-state-compact" style={{ marginTop: 16 }}>
+            <div className="empty-state empty-state-compact">
               <p className="empty-state-message">조회된 잔고 데이터가 없습니다</p>
             </div>
           ) : (
-            <div className="doc-panel" style={{ marginTop: 16 }}>
+            <div className="doc-panel">
               <div className="table-shell">
                 <table className="doc-table">
                   <thead>
@@ -332,16 +343,18 @@ export function BrokerLedgerPageClient({
 
       {showProfits ? (
         <section id="broker-ledger-profits">
-          <h2 className="section-title">
-            손익 스냅샷
-            <span className="section-count">{profits.length}건</span>
-          </h2>
+          <div className="section-header">
+            <div className="section-header-row">
+              <h2 className="section-title">손익 스냅샷</h2>
+              <span className="section-count">{profits.length}건</span>
+            </div>
+          </div>
           {profits.length === 0 ? (
-            <div className="empty-state empty-state-compact" style={{ marginTop: 16 }}>
+            <div className="empty-state empty-state-compact">
               <p className="empty-state-message">조회된 손익 데이터가 없습니다</p>
             </div>
           ) : (
-            <div className="doc-panel" style={{ marginTop: 16 }}>
+            <div className="doc-panel">
               <div className="table-shell">
                 <table className="doc-table">
                   <thead>

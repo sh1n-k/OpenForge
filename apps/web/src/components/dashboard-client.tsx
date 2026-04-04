@@ -9,6 +9,7 @@ import {
   type SystemRisk,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { PageIntroSection, SectionHeaderBlock } from "@/components/page-layout";
 
 type DashboardClientProps = {
   dashboard: DashboardResponse;
@@ -76,41 +77,59 @@ export function DashboardClient({
   const hasFills = dashboard.recentFills.length > 0;
   const hasPositions = dashboard.currentPositions.length > 0;
   const hasErrors = dashboard.recentErrors.length > 0;
+  const killSwitchLabel = killSwitch ? "자동매매 가동 중" : "자동매매 중지됨";
+  const killSwitchDescription = killSwitch
+    ? "전략 스케줄에 따라 시그널이 생성되고 주문이 실행됩니다."
+    : "모든 자동매매가 중지된 상태입니다. 주문이 실행되지 않습니다.";
+  const killSwitchActionLabel = isToggling
+    ? "변경 중..."
+    : killSwitch
+      ? "전체 중지"
+      : "가동 시작";
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="dashboard-summary" className="page-intro">
-        <p className="page-eyebrow">Dashboard</p>
-        <h1 className="page-title">운영 대시보드</h1>
-      </section>
+    <main className="page-shell docs-page-shell page-shell-dashboard">
+      <PageIntroSection
+        id="dashboard-summary"
+        eyebrow="Dashboard"
+        title="운영 대시보드"
+        description="자동매매 상태, 전략 실행 현황, 주문 및 포지션 흐름을 한 화면에서 확인합니다."
+      />
 
-      {/* Kill Switch */}
-      <div className={`dashboard-killswitch ${killSwitch ? "dashboard-killswitch-on" : "dashboard-killswitch-off"}`}>
+      <div
+        className={`dashboard-killswitch ${killSwitch ? "dashboard-killswitch-on" : "dashboard-killswitch-off"}`}
+      >
         <div className="dashboard-killswitch-body">
           <div className="dashboard-killswitch-indicator">
-            <span className={`dashboard-killswitch-dot ${killSwitch ? "dashboard-killswitch-dot-on" : "dashboard-killswitch-dot-off"}`} />
-            <span className="dashboard-killswitch-label">
-              {killSwitch ? "자동매매 가동 중" : "자동매매 중지됨"}
-            </span>
+            <span
+              className={`dashboard-killswitch-dot ${killSwitch ? "dashboard-killswitch-dot-on" : "dashboard-killswitch-dot-off"}`}
+            />
+            <span className="dashboard-killswitch-label">{killSwitchLabel}</span>
           </div>
           <p className="dashboard-killswitch-description">
-            {killSwitch
-              ? "전략 스케줄에 따라 시그널이 생성되고 주문이 실행됩니다."
-              : "모든 자동매매가 중지된 상태입니다. 주문이 실행되지 않습니다."}
+            {killSwitchDescription}
           </p>
+          <div className="dashboard-killswitch-meta">
+            <span
+              className={`status-chip ${killSwitch ? "status-chip-success" : "status-chip-warning"}`}
+            >
+              {killSwitch ? "주문 실행 가능" : "주문 실행 차단"}
+            </span>
+            <span className="text-subtle">
+              전략 설정과 무관하게 현재 상태가 실제 주문 실행을 제어합니다.
+            </span>
+          </div>
         </div>
-        <button
-          type="button"
-          disabled={isToggling}
-          onClick={handleToggleKillSwitch}
-          className={killSwitch ? "button-danger" : "button-primary"}
-        >
-          {isToggling
-            ? "변경 중..."
-            : killSwitch
-              ? "전체 중지"
-              : "가동 시작"}
-        </button>
+        <div className="dashboard-killswitch-actions">
+          <button
+            type="button"
+            disabled={isToggling}
+            onClick={handleToggleKillSwitch}
+            className={killSwitch ? "button-danger" : "button-primary"}
+          >
+            {killSwitchActionLabel}
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -120,30 +139,36 @@ export function DashboardClient({
       ) : null}
 
       {/* Metric Cards */}
-      <div className="summary-grid summary-grid-columns-2">
+      <div className="summary-grid summary-grid-metrics">
         <article className="metric-card metric-card-accent-primary">
           <p className="metric-card-label">실행 중 전략</p>
           <p className="metric-card-value">{dashboard.runningStrategyCount}</p>
+          <p className="metric-card-copy">
+            총 {dashboard.strategySummaries.length}개 전략 중 활성 전략 수
+          </p>
         </article>
         <article className="metric-card metric-card-accent-info">
           <p className="metric-card-label">금일 주문</p>
           <p className="metric-card-value">{dashboard.todayOrderCount}</p>
+          <p className="metric-card-copy">오늘 접수된 주문 요청 수</p>
         </article>
         <article className="metric-card metric-card-accent-pnl">
           <p className="metric-card-label">금일 손익</p>
           <p className={`metric-card-value ${pnlClassName(dashboard.todayPnl)}`}>
             {formatPnl(dashboard.todayPnl)}
           </p>
+          <p className="metric-card-copy">실현 손익 기준의 일간 누적 값</p>
         </article>
         <article className="metric-card metric-card-accent-secondary">
           <p className="metric-card-label">보유 포지션</p>
           <p className="metric-card-value">{dashboard.positionCount}</p>
+          <p className="metric-card-copy">현재 보유 중인 심볼 포지션 수</p>
         </article>
       </div>
 
       {/* Strategies */}
       <section id="dashboard-strategies">
-        <h2 className="section-title">전략 현황</h2>
+        <SectionHeaderBlock title="전략 현황" />
         {hasStrategies ? (
           <div className="doc-panel">
             <div className="table-shell">
@@ -224,7 +249,7 @@ export function DashboardClient({
 
       {/* Recent Fills */}
       <section id="dashboard-fills">
-        <h2 className="section-title">최근 체결</h2>
+        <SectionHeaderBlock title="최근 체결" />
         {hasFills ? (
           <div className="doc-panel">
             <div className="table-shell">
@@ -268,13 +293,21 @@ export function DashboardClient({
         ) : (
           <div className="empty-state empty-state-compact">
             <p className="empty-state-message">체결 내역이 없습니다</p>
+            <p className="empty-state-hint">
+              주문이 체결되면 최신 체결 흐름이 이 영역에 표시됩니다.
+            </p>
+            <div className="page-actions">
+              <Link href="/orders" className="button-secondary">
+                주문 현황 보기
+              </Link>
+            </div>
           </div>
         )}
       </section>
 
       {/* Positions */}
       <section id="dashboard-positions">
-        <h2 className="section-title">현재 포지션</h2>
+        <SectionHeaderBlock title="현재 포지션" />
         {hasPositions ? (
           <div className="doc-panel">
             <div className="table-shell">
@@ -312,13 +345,25 @@ export function DashboardClient({
         ) : (
           <div className="empty-state empty-state-compact">
             <p className="empty-state-message">보유 포지션이 없습니다</p>
+            <p className="empty-state-hint">
+              브로커 원장 또는 포지션 화면에서 실시간 보유 현황을 확인할 수
+              있습니다.
+            </p>
+            <div className="page-actions">
+              <Link href="/positions" className="button-secondary">
+                포지션 보기
+              </Link>
+              <Link href="/broker" className="button-ghost">
+                브로커 원장 보기
+              </Link>
+            </div>
           </div>
         )}
       </section>
 
       {/* Errors */}
       <section id="dashboard-errors">
-        <h2 className="section-title">최근 오류</h2>
+        <SectionHeaderBlock title="최근 오류" />
         {hasErrors ? (
           <div className="stack-list">
             {dashboard.recentErrors.map((err, index) => (
@@ -339,8 +384,16 @@ export function DashboardClient({
             ))}
           </div>
         ) : (
-          <div className="empty-state empty-state-compact empty-state-success">
-            <p className="empty-state-message">최근 오류가 없습니다</p>
+          <div className="doc-panel dashboard-status-panel dashboard-status-panel-success">
+            <div className="flex-between">
+              <div className="dashboard-status-panel-body">
+                <p className="section-title">최근 오류가 없습니다</p>
+                <p className="section-copy">
+                  최근 운영 이벤트에서 치명적 오류가 감지되지 않았습니다.
+                </p>
+              </div>
+              <span className="status-chip status-chip-success">정상</span>
+            </div>
           </div>
         )}
       </section>

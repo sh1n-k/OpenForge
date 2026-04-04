@@ -160,13 +160,13 @@ export function UniverseDetailClient({
   }
 
   return (
-    <main className="page-shell docs-page-shell">
+    <main className="page-shell docs-page-shell page-shell-detail">
       <UniverseDetailView universe={universe} />
 
       <section className="summary-grid summary-grid-columns-2">
-        <form action={handleUpdate} id="universe-basic-info" className="doc-panel">
+        <form action={handleUpdate} id="universe-basic-info" className="doc-panel detail-section-card">
           <h2 className="section-title">기본 정보</h2>
-          <div className="mt-4 grid gap-3">
+          <div className="page-stack-12">
             <input name="name" defaultValue={universe.name} />
             <input name="description" defaultValue={universe.description ?? ""} />
             <button type="submit" className="button-primary">
@@ -175,7 +175,7 @@ export function UniverseDetailClient({
           </div>
         </form>
 
-        <section className="doc-panel">
+        <section className="doc-panel detail-section-card">
           <h2 className="section-title">관리</h2>
           <p className="section-copy">
             보존이 필요한 정보는 먼저 다른 유니버스로 옮긴 뒤 보관 처리합니다.
@@ -186,7 +186,7 @@ export function UniverseDetailClient({
               await archiveUniverse(universe.id);
               startTransition(() => router.push("/universes"));
             }}
-            className="button-danger mt-4"
+            className="button-danger"
           >
             보관 처리
           </button>
@@ -201,7 +201,7 @@ export function UniverseDetailClient({
         addedCodes={addedCodes}
       />
 
-      <section ref={symbolSectionRef} className="doc-panel doc-panel-code">
+      <section ref={symbolSectionRef} className="doc-panel doc-panel-code detail-section-card">
         <h2 className="section-title">심볼 구성</h2>
         <p className="section-copy">
           한 줄에 <code className="inline-code">종목코드,거래소,표시명</code> 형식으로 입력합니다.
@@ -215,7 +215,7 @@ export function UniverseDetailClient({
         <button
           type="button"
           onClick={handleReplaceSymbols}
-          className="button-primary mt-4"
+          className="button-primary"
         >
           종목 리스트 저장
         </button>
@@ -296,7 +296,7 @@ function SymbolSearchSection({
   }
 
   return (
-    <section className="doc-panel">
+    <section className="doc-panel detail-section-card">
       <div className="flex items-center justify-between gap-4">
         <h2 className="section-title">종목 검색</h2>
         <div className="flex items-center gap-3 text-sm text-slate-500">
@@ -317,7 +317,7 @@ function SymbolSearchSection({
       </div>
 
       {collectError ? (
-        <p className="inline-error" style={{ marginTop: 8 }}>
+        <p className="inline-error">
           {collectError}
         </p>
       ) : null}
@@ -334,11 +334,11 @@ function SymbolSearchSection({
             ? "티커 또는 이름 (예: AAPL, Apple)"
             : "종목코드 또는 이름 (예: 삼성전자, 005930)"
         }
-        className="mt-4 w-full"
+        className="w-full"
       />
 
       {results.length > 0 ? (
-        <div className="stack-list" style={{ marginTop: 12, maxHeight: 320, overflowY: "auto" }}>
+        <div className="stack-list section-stack-top-sm scroll-stack-320">
           {results.map((item) => {
             const codeKey = `${item.code}:${item.exchange}`;
             const isRecent = recentlyAdded.has(codeKey);
@@ -365,7 +365,7 @@ function SymbolSearchSection({
                   </span>
                   <span>{item.exchange}</span>
                   {isRecent ? (
-                    <span className="text-xs font-medium" style={{ color: "var(--success)" }}>
+                    <span className="text-success">
                       추가됨
                     </span>
                   ) : isAdded ? (
