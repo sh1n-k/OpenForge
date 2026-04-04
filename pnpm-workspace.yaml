@@ -1,3 +1,6 @@
 packages:
-  - "apps/*"
+  - apps/*
 
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
