@@ -110,6 +110,35 @@ function Invoke-NativeCommand {
     }
 }
 
+function Assert-PortAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Port,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ServiceName
+    )
+
+    $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if (-not $listeners) {
+        return
+    }
+
+    $processIds = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
+    $processNames =
+        $processIds |
+            ForEach-Object {
+                try {
+                    (Get-Process -Id $_ -ErrorAction Stop).ProcessName
+                }
+                catch {
+                    "PID $_"
+                }
+            }
+
+    throw "$ServiceName cannot start because port $Port is already in use by $($processNames -join ', ')."
+}
+
 function Invoke-InRepo {
     param(
         [string]$WorkingDirectory,
@@ -162,6 +191,8 @@ function Start-Api {
     $webPort = Get-EnvOrDefault "WEB_PORT" "3000"
     $webOrigin = Get-EnvOrDefault "WEB_ORIGIN" "http://127.0.0.1:$webPort"
 
+    Assert-PortAvailable -Port ([int]$apiPort) -ServiceName "API"
+
     [Environment]::SetEnvironmentVariable("API_PORT", $apiPort, "Process")
     [Environment]::SetEnvironmentVariable("SERVER_PORT", $apiPort, "Process")
     [Environment]::SetEnvironmentVariable("WEB_PORT", $webPort, "Process")
@@ -179,6 +210,8 @@ function Start-Web {
     $apiPort = Get-EnvOrDefault "API_PORT" "8080"
     $apiBaseUrl = Get-EnvOrDefault "API_BASE_URL" "http://127.0.0.1:$apiPort"
     $webOrigin = Get-EnvOrDefault "WEB_ORIGIN" "http://127.0.0.1:$webPort"
+
+    Assert-PortAvailable -Port ([int]$webPort) -ServiceName "Web"
 
     [Environment]::SetEnvironmentVariable("WEB_PORT", $webPort, "Process")
     [Environment]::SetEnvironmentVariable("PORT", $webPort, "Process")
