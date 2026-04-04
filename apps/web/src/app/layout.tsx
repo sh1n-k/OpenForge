@@ -34,6 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
+      suppressHydrationWarning
       className={`${plusJakartaSans.variable} ${inter.variable} ${firaCode.variable} h-full antialiased`}
     >
       <body className="min-h-full">
