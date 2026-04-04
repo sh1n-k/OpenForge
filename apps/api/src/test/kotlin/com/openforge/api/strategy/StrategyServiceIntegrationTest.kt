@@ -2,8 +2,8 @@ package com.openforge.api.strategy
 
 import com.openforge.api.strategy.application.StrategyService
 import com.openforge.api.strategy.application.UniverseService
-import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.StrategyEntity
 import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyType
@@ -65,9 +65,10 @@ class StrategyServiceIntegrationTest : PostgresIntegrationTestSupport() {
 
     @Test
     fun `clones latest payload and universe links with draft status`() {
-        val universe = universeService.createUniverse(
-            CreateUniverseRequest(name = "Core KR", marketScope = MarketType.DOMESTIC, description = null),
-        )
+        val universe =
+            universeService.createUniverse(
+                CreateUniverseRequest(name = "Core KR", marketScope = MarketType.DOMESTIC, description = null),
+            )
         universeService.replaceSymbols(
             universe.id,
             listOf(),

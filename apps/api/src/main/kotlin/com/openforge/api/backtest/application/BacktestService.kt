@@ -19,9 +19,8 @@ import com.openforge.api.backtest.web.CreateBacktestRequest
 import com.openforge.api.backtest.web.MarketCoverageResponse
 import com.openforge.api.backtest.web.MarketCoverageSymbolResponse
 import com.openforge.api.backtest.web.MarketDataImportResponse
-import com.openforge.api.symbol.SymbolMasterRepository
-import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyUniverseRepository
 import com.openforge.api.strategy.domain.StrategyValidationStatus
@@ -30,6 +29,7 @@ import com.openforge.api.strategy.domain.StrategyVersionRepository
 import com.openforge.api.strategy.domain.UniverseRepository
 import com.openforge.api.strategy.domain.UniverseSymbolRepository
 import com.openforge.api.strategy.editor.StrategyEditorService
+import com.openforge.api.symbol.SymbolMasterRepository
 import jakarta.annotation.PostConstruct
 import jakarta.transaction.Transactional
 import org.springframework.http.HttpStatus

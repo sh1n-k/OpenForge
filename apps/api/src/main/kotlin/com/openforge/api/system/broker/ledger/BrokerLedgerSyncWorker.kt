@@ -28,11 +28,15 @@ class BrokerLedgerSyncWorker(
                 }
 
         val payload =
-            runCatching { kisLedgerClient.fetchSyncPayload(credentials, BrokerLedgerSyncRequest(run.startDate, run.endDate, run.markets.toSet(), run.overseasExchanges.toSet())) }
-                .getOrElse { throwable ->
-                    brokerLedgerService.markFailed(runId, throwable.message ?: "KIS ledger sync failed")
-                    return
-                }
+            runCatching {
+                kisLedgerClient.fetchSyncPayload(
+                    credentials,
+                    BrokerLedgerSyncRequest(run.startDate, run.endDate, run.markets.toSet(), run.overseasExchanges.toSet()),
+                )
+            }.getOrElse { throwable ->
+                brokerLedgerService.markFailed(runId, throwable.message ?: "KIS ledger sync failed")
+                return
+            }
 
         runCatching {
             brokerLedgerService.applySyncResult(runId, payload)

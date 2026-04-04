@@ -1,18 +1,18 @@
 package com.openforge.api.strategy.application
 
+import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.StrategyUniverseRepository
 import com.openforge.api.strategy.domain.UniverseEntity
-import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.UniverseRepository
 import com.openforge.api.strategy.domain.UniverseSymbolEntity
 import com.openforge.api.strategy.domain.UniverseSymbolRepository
-import com.openforge.api.symbol.SymbolMasterRepository
 import com.openforge.api.strategy.web.CreateUniverseRequest
 import com.openforge.api.strategy.web.UniverseDetailResponse
 import com.openforge.api.strategy.web.UniverseSummaryResponse
 import com.openforge.api.strategy.web.UniverseSymbolInput
 import com.openforge.api.strategy.web.UniverseSymbolResponse
 import com.openforge.api.strategy.web.UpdateUniverseRequest
+import com.openforge.api.symbol.SymbolMasterRepository
 import jakarta.transaction.Transactional
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -28,9 +28,10 @@ class UniverseService(
     private val symbolMasterRepository: SymbolMasterRepository,
 ) {
     fun listUniverses(marketScope: MarketType? = null): List<UniverseSummaryResponse> =
-        (marketScope?.let { universeRepository.findAllByMarketScopeAndIsArchivedFalseOrderByUpdatedAtDesc(it) }
-            ?: universeRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc())
-            .map(::toSummary)
+        (
+            marketScope?.let { universeRepository.findAllByMarketScopeAndIsArchivedFalseOrderByUpdatedAtDesc(it) }
+                ?: universeRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
+        ).map(::toSummary)
 
     fun createUniverse(request: CreateUniverseRequest): UniverseDetailResponse {
         ensureUniqueUniverseName(request.name, null)

@@ -1,9 +1,9 @@
 package com.openforge.api.strategy
 
 import com.openforge.api.strategy.application.PaperExecutionService
+import com.openforge.api.support.PostgresIntegrationTestSupport
 import com.openforge.api.symbol.SymbolMasterEntity
 import com.openforge.api.symbol.SymbolMasterRepository
-import com.openforge.api.support.PostgresIntegrationTestSupport
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.Test
