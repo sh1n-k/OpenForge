@@ -85,7 +85,7 @@ export function UniversesPageClient({
   }
 
   return (
-    <main className="group is-registry grid content-start gap-4 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+    <main className="group is-registry grid content-start gap-4 w-[min(100%,var(--content-width))] mx-auto px-8 lg:px-12 pt-10 pb-20">
       <PageIntroSection
         id="universes-summary"
         eyebrow="Universes"

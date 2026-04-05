@@ -117,7 +117,7 @@ export function SettingsPageClient({
   const isHealthy = health.status === "UP" && health.database.status === "UP";
 
   return (
-    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-8 lg:px-12 pt-10 pb-20">
       <PageIntroSection
         id="settings-summary"
         eyebrow="Settings"

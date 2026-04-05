@@ -21,9 +21,9 @@
   --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.06);
   --shadow-large: 0 12px 32px rgba(0, 0, 0, 0.1);
-  --sidebar-width: 280px;
-  --content-width: 1200px;
-  --prose-width: 768px;
+  --sidebar-width: 290px;
+  --content-width: 1440px;
+  --prose-width: 800px;
 }
 
 @theme inline {
@@ -93,4 +93,25 @@ kbd {
 
 .symbol-section-pulse {
   animation: symbol-section-pulse 0.8s ease-out;
+}
+
+@layer components {
+  /* Core Layout */
+  .app-shell {
+    @apply relative min-h-full flex flex-col;
+  }
+
+  .app-main {
+    @apply flex flex-col flex-1 min-w-0 transition-all duration-300;
+  }
+
+  @media (min-width: 1024px) {
+    .app-main {
+      padding-left: var(--sidebar-width);
+    }
+  }
+
+  .app-main-with-toc {
+    @apply lg:pr-64; /* Space for TOC on the right if needed */
+  }
 }

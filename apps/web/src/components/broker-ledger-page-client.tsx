@@ -96,7 +96,7 @@ export function BrokerLedgerPageClient({
   const showProfits = dataFilter === "all" || dataFilter === "profits";
 
   return (
-    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-8 lg:px-12 pt-10 pb-20">
       <section id="broker-ledger-summary" className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-6 mb-2 pb-6 border-b border-border/60">
           <div className="grid gap-2">

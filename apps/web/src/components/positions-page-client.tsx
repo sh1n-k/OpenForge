@@ -29,7 +29,7 @@ export function PositionsPageClient({
   const uniqueStrategies = new Set(filteredPositions.map((p) => p.strategyId));
 
   return (
-    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-8 lg:px-12 pt-10 pb-20">
       <PageIntroSection
         id="positions-summary"
         eyebrow="Positions"
