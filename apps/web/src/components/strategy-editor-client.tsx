@@ -33,6 +33,72 @@ type StrategyEditorClientProps = {
   strategy: StrategyDetail;
 };
 
+const strategyTypeLabel: Record<string, string> = {
+  builder: "빌더형",
+  code: "코드형",
+};
+
+type ValidationUiState =
+  | "pending"
+  | "validating"
+  | "valid"
+  | "invalid"
+  | "error";
+
+function resolveValidationUiState({
+  validation,
+  validationError,
+  isValidating,
+}: {
+  validation: StrategyValidateResponse | null;
+  validationError: string | null;
+  isValidating: boolean;
+}): ValidationUiState {
+  if (isValidating) return "validating";
+  if (validationError) return "error";
+  if (!validation) return "pending";
+  return validation.valid ? "valid" : "invalid";
+}
+
+function validationUiLabel(state: ValidationUiState) {
+  switch (state) {
+    case "valid":
+      return "검증 통과";
+    case "invalid":
+      return "검증 실패";
+    case "error":
+      return "검증 오류";
+    case "validating":
+      return "검증 중";
+    default:
+      return "검증 대기";
+  }
+}
+
+function validationUiClassName(state: ValidationUiState) {
+  switch (state) {
+    case "valid":
+      return "status-chip status-chip-success";
+    case "invalid":
+    case "error":
+      return "status-chip status-chip-error";
+    default:
+      return "status-chip status-chip-info";
+  }
+}
+
+function validationUiTextClassName(state: ValidationUiState) {
+  switch (state) {
+    case "valid":
+      return "text-success";
+    case "invalid":
+    case "error":
+      return "text-error";
+    default:
+      return "text-muted";
+  }
+}
+
 export function StrategyEditorClient({
   strategy,
 }: StrategyEditorClientProps) {
@@ -121,69 +187,86 @@ export function StrategyEditorClient({
   }
 
   const canSave = validation?.valid === true && !isValidating && !isSaving;
+  const validationSummary =
+    validationError ?? validation?.summary ?? (isValidating ? "검증 중..." : "검증 대기 중");
+  const validationUiState = resolveValidationUiState({
+    validation,
+    validationError,
+    isValidating,
+  });
 
   return (
     <main className="page-shell docs-page-shell">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <section
-          id="editor-summary"
-          className="doc-panel"
-        >
-          <div className="page-intro-row">
-            <div className="page-intro">
-              <p className="page-eyebrow">Strategy Editor</p>
-              <h1 className="page-title">
-                {strategy.name} Editor
-              </h1>
-              <p className="page-description">
-                {strategy.strategyType} / latest validation{" "}
-                {strategy.latestValidationStatus ?? "unknown"}
-              </p>
-            </div>
-            <div className="page-actions">
-              <Link
-                href={`/strategies/${strategy.id}`}
-                className="button-secondary"
-              >
-                Detail
-              </Link>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={!canSave}
-                className="button-primary"
-              >
-                {isSaving ? "저장 중..." : "새 버전 저장"}
-              </button>
-            </div>
-          </div>
-          {strategy.latestValidationStatus === "invalid_legacy_draft" ? (
-            <p className="doc-panel doc-panel-warn mt-4 p-4 text-sm text-amber-700">
-              이전 단계의 legacy payload가 감지되었습니다. 편집 후 새 버전으로 저장하면 최신 규약으로 승격됩니다.
+      <section
+        id="editor-summary"
+        className="doc-panel"
+      >
+        <div className="page-intro-row">
+          <div className="page-intro">
+            <p className="page-eyebrow">전략 작업대</p>
+            <h1 className="page-title">{strategy.name}</h1>
+            <p className="page-description">
+              변경 내용을 먼저 검증하고, 통과한 상태에서만 새 버전으로 저장합니다.
             </p>
-          ) : null}
-        </section>
+          </div>
+          <div className="page-actions">
+            <span className="status-chip status-chip-info">
+              {strategyTypeLabel[strategy.strategyType] ?? strategy.strategyType}
+            </span>
+            <span className={validationUiClassName(validationUiState)}>
+              {validationUiLabel(validationUiState)}
+            </span>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave}
+              className="button-primary"
+            >
+              {isSaving ? "저장 중..." : "새 버전 저장"}
+            </button>
+            <Link
+              href={`/strategies/${strategy.id}`}
+              className="button-secondary"
+            >
+              상세 보기
+            </Link>
+          </div>
+        </div>
 
-        <aside className="doc-panel doc-panel-soft lg:sticky lg:top-28">
-          <h2 className="section-title">Workbench Status</h2>
-          <dl className="mt-4 grid gap-3 text-sm text-slate-600">
-            <div>
-              <dt className="font-semibold text-slate-900">Validation</dt>
-              <dd>{validation?.summary ?? validationError ?? "검증 대기 중"}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Version</dt>
-              <dd>v{strategy.latestVersionNumber ?? 0}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-900">Type</dt>
-              <dd>{strategy.strategyType}</dd>
-            </div>
-          </dl>
-        </aside>
+        <div className="summary-grid summary-grid-columns-3" style={{ marginTop: 16 }}>
+          <article className="metric-card metric-card-accent-primary">
+            <p className="metric-card-label">버전</p>
+            <p className="metric-card-value">v{strategy.latestVersionNumber ?? 0}</p>
+            <p className="metric-card-copy">현재 편집 대상</p>
+          </article>
+          <article className="metric-card metric-card-accent-info">
+            <p className="metric-card-label">검증</p>
+            <p
+              className={`metric-card-value ${validationUiTextClassName(
+                validationUiState,
+              )}`}
+            >
+              {validationUiLabel(validationUiState)}
+            </p>
+            <p className="metric-card-copy">{validationSummary}</p>
+          </article>
+          <article className="metric-card metric-card-accent-secondary">
+            <p className="metric-card-label">유형</p>
+            <p className="metric-card-value">
+              {strategyTypeLabel[strategy.strategyType] ?? strategy.strategyType}
+            </p>
+            <p className="metric-card-copy">빌더형 또는 코드형</p>
+          </article>
+        </div>
+
+        {strategy.latestValidationStatus === "invalid_legacy_draft" ? (
+          <p className="doc-panel doc-panel-warn mt-4 p-4 text-sm text-amber-700">
+            이전 규약의 초안이 감지되었습니다. 편집 후 새 버전으로 저장하면 현재 규약으로 승격됩니다.
+          </p>
+        ) : null}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <section className="flex flex-col gap-6">
           {strategy.strategyType === "builder" ? (
             <BuilderEditor
@@ -201,13 +284,11 @@ export function StrategyEditorClient({
             id="editor-note"
             className="doc-panel"
           >
-            <h2 className="section-title">
-              Version Note
-            </h2>
+            <h2 className="section-title">버전 메모</h2>
             <input
               value={changeSummary}
               onChange={(event) => setChangeSummary(event.target.value)}
-              placeholder="변경 메모"
+              placeholder="변경 이유를 짧게 기록하세요"
               className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
             {saveError ? (
@@ -295,7 +376,8 @@ function BuilderEditor({
         id="editor-builder"
         className="doc-panel"
       >
-        <h2 className="section-title">Metadata</h2>
+        <h2 className="section-title">전략 정보</h2>
+        <p className="section-copy">이름, 설명, 작성자, 태그를 먼저 정리합니다.</p>
         <div className="mt-4 grid gap-3">
           <input
             value={state.metadata.name}
@@ -313,13 +395,13 @@ function BuilderEditor({
             <input
               value={state.metadata.category}
               onChange={(event) => updateMetadata("category", event.target.value)}
-              placeholder="category"
+              placeholder="카테고리"
               className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
             <input
               value={state.metadata.author}
               onChange={(event) => updateMetadata("author", event.target.value)}
-              placeholder="author"
+              placeholder="작성자"
               className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
           </div>
@@ -342,7 +424,7 @@ function BuilderEditor({
 
       <section className="doc-panel">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="section-title">Indicators</h2>
+          <h2 className="section-title">지표</h2>
           <select
             defaultValue=""
             onChange={(event) => {
@@ -368,7 +450,7 @@ function BuilderEditor({
         </div>
         <div className="mt-4 grid gap-4">
           {state.indicators.length === 0 ? (
-            <p className="text-sm text-slate-500">지표를 하나 이상 추가하세요.</p>
+            <p className="text-sm text-slate-500">시그널 계산에 필요한 지표를 하나 이상 추가하세요.</p>
           ) : (
             state.indicators.map((indicator) => (
               <IndicatorCard
@@ -385,33 +467,34 @@ function BuilderEditor({
       </section>
 
       <ConditionGroupEditor
-        title="Entry"
+        title="진입 조건"
         group={state.entry}
         aliases={state.indicators}
         onChange={(nextGroup) => updateGroup("entry", nextGroup)}
       />
       <ConditionGroupEditor
-        title="Exit"
+        title="청산 조건"
         group={state.exit}
         aliases={state.indicators}
         onChange={(nextGroup) => updateGroup("exit", nextGroup)}
       />
 
       <section className="doc-panel">
-        <h2 className="section-title">Risk</h2>
+        <h2 className="section-title">리스크 한도</h2>
+        <p className="section-copy">비활성화하면 해당 제한을 적용하지 않습니다.</p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <RiskCard
-            title="Stop Loss"
+            title="손절"
             value={state.risk.stopLoss}
             onChange={(next) => updateRisk("stopLoss", next)}
           />
           <RiskCard
-            title="Take Profit"
+            title="익절"
             value={state.risk.takeProfit}
             onChange={(next) => updateRisk("takeProfit", next)}
           />
           <RiskCard
-            title="Trailing Stop"
+            title="트레일링 스톱"
             value={state.risk.trailingStop}
             onChange={(next) => updateRisk("trailingStop", next)}
           />
@@ -433,7 +516,8 @@ function CodeEditor({
       id="editor-builder"
       className="doc-panel doc-panel-code"
     >
-      <h2 className="section-title">OpenForge YAML DSL</h2>
+      <h2 className="section-title">코드 원문</h2>
+      <p className="section-copy">빌더 결과를 YAML로 직접 확인하거나 수정합니다.</p>
       <textarea
         value={source}
         onChange={(event) => onChange(event.target.value)}
@@ -459,20 +543,20 @@ function ValidationPanel({
         id="editor-validation"
         className="doc-panel"
       >
-        <h2 className="section-title">Validation</h2>
+        <h2 className="section-title">검증 결과</h2>
         <p className="section-copy">
           {isValidating
             ? "검증 중..."
             : validation
               ? validation.summary
-              : "검증 결과가 아직 없습니다."}
+              : validationError ?? "변경 후 자동 검증을 기다리는 중입니다."}
         </p>
         {validationError ? (
           <p className="mt-3 text-sm text-rose-600">{validationError}</p>
         ) : null}
         {validation?.errors.length ? (
           <div className="doc-panel doc-panel-error mt-4 p-4">
-            <p className="text-sm font-semibold text-rose-700">Errors</p>
+            <p className="text-sm font-semibold text-rose-700">오류</p>
             <ul className="mt-2 grid gap-2 text-sm text-rose-700">
               {validation.errors.map((error, index) => (
                 <li key={`${error.category}-${index}`}>
@@ -484,7 +568,7 @@ function ValidationPanel({
         ) : null}
         {validation?.warnings.length ? (
           <div className="doc-panel doc-panel-warn mt-4 p-4">
-            <p className="text-sm font-semibold text-amber-700">Warnings</p>
+            <p className="text-sm font-semibold text-amber-700">경고</p>
             <ul className="mt-2 grid gap-2 text-sm text-amber-700">
               {validation.warnings.map((warning, index) => (
                 <li key={`${warning.category}-${index}`}>
@@ -497,7 +581,8 @@ function ValidationPanel({
       </section>
 
       <section className="doc-panel doc-panel-code">
-        <h2 className="section-title">YAML Preview</h2>
+        <h2 className="section-title">YAML 미리보기</h2>
+        <p className="section-copy">저장될 규약을 그대로 확인합니다.</p>
         <pre className="code-block mt-4">
           {validation?.yamlPreview || "# validation preview"}
         </pre>
@@ -544,7 +629,7 @@ function IndicatorCard({
               alias: event.target.value,
             })
           }
-          placeholder="alias"
+          placeholder="별칭"
           className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
         />
         <select
@@ -571,7 +656,7 @@ function IndicatorCard({
           onClick={onRemove}
           className="button-danger"
         >
-          Remove
+          삭제
         </button>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -644,8 +729,8 @@ function ConditionGroupEditor({
             }
             className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
           >
-            <option value="AND">AND</option>
-            <option value="OR">OR</option>
+            <option value="AND">모두 충족</option>
+            <option value="OR">하나라도 충족</option>
           </select>
           <button
             type="button"
@@ -657,13 +742,13 @@ function ConditionGroupEditor({
             }
             className="button-primary"
           >
-            Condition 추가
+            조건 추가
           </button>
         </div>
       </div>
       <div className="mt-4 grid gap-4">
         {group.conditions.length === 0 ? (
-          <p className="text-sm text-slate-500">조건이 없습니다.</p>
+          <p className="text-sm text-slate-500">아직 조건이 없습니다.</p>
         ) : (
           group.conditions.map((condition) => (
             <ConditionCard
@@ -697,7 +782,7 @@ function ConditionCard({
     <article className="list-card">
       <div className="grid gap-3">
         <OperandEditor
-          label="Left"
+          label="왼쪽"
           operand={condition.left}
           aliases={aliases}
           onChange={(left) =>
@@ -732,11 +817,11 @@ function ConditionCard({
             onClick={onRemove}
             className="button-danger"
           >
-            Remove
+            삭제
           </button>
         </div>
         <OperandEditor
-          label="Right"
+          label="오른쪽"
           operand={condition.right}
           aliases={aliases}
           onChange={(right) =>
@@ -792,9 +877,9 @@ function OperandEditor({
           }}
           className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
         >
-          <option value="price">price</option>
-          <option value="indicator">indicator</option>
-          <option value="value">value</option>
+          <option value="price">가격</option>
+          <option value="indicator">지표</option>
+          <option value="value">값</option>
         </select>
 
         {operand.type === "price" ? (
@@ -837,7 +922,7 @@ function OperandEditor({
               className="rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             >
               {aliases.length === 0 ? (
-                <option value="">indicator 없음</option>
+                <option value="">지표 없음</option>
               ) : (
                 aliases.map((item) => (
                   <option
@@ -914,7 +999,7 @@ function RiskCard({
               })
             }
           />
-          enabled
+          활성화
         </label>
       </div>
       <input

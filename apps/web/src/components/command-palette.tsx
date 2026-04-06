@@ -10,6 +10,12 @@ type CommandPaletteProps = {
   onSelect: (command: CommandEntry) => void;
 };
 
+const commandGroupLabel: Record<CommandEntry["group"], string> = {
+  Pages: "페이지",
+  Context: "현재 작업",
+  Sections: "섹션",
+};
+
 export function CommandPalette({
   commands,
   isOpen,
@@ -102,7 +108,7 @@ export function CommandPalette({
               setQuery(event.target.value);
               setActiveIndex(0);
             }}
-            placeholder="페이지, 액션, 섹션 검색"
+            placeholder="페이지, 작업, 섹션 검색"
             className="command-palette-input"
           />
           <button
@@ -133,7 +139,9 @@ export function CommandPalette({
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => onSelect(command)}
               >
-                <span className="command-palette-group">{command.group}</span>
+                <span className="command-palette-group">
+                  {commandGroupLabel[command.group]}
+                </span>
                 <span className="doc-nav-title">{command.label}</span>
                 <span className="doc-nav-description">{command.description}</span>
               </button>

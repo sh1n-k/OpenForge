@@ -28,6 +28,7 @@ import {
   type RouteMeta,
 } from "@/lib/route-meta";
 import { logout, loadSystemBrokerStatus } from "@/lib/api";
+import { systemBrokerStatusUpdatedEvent } from "@/lib/system-status-events";
 
 const ICON_MAP: Record<NavIconKey, LucideIcon> = {
   LayoutDashboard,
@@ -56,19 +57,50 @@ export function AppNav({
   const contextCommands = useMemo(() => getContextCommands(pathname), [pathname]);
   const commands = useMemo(() => getCommandEntries(pathname), [pathname]);
   const [brokerOk, setBrokerOk] = useState<boolean | null>(null);
+  const [systemMode, setSystemMode] = useState<"paper" | "live" | null>(null);
 
   useEffect(() => {
-    loadSystemBrokerStatus({ suppressAuthRedirect: true })
-      .then((status) => {
+    let cancelled = false;
+
+    async function refreshSystemStatus() {
+      try {
+        const status = await loadSystemBrokerStatus({
+          suppressAuthRedirect: true,
+        });
+        if (cancelled) return;
+
         const conn =
           status.currentSystemMode === "paper" ? status.paper : status.live;
+        setSystemMode(status.currentSystemMode);
         setBrokerOk(
           status.isCurrentModeConfigured &&
             conn.lastConnectionTestStatus === "success",
         );
-      })
-      .catch(() => setBrokerOk(null));
-  }, []);
+      } catch {
+        if (cancelled) return;
+        setBrokerOk(null);
+        setSystemMode(null);
+      }
+    }
+
+    function handleSystemStatusUpdated() {
+      void refreshSystemStatus();
+    }
+
+    void refreshSystemStatus();
+    window.addEventListener(
+      systemBrokerStatusUpdatedEvent,
+      handleSystemStatusUpdated,
+    );
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(
+        systemBrokerStatusUpdatedEvent,
+        handleSystemStatusUpdated,
+      );
+    };
+  }, [pathname]);
 
   function openPalette() {
     setPaletteSession((current) => current + 1);
@@ -116,6 +148,7 @@ export function AppNav({
         settingsRoute={settingsRoute}
         contextCommands={contextCommands}
         brokerOk={brokerOk}
+        systemMode={systemMode}
       />
       {navOpen ? (
         <div className="doc-mobile-overlay">
@@ -124,7 +157,7 @@ export function AppNav({
             className="doc-mobile-drawer"
           >
             <div className="doc-mobile-drawer-head">
-              <p className="doc-nav-overline">Navigation</p>
+              <p className="doc-nav-overline">탐색</p>
               <button
                 type="button"
                 className="button-ghost"
@@ -142,6 +175,7 @@ export function AppNav({
               settingsRoute={settingsRoute}
               contextCommands={contextCommands}
               brokerOk={brokerOk}
+              systemMode={systemMode}
               onNavigate={() => setNavOpen(false)}
             />
           </div>
@@ -169,6 +203,7 @@ type SidebarProps = {
   settingsRoute: RouteMeta | undefined;
   contextCommands: CommandEntry[];
   brokerOk: boolean | null;
+  systemMode: "paper" | "live" | null;
   onNavigate?: () => void;
 };
 
@@ -192,6 +227,7 @@ function SidebarContent({
   settingsRoute,
   contextCommands,
   brokerOk,
+  systemMode,
   onNavigate = () => {},
 }: SidebarProps) {
   const normalizedSearch = search.trim().toLowerCase();
@@ -208,6 +244,37 @@ function SidebarContent({
         <p className="doc-sidebar-copy">
           개인용 자동매매 운영 콘솔
         </p>
+        <div className="doc-sidebar-status-row" aria-label="운영 상태 요약">
+          <div className="doc-sidebar-status-card">
+            <span className="doc-sidebar-status-value">
+              {systemMode === "paper"
+                ? "모의투자"
+                : systemMode === "live"
+                  ? "실전투자"
+                  : "모드 확인 중"}
+            </span>
+            <span className="doc-sidebar-status-meta">현재 실행 모드</span>
+          </div>
+          <div className="doc-sidebar-status-card">
+            <span
+              className={[
+                "doc-sidebar-status-value",
+                brokerOk === true
+                  ? "text-success"
+                  : brokerOk === false
+                    ? "text-error"
+                    : "text-muted",
+              ].join(" ")}
+            >
+              {brokerOk === true
+                ? "연결 준비"
+                : brokerOk === false
+                  ? "연결 점검 필요"
+                  : "연결 확인 중"}
+            </span>
+            <span className="doc-sidebar-status-meta">브로커 상태</span>
+          </div>
+        </div>
       </div>
 
       <label className="doc-search-shell">
@@ -217,10 +284,10 @@ function SidebarContent({
           type="search"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="섹션 또는 페이지 검색"
+          placeholder="페이지 필터"
           className="doc-search-input"
         />
-        <span className="doc-search-shortcut">⌘K</span>
+        <span className="doc-search-shortcut">필터</span>
       </label>
 
       {groupedRoutes.map(({ group, routes }) => {
@@ -250,7 +317,7 @@ function SidebarContent({
 
       {contextCommands.length > 0 ? (
         <nav className="doc-nav-group">
-          <p className="doc-nav-overline">Context</p>
+          <p className="doc-nav-overline">현재 작업</p>
           <div className="doc-nav-list">
             {contextCommands.map((cmd) => (
               <Link
@@ -362,8 +429,8 @@ function CommandPaletteTrigger({
       className="button-ghost"
       onClick={onOpen}
     >
-      검색
-      <span className="doc-search-shortcut">⌘K</span>
+      빠른 이동
+      <span className="doc-search-shortcut">⌘K / Ctrl+K</span>
     </button>
   );
 }

@@ -65,7 +65,7 @@ describe("StrategyEditorClient", () => {
       />,
     );
 
-    expect(screen.getByText("Metadata")).toBeInTheDocument();
+    expect(screen.getByText("전략 정보")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(apiModule.validateStrategy).toHaveBeenCalled();
@@ -135,10 +135,63 @@ describe("StrategyEditorClient", () => {
       ).toBeInTheDocument();
     });
 
+    expect(screen.getAllByText("검증 실패").length).toBeGreaterThanOrEqual(1);
+
     expect(
       screen.getByRole("button", {
         name: "새 버전 저장",
       }),
     ).toBeDisabled();
+  });
+
+  it("shows validation error state when the validation request fails", async () => {
+    vi.spyOn(apiModule, "validateStrategy").mockRejectedValue(
+      new Error("validation service unavailable"),
+    );
+
+    render(
+      <StrategyEditorClient
+        strategy={{
+          id: "strategy-3",
+          name: "Builder Draft",
+          description: "draft",
+          strategyType: "builder",
+          status: "draft",
+          latestVersionId: "version-3",
+          latestVersionNumber: 1,
+          versionCount: 1,
+          universeCount: 0,
+          latestValidationStatus: "invalid",
+          latestValidationErrors: [],
+          latestValidationWarnings: [],
+          latestVersion: {
+            id: "version-3",
+            versionNumber: 1,
+            payloadFormat: "builder_json",
+            payload: {},
+            validationStatus: "invalid",
+            validationErrors: [],
+            validationWarnings: [],
+            changeSummary: "initial",
+            createdAt: "2026-03-31T22:30:00+09:00",
+          },
+          universes: [],
+          createdAt: "2026-03-31T22:30:00+09:00",
+          updatedAt: "2026-03-31T22:30:00+09:00",
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(apiModule.validateStrategy).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("validation service unavailable"),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText("검증 오류").length).toBeGreaterThanOrEqual(1);
   });
 });

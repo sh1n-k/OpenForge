@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { HealthSnapshot } from "@/lib/health";
+import { dispatchSystemBrokerStatusUpdated } from "@/lib/system-status-events";
 
 type SettingsPageClientProps = {
   systemBroker: SystemBrokerStatus;
@@ -37,9 +38,13 @@ export function SettingsPageClient({
 }: SettingsPageClientProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [killSwitch, setKillSwitch] = useState(systemRisk.killSwitchEnabled);
+  const [killSwitchEnabled, setKillSwitchEnabled] = useState(
+    systemRisk.killSwitchEnabled,
+  );
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
-  const [selectedBrokerMode, setSelectedBrokerMode] = useState<OrderMode>("paper");
+  const [selectedBrokerMode, setSelectedBrokerMode] = useState<OrderMode>(
+    systemBroker.currentSystemMode,
+  );
   const [brokerEnabled, setBrokerEnabled] = useState(systemBroker.paper.enabled);
   const [appKeyInput, setAppKeyInput] = useState("");
   const [appSecretInput, setAppSecretInput] = useState("");
@@ -50,9 +55,40 @@ export function SettingsPageClient({
 
   const activeBroker =
     selectedBrokerMode === "paper" ? systemBroker.paper : systemBroker.live;
+  const currentBroker =
+    systemBroker.currentSystemMode === "paper"
+      ? systemBroker.paper
+      : systemBroker.live;
+  const currentBrokerModeLabel = modeLabel[systemBroker.currentSystemMode];
+  const currentBrokerStatusLabel = !currentBroker.isConfigured
+    ? "미설정"
+    : currentBroker.lastConnectionTestStatus === "success"
+      ? "연결 준비"
+      : currentBroker.lastConnectionTestStatus === "failed"
+        ? "점검 필요"
+        : "설정 완료";
+  const currentBrokerStatusCopy = !currentBroker.isConfigured
+    ? "현재 시스템 모드에 필요한 브로커 설정이 없습니다."
+    : currentBroker.lastConnectionTestStatus
+      ? `최근 연결 테스트 ${
+          currentBroker.lastConnectionTestStatus === "success" ? "성공" : "실패"
+        }`
+      : "연결 테스트를 아직 실행하지 않았습니다.";
+  const operationalStateLabel = killSwitchEnabled
+    ? "신규 주문 차단 중"
+    : "정상 운영 중";
+  const operationalStateDescription = killSwitchEnabled
+    ? "전역 차단이 활성화되어 신규 주문이 차단됩니다."
+    : "전략 설정에 따라 주문이 정상적으로 실행됩니다.";
+  const operationalDotClass = killSwitchEnabled
+    ? "dashboard-killswitch-dot-off"
+    : "dashboard-killswitch-dot-on";
+  const operationalContainerClass = killSwitchEnabled
+    ? "dashboard-killswitch-off"
+    : "dashboard-killswitch-on";
 
   useEffect(() => {
-    setKillSwitch(systemRisk.killSwitchEnabled);
+    setKillSwitchEnabled(systemRisk.killSwitchEnabled);
   }, [systemRisk.killSwitchEnabled]);
 
   useEffect(() => {
@@ -64,14 +100,16 @@ export function SettingsPageClient({
   }, [activeBroker.enabled, selectedBrokerMode]);
 
   async function handleToggleKillSwitch() {
-    const next = !killSwitch;
-    const label = next ? "전역 킬스위치를 활성화합니다" : "전역 킬스위치를 비활성화합니다";
+    const next = !killSwitchEnabled;
+    const label = next
+      ? "전역 차단을 활성화합니다"
+      : "전역 차단을 해제합니다";
     if (!window.confirm(`${label}. 계속하시겠습니까?`)) return;
     try {
       setError(null);
       setIsTogglingRisk(true);
       await updateSystemRiskKillSwitch({ enabled: next });
-      setKillSwitch(next);
+      setKillSwitchEnabled(next);
       startTransition(() => router.refresh());
     } catch (e) {
       setError(e instanceof Error ? e.message : "킬스위치 변경에 실패했습니다.");
@@ -92,6 +130,7 @@ export function SettingsPageClient({
         productCode: productCodeInput || null,
         enabled: brokerEnabled,
       });
+      dispatchSystemBrokerStatusUpdated();
       startTransition(() => router.refresh());
     } catch (e) {
       setError(e instanceof Error ? e.message : "브로커 설정 저장에 실패했습니다.");
@@ -105,6 +144,7 @@ export function SettingsPageClient({
       setError(null);
       setIsTestingBroker(true);
       await testBrokerConnection({ targetMode: selectedBrokerMode });
+      dispatchSystemBrokerStatusUpdated();
       startTransition(() => router.refresh());
     } catch (e) {
       setError(e instanceof Error ? e.message : "연결 테스트에 실패했습니다.");
@@ -118,9 +158,11 @@ export function SettingsPageClient({
   return (
     <main className="page-shell docs-page-shell">
       <section id="settings-summary" className="page-intro">
-        <p className="page-eyebrow">Settings</p>
+        <p className="page-eyebrow">설정</p>
         <h1 className="page-title">시스템 설정</h1>
-        <p className="page-description">브로커 연결, 전역 리스크, 시스템 상태를 관리합니다.</p>
+        <p className="page-description">
+          브로커 연결, 현재 모드, 전역 차단, 시스템 상태를 한 번에 확인합니다.
+        </p>
       </section>
 
       {error ? (
@@ -129,30 +171,57 @@ export function SettingsPageClient({
         </div>
       ) : null}
 
+      <div className="summary-grid summary-grid-columns-3">
+        <article className="metric-card metric-card-accent-primary">
+          <p className="metric-card-label">현재 모드</p>
+          <p className="metric-card-value">{currentBrokerModeLabel}</p>
+          <p className="metric-card-copy">
+            현재 시스템은 {currentBrokerModeLabel} 기준으로 동작합니다. 아래 탭에서
+            모드별 설정을 각각 편집할 수 있습니다.
+          </p>
+        </article>
+        <article className="metric-card metric-card-accent-info">
+          <p className="metric-card-label">브로커 연결</p>
+          <p className="metric-card-value">{currentBrokerStatusLabel}</p>
+          <p className="metric-card-copy">{currentBrokerStatusCopy}</p>
+        </article>
+        <article className="metric-card metric-card-accent-secondary">
+          <p className="metric-card-label">전역 차단</p>
+          <p className={`metric-card-value ${killSwitchEnabled ? "text-error" : "text-success"}`}>
+            {operationalStateLabel}
+          </p>
+          <p className="metric-card-copy">
+            {killSwitchEnabled ? "신규 주문이 차단됩니다." : "신규 주문이 허용됩니다."}
+          </p>
+        </article>
+      </div>
+
       {/* ── 전역 킬스위치 ── */}
       <section id="settings-risk">
         <h2 className="section-title">전역 리스크</h2>
-        <div className={`dashboard-killswitch ${killSwitch ? "dashboard-killswitch-on" : "dashboard-killswitch-off"}`}>
+        <div className={`dashboard-killswitch ${operationalContainerClass}`}>
           <div className="dashboard-killswitch-body">
             <div className="dashboard-killswitch-indicator">
-              <span className={`dashboard-killswitch-dot ${killSwitch ? "dashboard-killswitch-dot-on" : "dashboard-killswitch-dot-off"}`} />
+              <span className={`dashboard-killswitch-dot ${operationalDotClass}`} />
               <span className="dashboard-killswitch-label">
-                {killSwitch ? "킬스위치 활성 — 신규 주문 차단 중" : "킬스위치 비활성 — 정상 운영 중"}
+                {operationalStateLabel}
               </span>
             </div>
             <p className="dashboard-killswitch-description">
-              {killSwitch
-                ? "모든 전략의 신규 주문 요청이 차단됩니다."
-                : "전략 설정에 따라 주문이 정상적으로 실행됩니다."}
+              {operationalStateDescription}
             </p>
           </div>
           <button
             type="button"
             disabled={isTogglingRisk}
             onClick={handleToggleKillSwitch}
-            className={killSwitch ? "button-secondary" : "button-danger"}
+            className={killSwitchEnabled ? "button-secondary" : "button-danger"}
           >
-            {isTogglingRisk ? "변경 중..." : killSwitch ? "비활성화" : "킬스위치 활성화"}
+            {isTogglingRisk
+              ? "변경 중..."
+              : killSwitchEnabled
+                ? "차단 해제"
+                : "신규 주문 차단"}
           </button>
         </div>
 
@@ -180,7 +249,11 @@ export function SettingsPageClient({
         <h2 className="section-title">브로커 연결</h2>
         <p className="section-copy">
           한국투자증권 Open API 연결 정보를 관리합니다.
-          현재 시스템 모드: <strong>{modeLabel[systemBroker.currentSystemMode as OrderMode] ?? systemBroker.currentSystemMode}</strong>
+          현재 시스템 모드:{" "}
+          <strong>
+            {modeLabel[systemBroker.currentSystemMode as OrderMode] ??
+              systemBroker.currentSystemMode}
+          </strong>
         </p>
 
         {/* 모드 탭 */}
@@ -208,7 +281,13 @@ export function SettingsPageClient({
             </div>
             <div className="settings-broker-status-item">
               <span className="form-label">활성화</span>
-              <span className={activeBroker.enabled ? "status-chip status-chip-success" : "status-chip status-chip-warning"}>
+              <span
+                className={
+                  activeBroker.enabled
+                    ? "status-chip status-chip-success"
+                    : "status-chip status-chip-warning"
+                }
+              >
                 {activeBroker.enabled ? "활성" : "비활성"}
               </span>
             </div>
@@ -223,9 +302,19 @@ export function SettingsPageClient({
             <div className="settings-broker-status-item">
               <span className="form-label">연결 테스트</span>
               {activeBroker.lastConnectionTestStatus ? (
-                <span className={activeBroker.lastConnectionTestStatus === "success" ? "status-chip status-chip-success" : "status-chip status-chip-error"}>
-                  {activeBroker.lastConnectionTestStatus === "success" ? "성공" : "실패"}
-                  {activeBroker.lastConnectionTestAt ? ` · ${formatDateTime(activeBroker.lastConnectionTestAt)}` : ""}
+                <span
+                  className={
+                    activeBroker.lastConnectionTestStatus === "success"
+                      ? "status-chip status-chip-success"
+                      : "status-chip status-chip-error"
+                  }
+                >
+                  {activeBroker.lastConnectionTestStatus === "success"
+                    ? "성공"
+                    : "실패"}
+                  {activeBroker.lastConnectionTestAt
+                    ? ` · ${formatDateTime(activeBroker.lastConnectionTestAt)}`
+                    : ""}
                 </span>
               ) : (
                 <span className="text-subtle">미실행</span>

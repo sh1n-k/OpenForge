@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsPageClient } from "@/components/settings-page-client";
 import type {
@@ -64,9 +64,49 @@ describe("SettingsPageClient", () => {
       />,
     );
 
-    expect(screen.getByText("브로커 연결")).toBeInTheDocument();
+    expect(screen.getAllByText("브로커 연결").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("모의투자").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("실전투자")).toBeInTheDocument();
+    expect(
+      screen.getByText(/현재 시스템은 모의투자 기준으로 동작합니다/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps summary cards anchored to the actual system mode", () => {
+    render(
+      <SettingsPageClient
+        systemBroker={{
+          ...systemBrokerFixture,
+          currentSystemMode: "paper",
+          live: {
+            ...systemBrokerFixture.live,
+            isConfigured: true,
+            lastConnectionTestStatus: "success",
+          },
+        }}
+        systemBrokerEvents={emptyBrokerEvents}
+        systemRisk={systemRiskFixture}
+        systemRiskEvents={emptyRiskEvents}
+        health={healthFixture}
+      />,
+    );
+
+    const currentModeCard = screen.getByText("현재 모드").closest("article");
+    const brokerConnectionCard = screen.getByText("브로커 연결").closest("article");
+
+    expect(currentModeCard).not.toBeNull();
+    expect(brokerConnectionCard).not.toBeNull();
+
+    const currentMode = within(currentModeCard as HTMLElement);
+    const brokerConnection = within(brokerConnectionCard as HTMLElement);
+
+    expect(currentMode.getByText("모의투자")).toBeInTheDocument();
+    expect(brokerConnection.getByText("미설정")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "실전투자" }));
+
+    expect(currentMode.getByText("모의투자")).toBeInTheDocument();
+    expect(brokerConnection.getByText("미설정")).toBeInTheDocument();
   });
 
   it("renders kill switch section with inactive state", () => {
@@ -81,8 +121,8 @@ describe("SettingsPageClient", () => {
     );
 
     expect(screen.getByText("전역 리스크")).toBeInTheDocument();
-    expect(screen.getByText("킬스위치 비활성 — 정상 운영 중")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "킬스위치 활성화" })).toBeInTheDocument();
+    expect(screen.getAllByText("정상 운영 중").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "신규 주문 차단" })).toBeInTheDocument();
   });
 
   it("renders kill switch active state when enabled", () => {
@@ -96,8 +136,8 @@ describe("SettingsPageClient", () => {
       />,
     );
 
-    expect(screen.getByText("킬스위치 활성 — 신규 주문 차단 중")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "비활성화" })).toBeInTheDocument();
+    expect(screen.getAllByText("신규 주문 차단 중").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "차단 해제" })).toBeInTheDocument();
   });
 
   it("renders system status with health info", () => {
@@ -112,7 +152,7 @@ describe("SettingsPageClient", () => {
     );
 
     expect(screen.getByText("시스템 상태")).toBeInTheDocument();
-    expect(screen.getByText("정상 운영 중")).toBeInTheDocument();
+    expect(screen.getAllByText("정상 운영 중").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("0.0.1-SNAPSHOT")).toBeInTheDocument();
   });
 
@@ -127,7 +167,7 @@ describe("SettingsPageClient", () => {
       />,
     );
 
-    expect(screen.getByText("미설정")).toBeInTheDocument();
+    expect(screen.getAllByText("미설정").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", { name: "설정 저장" })).toBeInTheDocument();
   });
 });

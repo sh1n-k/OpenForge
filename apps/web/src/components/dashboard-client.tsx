@@ -46,20 +46,43 @@ export function DashboardClient({
   systemRisk,
 }: DashboardClientProps) {
   const router = useRouter();
-  const [killSwitch, setKillSwitch] = useState(systemRisk.killSwitchEnabled);
+  const [killSwitchEnabled, setKillSwitchEnabled] = useState(
+    systemRisk.killSwitchEnabled,
+  );
   const [isToggling, setIsToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isSystemHealthy =
+    dashboard.health.apiStatus === "UP" && dashboard.health.dbStatus === "UP";
+  const operationalStateLabel = killSwitchEnabled
+    ? "신규 주문 차단 중"
+    : "정상 운영 중";
+  const operationalStateDescription = killSwitchEnabled
+    ? "비상 정지가 활성화되어 신규 주문이 차단됩니다."
+    : "전략 스케줄에 따라 신규 주문이 정상 실행됩니다.";
+  const operationalActionLabel = killSwitchEnabled
+    ? "차단 해제"
+    : "신규 주문 차단";
+  const operationalActionClass = killSwitchEnabled
+    ? "button-secondary"
+    : "button-danger";
+  const healthToneClass = isSystemHealthy
+    ? "status-chip status-chip-success"
+    : "status-chip status-chip-error";
+  const healthLabel = isSystemHealthy ? "시스템 정상" : "시스템 점검 필요";
+  const brokerHint = "브로커 연결과 현재 모드는 설정 화면에서 확인합니다.";
 
   async function handleToggleKillSwitch() {
-    const next = !killSwitch;
-    const label = next ? "자동매매를 가동합니다" : "전체 자동매매를 중지합니다";
+    const next = !killSwitchEnabled;
+    const label = next
+      ? "신규 주문을 차단합니다"
+      : "신규 주문 차단을 해제합니다";
     if (!window.confirm(`${label}. 계속하시겠습니까?`)) return;
 
     try {
       setError(null);
       setIsToggling(true);
       await updateSystemRiskKillSwitch({ enabled: next });
-      setKillSwitch(next);
+      setKillSwitchEnabled(next);
       startTransition(() => router.refresh());
     } catch (toggleError) {
       setError(
@@ -79,37 +102,70 @@ export function DashboardClient({
 
   return (
     <main className="page-shell docs-page-shell">
-      <section id="dashboard-summary" className="page-intro">
-        <p className="page-eyebrow">Dashboard</p>
-        <h1 className="page-title">운영 대시보드</h1>
+      <section
+        id="dashboard-summary"
+        className="doc-panel doc-panel-info"
+      >
+        <div className="page-intro-row">
+          <div className="page-intro">
+            <p className="page-eyebrow">대시보드</p>
+            <h1 className="page-title">운영 대시보드</h1>
+            <p className="page-description">
+              전역 차단, 시스템 상태, 전략 실행 현황을 먼저 보고 다음 조치로
+              내려갑니다.
+            </p>
+          </div>
+          <div className="page-actions">
+            <span
+              className={
+                killSwitchEnabled
+                  ? "status-chip status-chip-error"
+                  : "status-chip status-chip-success"
+              }
+            >
+              {operationalStateLabel}
+            </span>
+            <span className={healthToneClass}>{healthLabel}</span>
+            <Link href="/settings" className="button-secondary">
+              브로커·리스크 설정
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {/* Kill Switch */}
-      <div className={`dashboard-killswitch ${killSwitch ? "dashboard-killswitch-on" : "dashboard-killswitch-off"}`}>
+      <div
+        className={`dashboard-killswitch ${
+          killSwitchEnabled
+            ? "dashboard-killswitch-off"
+            : "dashboard-killswitch-on"
+        }`}
+      >
         <div className="dashboard-killswitch-body">
           <div className="dashboard-killswitch-indicator">
-            <span className={`dashboard-killswitch-dot ${killSwitch ? "dashboard-killswitch-dot-on" : "dashboard-killswitch-dot-off"}`} />
+            <span
+              className={`dashboard-killswitch-dot ${
+                killSwitchEnabled
+                  ? "dashboard-killswitch-dot-off"
+                  : "dashboard-killswitch-dot-on"
+              }`}
+            />
             <span className="dashboard-killswitch-label">
-              {killSwitch ? "자동매매 가동 중" : "자동매매 중지됨"}
+              {operationalStateLabel}
             </span>
           </div>
           <p className="dashboard-killswitch-description">
-            {killSwitch
-              ? "전략 스케줄에 따라 시그널이 생성되고 주문이 실행됩니다."
-              : "모든 자동매매가 중지된 상태입니다. 주문이 실행되지 않습니다."}
+            {operationalStateDescription}
           </p>
         </div>
         <button
           type="button"
           disabled={isToggling}
           onClick={handleToggleKillSwitch}
-          className={killSwitch ? "button-danger" : "button-primary"}
+          className={operationalActionClass}
         >
           {isToggling
             ? "변경 중..."
-            : killSwitch
-              ? "전체 중지"
-              : "가동 시작"}
+            : operationalActionLabel}
         </button>
       </div>
 
@@ -120,6 +176,26 @@ export function DashboardClient({
       ) : null}
 
       {/* Metric Cards */}
+      <div className="summary-grid summary-grid-columns-3">
+        <article className="metric-card metric-card-accent-primary">
+          <p className="metric-card-label">운영 모드</p>
+          <p className="metric-card-value">설정 확인</p>
+          <p className="metric-card-copy">{brokerHint}</p>
+        </article>
+        <article className="metric-card metric-card-accent-info">
+          <p className="metric-card-label">브로커 연결</p>
+          <p className="metric-card-value">설정 확인</p>
+          <p className="metric-card-copy">{brokerHint}</p>
+        </article>
+        <article className="metric-card metric-card-accent-secondary">
+          <p className="metric-card-label">시스템 상태</p>
+          <p className="metric-card-value">
+            {dashboard.health.apiStatus} / {dashboard.health.dbStatus}
+          </p>
+          <p className="metric-card-copy">API와 DB 응답이 정상인지 먼저 확인합니다.</p>
+        </article>
+      </div>
+
       <div className="summary-grid summary-grid-columns-2">
         <article className="metric-card metric-card-accent-primary">
           <p className="metric-card-label">실행 중 전략</p>

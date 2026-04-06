@@ -87,7 +87,7 @@ describe("BacktestRunnerClient", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("미국 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다."),
+        screen.getByText("해외 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다."),
       ).toBeInTheDocument();
     });
 
