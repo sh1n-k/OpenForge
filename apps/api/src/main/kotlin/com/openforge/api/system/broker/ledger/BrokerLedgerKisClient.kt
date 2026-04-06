@@ -2,6 +2,7 @@ package com.openforge.api.system.broker.ledger
 
 import com.openforge.api.system.broker.BrokerConnectionCredentials
 import com.openforge.api.system.broker.KisApiProperties
+import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
@@ -15,7 +16,6 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
-import org.springframework.stereotype.Component
 
 @Component
 class BrokerLedgerKisClient(
@@ -107,8 +107,8 @@ class BrokerLedgerKisClient(
         credentials: BrokerConnectionCredentials,
         accessToken: String,
         capturedAt: OffsetDateTime,
-    ): List<BrokerLedgerBalanceInput> {
-        return fetchPagedResponses(
+    ): List<BrokerLedgerBalanceInput> =
+        fetchPagedResponses(
             baseUrl = credentials.baseUrl,
             path = "/uapi/domestic-stock/v1/trading/inquire-balance-rlz-pl",
             token = accessToken,
@@ -142,7 +142,6 @@ class BrokerLedgerKisClient(
                 summaryMapper = ::mapBalanceSummaryRow,
             )
         }
-    }
 
     private fun fetchDomesticProfits(
         credentials: BrokerConnectionCredentials,
@@ -150,8 +149,8 @@ class BrokerLedgerKisClient(
         startDate: LocalDate,
         endDate: LocalDate,
         capturedAt: OffsetDateTime,
-    ): List<BrokerLedgerProfitInput> {
-        return fetchPagedResponses(
+    ): List<BrokerLedgerProfitInput> =
+        fetchPagedResponses(
             baseUrl = credentials.baseUrl,
             path = "/uapi/domestic-stock/v1/trading/inquire-period-trade-profit",
             token = accessToken,
@@ -182,7 +181,6 @@ class BrokerLedgerKisClient(
                 summaryMapper = ::mapProfitSummaryRow,
             )
         }
-    }
 
     private fun fetchOverseasTrades(
         credentials: BrokerConnectionCredentials,
@@ -191,8 +189,8 @@ class BrokerLedgerKisClient(
         startDate: LocalDate,
         endDate: LocalDate,
         capturedAt: OffsetDateTime,
-    ): List<BrokerLedgerTradeInput> {
-        return fetchPagedResponses(
+    ): List<BrokerLedgerTradeInput> =
+        fetchPagedResponses(
             baseUrl = credentials.baseUrl,
             path = "/uapi/overseas-stock/v1/trading/inquire-ccnl",
             token = accessToken,
@@ -230,15 +228,14 @@ class BrokerLedgerKisClient(
                 summaryFieldName = "output2",
             )
         }
-    }
 
     private fun fetchOverseasBalances(
         credentials: BrokerConnectionCredentials,
         accessToken: String,
         exchange: BrokerLedgerOverseasExchange,
         capturedAt: OffsetDateTime,
-    ): List<BrokerLedgerBalanceInput> {
-        return fetchPagedResponses(
+    ): List<BrokerLedgerBalanceInput> =
+        fetchPagedResponses(
             baseUrl = credentials.baseUrl,
             path = "/uapi/overseas-stock/v1/trading/inquire-balance",
             token = accessToken,
@@ -266,7 +263,6 @@ class BrokerLedgerKisClient(
                 summaryMapper = ::mapBalanceSummaryRow,
             )
         }
-    }
 
     private fun fetchOverseasProfits(
         credentials: BrokerConnectionCredentials,
@@ -275,8 +271,8 @@ class BrokerLedgerKisClient(
         startDate: LocalDate,
         endDate: LocalDate,
         capturedAt: OffsetDateTime,
-    ): List<BrokerLedgerProfitInput> {
-        return fetchPagedResponses(
+    ): List<BrokerLedgerProfitInput> =
+        fetchPagedResponses(
             baseUrl = credentials.baseUrl,
             path = "/uapi/overseas-stock/v1/trading/inquire-period-profit",
             token = accessToken,
@@ -309,7 +305,6 @@ class BrokerLedgerKisClient(
                 summaryMapper = ::mapProfitSummaryRow,
             )
         }
-    }
 
     private fun requestAccessToken(credentials: BrokerConnectionCredentials): String {
         val request =
@@ -376,8 +371,16 @@ class BrokerLedgerKisClient(
                 break
             }
 
-            val nextFk = response.payload.path(pagination.responseFkField).asText("").trim()
-            val nextNk = response.payload.path(pagination.responseNkField).asText("").trim()
+            val nextFk =
+                response.payload
+                    .path(pagination.responseFkField)
+                    .asText("")
+                    .trim()
+            val nextNk =
+                response.payload
+                    .path(pagination.responseNkField)
+                    .asText("")
+                    .trim()
             if (nextFk.isBlank() && nextNk.isBlank()) {
                 break
             }
@@ -446,12 +449,14 @@ class BrokerLedgerKisClient(
         summaryFieldName: String = "output2",
     ): List<T> {
         val items = mutableListOf<T>()
-        items += extractOutputNodes(response, itemFieldName).map { node ->
-            itemMapper(node, market, overseasExchange, sourceApi, capturedAt)
-        }
-        items += extractOutputNodes(response, summaryFieldName).map { node ->
-            summaryMapper(node, market, overseasExchange, sourceApi, capturedAt)
-        }
+        items +=
+            extractOutputNodes(response, itemFieldName).map { node ->
+                itemMapper(node, market, overseasExchange, sourceApi, capturedAt)
+            }
+        items +=
+            extractOutputNodes(response, summaryFieldName).map { node ->
+                summaryMapper(node, market, overseasExchange, sourceApi, capturedAt)
+            }
         return items
     }
 
@@ -554,7 +559,14 @@ class BrokerLedgerKisClient(
     private fun domesticPeriodDivider(
         startDate: LocalDate,
         endDate: LocalDate,
-    ): String = if (java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) > 92) "before" else "inner"
+    ): String =
+        if (java.time.temporal.ChronoUnit.DAYS
+                .between(startDate, endDate) > 92
+        ) {
+            "before"
+        } else {
+            "inner"
+        }
 
     private fun mapTradeItemRow(
         node: JsonNode,
@@ -620,7 +632,11 @@ class BrokerLedgerKisClient(
             if (value.isMissingNode || value.isNull) {
                 null
             } else {
-                value.asText().trim().takeIf { it.isNotBlank() }?.toLongOrNull()
+                value
+                    .asText()
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+                    ?.toLongOrNull()
             }
         }
 
@@ -630,7 +646,11 @@ class BrokerLedgerKisClient(
             if (value.isMissingNode || value.isNull) {
                 null
             } else {
-                value.asText().trim().takeIf { it.isNotBlank() }?.toBigDecimalOrNull()
+                value
+                    .asText()
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+                    ?.toBigDecimalOrNull()
             }
         }
 

@@ -65,6 +65,7 @@ const routeMetaList: RouteMeta[] = [
     icon: "Cpu",
     sections: [
       { id: "strategies-summary", label: "요약" },
+      { id: "strategies-create", label: "생성" },
       { id: "strategies-registry", label: "전략 레지스트리" },
     ],
   },
@@ -187,6 +188,7 @@ const routeMetaList: RouteMeta[] = [
     icon: "ShoppingCart",
     sections: [
       { id: "orders-summary", label: "요약" },
+      { id: "orders-filters", label: "조회 기준" },
       { id: "orders-requests", label: "주문 요청" },
       { id: "orders-fills", label: "체결 내역" },
     ],
@@ -201,6 +203,7 @@ const routeMetaList: RouteMeta[] = [
     icon: "PieChart",
     sections: [
       { id: "positions-summary", label: "포지션 요약" },
+      { id: "positions-filters", label: "조회 기준" },
       { id: "positions-detail", label: "전략별 보유" },
     ],
   },

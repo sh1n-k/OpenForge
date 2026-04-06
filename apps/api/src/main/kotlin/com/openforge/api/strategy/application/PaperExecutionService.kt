@@ -4,6 +4,7 @@ import com.openforge.api.backtest.application.Bar
 import com.openforge.api.backtest.application.StrategySignalSupport
 import com.openforge.api.backtest.application.StrategySpec
 import com.openforge.api.backtest.domain.MarketDailyBarRepository
+import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.StrategyEntity
 import com.openforge.api.strategy.domain.StrategyExecutionConfigEntity
 import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
@@ -13,7 +14,6 @@ import com.openforge.api.strategy.domain.StrategyExecutionRunRepository
 import com.openforge.api.strategy.domain.StrategyExecutionRunStatus
 import com.openforge.api.strategy.domain.StrategyExecutionTriggerType
 import com.openforge.api.strategy.domain.StrategyRepository
-import com.openforge.api.strategy.domain.MarketType
 import com.openforge.api.strategy.domain.StrategySignalEventEntity
 import com.openforge.api.strategy.domain.StrategySignalEventRepository
 import com.openforge.api.strategy.domain.StrategySignalType

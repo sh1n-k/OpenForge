@@ -6,6 +6,13 @@
     "dev:api": "./scripts/dev-api.sh",
     "dev:web": "./scripts/dev-web.sh",
     "dev:all": "./scripts/dev-all.sh",
+    "ps:dev-db": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-db",
+    "ps:dev-db-down": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-db-down",
+    "ps:dev:api": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-api",
+    "ps:dev:web": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-web",
+    "ps:dev:all": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-all",
+    "ps:check": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 check",
+    "ps:smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 smoke",
     "web:dev": "pnpm --filter web dev",
     "web:lint": "pnpm --filter web lint",
     "web:test": "pnpm --filter web test --run"

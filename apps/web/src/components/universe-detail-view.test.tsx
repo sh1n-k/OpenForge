@@ -37,7 +37,11 @@ describe("UniverseDetailView", () => {
 
     expect(screen.getByText("Semis KR")).toBeInTheDocument();
     expect(screen.getAllByText("국내").length).toBeGreaterThan(0);
-    expect(screen.getByText("2개 종목")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        (_, element) => element?.textContent?.includes("2개 종목") ?? false,
+      ).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("삼성전자")).toBeInTheDocument();
     expect(screen.getByText("SK하이닉스")).toBeInTheDocument();
     expect(screen.getAllByText(/kospi/).length).toBeGreaterThan(0);

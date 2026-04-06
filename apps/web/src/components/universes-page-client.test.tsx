@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UniversesPageClient } from "@/components/universes-page-client";
 import * as apiModule from "@/lib/api";
@@ -18,6 +18,7 @@ describe("UniversesPageClient", () => {
     vi.restoreAllMocks();
     push.mockReset();
     refresh.mockReset();
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
   it("filters by market tab and creates a universe with the selected market", async () => {
@@ -34,20 +35,22 @@ describe("UniversesPageClient", () => {
     });
 
     render(<UniversesPageClient universes={universesFixture} />);
+    const listTablist = screen.getByRole("tablist", { name: "유니버스 시장 탭" });
+    const createTablist = screen.getByRole("tablist", { name: "생성 시장 선택" });
 
     expect(screen.getByText("KR Core")).toBeInTheDocument();
     expect(screen.queryByText("US Core")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: /미국/ }));
+    fireEvent.click(within(listTablist).getByRole("tab", { name: /^미국 시장/ }));
 
     expect(screen.getByText("US Core")).toBeInTheDocument();
     expect(screen.queryByText("KR Core")).not.toBeInTheDocument();
 
+    fireEvent.click(within(createTablist).getByRole("tab", { name: "미국 시장" }));
     fireEvent.change(screen.getByLabelText("이름"), { target: { value: "US Growth" } });
     fireEvent.change(screen.getByLabelText("설명 (선택)"), {
       target: { value: "US market basket" },
     });
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "us" } });
     fireEvent.click(screen.getByRole("button", { name: "유니버스 생성" }));
 
     await waitFor(() => {
@@ -57,6 +60,25 @@ describe("UniversesPageClient", () => {
         marketScope: "us",
       });
     });
+  });
+
+  it("presets create form market and focuses name input from empty state CTA", () => {
+    render(
+      <UniversesPageClient
+        universes={universesFixture.filter((universe) => universe.marketScope === "domestic")}
+      />,
+    );
+    const listTablist = screen.getByRole("tablist", { name: "유니버스 시장 탭" });
+    const createTablist = screen.getByRole("tablist", { name: "생성 시장 선택" });
+
+    fireEvent.click(within(listTablist).getByRole("tab", { name: /^미국 시장/ }));
+    fireEvent.click(screen.getByRole("button", { name: "미국 유니버스 생성" }));
+
+    expect(within(createTablist).getByRole("tab", { name: "미국 시장" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByLabelText("이름")).toHaveFocus();
   });
 });
 

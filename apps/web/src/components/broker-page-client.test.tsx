@@ -44,7 +44,7 @@ describe("BrokerPageClient", () => {
     expect(screen.getByText("계좌 원장")).toBeInTheDocument();
     expect(screen.getByText(/HTS, MTS, 다른 프로그램/)).toBeInTheDocument();
     expect(screen.getByText("최신 주문/체결")).toBeInTheDocument();
-    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(screen.getAllByText("24").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders sync history", () => {
@@ -53,6 +53,11 @@ describe("BrokerPageClient", () => {
     );
 
     expect(screen.getByText("동기화 이력")).toBeInTheDocument();
-    expect(screen.getByText("거래 24 / 잔고 8 / 손익 12")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        (_, element) =>
+          element?.textContent?.includes("거래 24 / 잔고 8 / 손익 12") ?? false,
+      ).length,
+    ).toBeGreaterThan(0);
   });
 });

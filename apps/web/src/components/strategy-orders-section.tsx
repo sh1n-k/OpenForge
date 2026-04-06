@@ -110,21 +110,21 @@ export function StrategyOrdersSection({
   return (
     <>
       {error ? (
-        <section className="doc-panel doc-panel-error">
+        <section className="p-4 rounded-xl bg-error-soft text-error border border-error/20 mb-6 text-[0.9375rem] font-medium flex items-start gap-2">
           {error}
         </section>
       ) : null}
 
       <section
         id="strategy-orders"
-        className="doc-panel"
+        className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
       >
-        <div className="detail-card-header">
-          <h2 className="detail-heading">주문 후보</h2>
+        <div className="mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">주문 후보</h2>
         </div>
-        <div className="stack-list" style={{ marginTop: 16 }}>
+        <div className="grid gap-3">
           {orderCandidates.length === 0 ? (
-            <p className="section-copy">주문 후보가 아직 없습니다.</p>
+            <p className="m-0 text-muted text-[0.9375rem]">주문 후보가 아직 없습니다.</p>
           ) : (
             orderCandidates.map((candidate) => {
               const canCreate =
@@ -135,79 +135,79 @@ export function StrategyOrdersSection({
               return (
                 <article
                   key={candidate.signalEventId}
-                  className="detail-card"
+                  className="p-5 border border-border-soft rounded-xl bg-[#fafafa]"
                 >
-                  <div className="flex-between">
-                    <div>
-                      <p className="detail-label">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="grid gap-1.5">
+                      <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">
                         {candidate.symbol} / {candidate.side}
                       </p>
-                      <p className="detail-value">
+                      <p className="m-0 text-foreground font-medium text-[0.9375rem]">
                         {candidate.tradingDate} / {candidate.mode} / qty {candidate.quantity} / price {candidate.price}
                       </p>
                     </div>
-                    <span className="detail-badge">
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-xs font-bold uppercase bg-surface text-muted border border-border">
                       {candidate.precheck.passed ? "통과" : "실패"}
                     </span>
                   </div>
-                  <div className="stack-list" style={{ marginTop: 12 }}>
+                  <div className="grid gap-3 mt-4">
                     <PrecheckRow label="marketHours" value={candidate.precheck.marketHours} />
                     <PrecheckRow label="strategyStatus" value={candidate.precheck.strategyStatus} />
                     <PrecheckRow label="duplicateOrder" value={candidate.precheck.duplicateOrder} />
                     <PrecheckRow label="quantityValid" value={candidate.precheck.quantityValid} />
                     <PrecheckRow label="priceValid" value={candidate.precheck.priceValid} />
                     <PrecheckRow label="riskPassed" value={candidate.riskCheck.passed} />
-                    <div className="detail-row">
-                      <span className="detail-label">이미 요청됨</span>
-                      <span className="detail-value">{candidate.alreadyRequested ? "예" : "아니오"}</span>
+                    <div className="grid gap-1">
+                      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">이미 요청됨</span>
+                      <span className="text-foreground font-medium text-[0.9375rem]">{candidate.alreadyRequested ? "예" : "아니오"}</span>
                     </div>
-                    <div className="detail-row">
-                      <span className="detail-label">리스크 검증</span>
-                      <span className="detail-value">
+                    <div className="grid gap-1">
+                      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">리스크 검증</span>
+                      <span className="text-foreground font-medium text-[0.9375rem]">
                         {candidate.riskCheck.reasonCodes.length > 0
                           ? candidate.riskCheck.reasonCodes.join(", ")
                           : "ok"}
                       </span>
                     </div>
-                    <div className="detail-row">
-                      <span className="detail-label">예상 종목 노출</span>
-                      <span className="detail-value">{formatNullableNumber(candidate.riskCheck.projectedSymbolExposure)}</span>
+                    <div className="grid gap-1">
+                      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">예상 종목 노출</span>
+                      <span className="text-foreground font-medium text-[0.9375rem] font-mono">{formatNullableNumber(candidate.riskCheck.projectedSymbolExposure)}</span>
                     </div>
-                    <div className="detail-row">
-                      <span className="detail-label">예상 전략 노출</span>
-                      <span className="detail-value">{formatNullableNumber(candidate.riskCheck.projectedStrategyExposure)}</span>
+                    <div className="grid gap-1">
+                      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">예상 전략 노출</span>
+                      <span className="text-foreground font-medium text-[0.9375rem] font-mono">{formatNullableNumber(candidate.riskCheck.projectedStrategyExposure)}</span>
                     </div>
-                    <div className="detail-row">
-                      <span className="detail-label">예상 보유 종목 수</span>
-                      <span className="detail-value">{candidate.riskCheck.projectedOpenPositions}</span>
+                    <div className="grid gap-1">
+                      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">예상 보유 종목 수</span>
+                      <span className="text-foreground font-medium text-[0.9375rem]">{candidate.riskCheck.projectedOpenPositions}</span>
                     </div>
-                    <div className="detail-row">
-                      <span className="detail-label">금일 실현 손실</span>
-                      <span className="detail-value">{candidate.riskCheck.currentDailyRealizedLoss}</span>
+                    <div className="grid gap-1">
+                      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">금일 실현 손실</span>
+                      <span className="text-foreground font-medium text-[0.9375rem] font-mono">{candidate.riskCheck.currentDailyRealizedLoss}</span>
                     </div>
                   </div>
                   {candidate.precheck.reasonCodes.length > 0 ? (
-                    <div className="doc-panel doc-panel-warn" style={{ marginTop: 12 }}>
-                      <p className="inline-warning">{candidate.precheck.reasonCodes.join(", ")}</p>
+                    <div className="p-4 rounded-xl bg-warning-soft border border-warning/20 mt-4 text-warning font-medium text-[0.9375rem] flex items-start gap-2">
+                      <p className="m-0 text-[0.9375rem] font-medium text-warning flex items-start gap-2">{candidate.precheck.reasonCodes.join(", ")}</p>
                     </div>
                   ) : null}
                   {!candidate.riskCheck.passed ? (
-                    <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
-                      <p className="inline-error">{candidate.riskCheck.reasonCodes.join(", ")}</p>
+                    <div className="p-4 rounded-xl bg-error-soft border border-error/20 mt-4 text-error font-medium text-[0.9375rem] flex items-start gap-2">
+                      <p className="m-0 text-[0.9375rem] font-medium text-error flex items-start gap-2">{candidate.riskCheck.reasonCodes.join(", ")}</p>
                     </div>
                   ) : null}
-                  <div className="flex-center" style={{ marginTop: 12 }}>
+                  <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-border-soft">
                     <button
                       type="button"
                       disabled={!canCreate || pendingOrderSignalId === candidate.signalEventId}
                       onClick={async () => handleCreateOrder(candidate.signalEventId)}
-                      className="button-primary"
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2 font-medium rounded-lg bg-primary text-white hover:bg-primary-hover shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
                     >
                       {pendingOrderSignalId === candidate.signalEventId
                         ? "생성 중..."
                         : "paper 주문 생성"}
                     </button>
-                    <span className="detail-timestamp">
+                    <span className="text-muted text-[0.8125rem]">
                       {candidate.alreadyRequested ? "이미 요청됨" : "생성 가능"}
                     </span>
                   </div>
@@ -218,103 +218,103 @@ export function StrategyOrdersSection({
         </div>
       </section>
 
-      <section className="doc-panel">
-        <div className="detail-card-header">
-          <h2 className="detail-heading">주문 요청 이력</h2>
+      <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm mt-8">
+        <div className="mb-6 pb-4 border-b border-border/60">
+          <h2 className="m-0 font-sans text-xl font-bold text-foreground">주문 요청 이력</h2>
         </div>
-        <div className="stack-list" style={{ marginTop: 16 }}>
+        <div className="grid gap-3">
           {orderRequests.length === 0 ? (
-            <p className="section-copy">주문 요청이 아직 없습니다.</p>
+            <p className="m-0 text-muted text-[0.9375rem]">주문 요청이 아직 없습니다.</p>
           ) : (
             orderRequests.map((request) => (
               <article
                 key={request.id}
-                className="detail-card"
+                className="p-5 border border-border-soft rounded-xl bg-[#fafafa]"
               >
-                <div className="flex-between">
-                  <div>
-                    <p className="detail-label">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="grid gap-1.5">
+                    <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">
                       {request.symbol} / {request.side}
                     </p>
-                    <p className="detail-value">
+                    <p className="m-0 text-foreground font-medium text-[0.9375rem]">
                       {request.mode} / current {request.currentStatus} / filled{" "}
                       {request.filledQuantity} / {request.quantity} / remaining{" "}
                       {request.remainingQuantity}
                     </p>
                   </div>
-                  <span className="detail-badge">
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-xs font-bold uppercase bg-surface text-muted border border-border">
                     {request.status}
                   </span>
                 </div>
-                <div className="stack-list" style={{ marginTop: 12 }}>
-                  <div className="detail-row">
-                    <span className="detail-label">요청 시간</span>
-                    <span className="detail-value">{formatDateTime(request.requestedAt)}</span>
+                <div className="grid gap-3 mt-4">
+                  <div className="grid gap-1">
+                    <span className="text-subtle text-xs font-semibold tracking-wider uppercase">요청 시간</span>
+                    <span className="text-foreground font-medium text-[0.9375rem] font-mono">{formatDateTime(request.requestedAt)}</span>
                   </div>
-                  <div className="detail-row">
-                    <span className="detail-label">사전검증</span>
-                    <span className="detail-value">{request.precheckPassed ? "통과" : "실패"}</span>
+                  <div className="grid gap-1">
+                    <span className="text-subtle text-xs font-semibold tracking-wider uppercase">사전검증</span>
+                    <span className="text-foreground font-medium text-[0.9375rem]">{request.precheckPassed ? "통과" : "실패"}</span>
                   </div>
                 </div>
                 {request.failureReason ? (
-                  <div className="doc-panel doc-panel-error" style={{ marginTop: 12 }}>
-                    <p className="inline-error">{request.failureReason}</p>
+                  <div className="p-4 rounded-xl bg-error-soft border border-error/20 mt-4 text-error font-medium text-[0.9375rem] flex items-start gap-2">
+                    <p className="m-0 text-[0.9375rem] font-medium text-error flex items-start gap-2">{request.failureReason}</p>
                   </div>
                 ) : null}
-                <section className="detail-card" style={{ marginTop: 16 }}>
-                  <div className="detail-card-header">
-                    <h3 className="detail-label">주문 상태 이력</h3>
-                    <span className="detail-timestamp">
+                <section className="p-5 border border-border-soft rounded-xl bg-surface mt-4 shadow-sm">
+                  <div className="mb-4 pb-3 border-b border-border/60 flex items-center justify-between">
+                    <h3 className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">주문 상태 이력</h3>
+                    <span className="text-muted text-[0.8125rem]">
                       {statusEventsByRequestId[request.id]?.length ?? 0}건
                     </span>
                   </div>
                   {statusEventsByRequestId[request.id]?.length ? (
-                    <div className="stack-list" style={{ marginTop: 12 }}>
+                    <div className="grid gap-3">
                       {statusEventsByRequestId[request.id].map((event) => (
                         <article
                           key={event.id}
-                          className="detail-card"
+                          className="p-5 border border-border-soft rounded-xl bg-[#fafafa]"
                         >
-                          <div className="detail-card-header">
-                            <span className="detail-label">{event.status}</span>
-                            <span className="detail-timestamp">
+                          <div className="mb-4 pb-3 border-b border-border/60 flex items-center justify-between">
+                            <span className="text-subtle text-xs font-semibold tracking-wider uppercase">{event.status}</span>
+                            <span className="text-muted text-[0.8125rem]">
                               {formatDateTime(event.occurredAt)}
                             </span>
                           </div>
-                          <p className="detail-value" style={{ marginTop: 4 }}>
+                          <p className="m-0 text-foreground font-medium text-[0.9375rem] mt-1">
                             {event.reason ?? "사유 없음"}
                           </p>
                         </article>
                       ))}
                     </div>
                   ) : (
-                    <p className="section-copy">
+                    <p className="m-0 text-muted text-[0.9375rem]">
                       상태 이력이 아직 없습니다.
                     </p>
                   )}
                 </section>
 
                 <form
-                  className="detail-card grid-section"
-                  style={{ marginTop: 16 }}
+                  className="p-5 border border-border-soft rounded-xl bg-surface mt-4 shadow-sm grid gap-6 flex-1"
                   onSubmit={async (event) => {
                     event.preventDefault();
                     await handleCreateFill(request.id);
                   }}
                 >
-                  <div className="detail-card-header">
-                    <h3 className="detail-label">수동 체결 등록</h3>
-                    <span className="detail-timestamp">
+                  <div className="mb-4 pb-3 border-b border-border/60 flex items-center justify-between">
+                    <h3 className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">수동 체결 등록</h3>
+                    <span className="text-muted text-[0.8125rem]">
                       모의(수동)
                     </span>
                   </div>
-                  <div className="form-row">
-                    <label className="form-field">
-                      <span className="form-label">체결 수량</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="grid gap-1.5 focus-within:text-primary">
+                      <span className="text-subtle text-sm font-medium transition-colors">체결 수량</span>
                       <input
                         type="number"
                         min="0"
                         step="1"
+                        className="w-full px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
                         value={
                           fillDrafts[request.id]?.quantity ??
                           String(Math.max(request.remainingQuantity, 1))
@@ -332,12 +332,13 @@ export function StrategyOrdersSection({
                         }
                       />
                     </label>
-                    <label className="form-field">
-                      <span className="form-label">체결 가격</span>
+                    <label className="grid gap-1.5 focus-within:text-primary">
+                      <span className="text-subtle text-sm font-medium transition-colors">체결 가격</span>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
+                        className="w-full px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
                         value={
                           fillDrafts[request.id]?.price ?? String(request.price)
                         }
@@ -355,14 +356,14 @@ export function StrategyOrdersSection({
                       />
                     </label>
                   </div>
-                  <div className="flex-center">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="submit"
                       disabled={
                         pendingFillRequestId === request.id ||
                         request.remainingQuantity <= 0
                       }
-                      className="button-primary"
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2 font-medium rounded-lg bg-primary text-white hover:bg-primary-hover shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
                     >
                       {pendingFillRequestId === request.id
                         ? "등록 중..."
@@ -370,7 +371,7 @@ export function StrategyOrdersSection({
                           ? "체결 완료"
                           : "체결 등록"}
                     </button>
-                    <span className="detail-value">
+                    <span className="text-foreground font-medium text-[0.9375rem]">
                       filledAt는 현재 시각으로 자동 저장됩니다.
                     </span>
                   </div>
@@ -381,34 +382,34 @@ export function StrategyOrdersSection({
         </div>
       </section>
 
-      <section className="summary-grid summary-grid-columns-2">
-        <section className="doc-panel">
-          <div className="detail-card-header">
-            <h2 className="detail-heading">체결 이력</h2>
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mt-8">
+        <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
+          <div className="mb-6 pb-4 border-b border-border/60">
+            <h2 className="m-0 font-sans text-xl font-bold text-foreground">체결 이력</h2>
           </div>
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="grid gap-3">
             {fills.length === 0 ? (
-              <p className="section-copy">체결 이력이 아직 없습니다.</p>
+              <p className="m-0 text-muted text-[0.9375rem]">체결 이력이 아직 없습니다.</p>
             ) : (
               fills.map((fill) => (
                 <article
                   key={fill.id}
-                  className="detail-card"
+                  className="p-5 border border-border-soft rounded-xl bg-[#fafafa]"
                 >
-                  <div className="flex-between">
-                    <div>
-                      <p className="detail-label">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="grid gap-1.5">
+                      <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">
                         {fill.symbol} / {fill.side}
                       </p>
-                      <p className="detail-value">
+                      <p className="m-0 text-foreground font-medium text-[0.9375rem]">
                         qty {fill.quantity} / price {fill.price} / {fill.source}
                       </p>
                     </div>
-                    <span className="detail-timestamp">
+                    <span className="text-muted text-[0.8125rem]">
                       {formatDateTime(fill.filledAt)}
                     </span>
                   </div>
-                  <p className="section-copy">
+                  <p className="m-0 text-muted text-[0.9375rem] leading-relaxed mt-2 font-mono text-sm">
                     order {shortId(fill.orderRequestId)}
                   </p>
                 </article>
@@ -417,27 +418,27 @@ export function StrategyOrdersSection({
           </div>
         </section>
 
-        <section className="doc-panel">
-          <div className="detail-card-header">
-            <h2 className="detail-heading">현재 포지션</h2>
+        <section className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm">
+          <div className="mb-6 pb-4 border-b border-border/60">
+            <h2 className="m-0 font-sans text-xl font-bold text-foreground">현재 포지션</h2>
           </div>
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="grid gap-3">
             {positions.length === 0 ? (
-              <p className="section-copy">현재 포지션이 없습니다.</p>
+              <p className="m-0 text-muted text-[0.9375rem]">현재 포지션이 없습니다.</p>
             ) : (
               positions.map((position) => (
                 <article
                   key={position.symbol}
-                  className="detail-card"
+                  className="p-5 border border-border-soft rounded-xl bg-[#fafafa]"
                 >
-                  <div className="flex-between">
-                    <div>
-                      <p className="detail-label">{position.symbol}</p>
-                      <p className="detail-value">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="grid gap-1.5">
+                      <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">{position.symbol}</p>
+                      <p className="m-0 text-foreground font-medium text-[0.9375rem]">
                         net {position.netQuantity} / avg {position.avgEntryPrice}
                       </p>
                     </div>
-                    <span className="detail-timestamp">
+                    <span className="text-muted text-[0.8125rem]">
                       {formatDateTime(position.lastFillAt)}
                     </span>
                   </div>
@@ -459,9 +460,9 @@ function PrecheckRow({
   value: boolean;
 }) {
   return (
-    <div className="detail-row">
-      <span className="detail-label">{precheckLabel[label] ?? label}</span>
-      <span className="detail-value">{value ? "통과" : "미통과"}</span>
+    <div className="grid gap-1">
+      <span className="text-subtle text-xs font-semibold tracking-wider uppercase">{precheckLabel[label] ?? label}</span>
+      <span className="text-foreground font-medium text-[0.9375rem]">{value ? "통과" : "미통과"}</span>
     </div>
   );
 }

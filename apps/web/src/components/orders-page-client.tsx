@@ -8,6 +8,11 @@ import type {
   StrategySummary,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import {
+  OperationsControlPanel,
+  PageIntroSection,
+  SectionHeaderBlock,
+} from "@/components/page-layout";
 
 type OrdersPageClientProps = {
   orders: CrossStrategyOrderRequest[];
@@ -24,11 +29,11 @@ const orderStatusLabel: Record<string, string> = {
 };
 
 const orderStatusChip: Record<string, string> = {
-  requested: "status-chip status-chip-info",
-  pending: "status-chip",
-  rejected_duplicate: "status-chip status-chip-error",
-  rejected_precheck: "status-chip status-chip-error",
-  rejected_risk: "status-chip status-chip-error",
+  requested: "inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-primary-soft text-primary border border-primary/20",
+  pending: "inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-surface text-foreground border border-border",
+  rejected_duplicate: "inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-error-soft text-error border border-error/20",
+  rejected_precheck: "inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-error-soft text-error border border-error/20",
+  rejected_risk: "inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-error-soft text-error border border-error/20",
 };
 
 const sideLabel: Record<string, string> = { buy: "매수", sell: "매도" };
@@ -62,93 +67,110 @@ export function OrdersPageClient({
     : fills;
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="orders-summary" className="page-intro">
-        <p className="page-eyebrow">Orders</p>
-        <h1 className="page-title">주문 및 체결</h1>
-        <p className="page-description">모든 전략의 주문 요청과 체결 내역을 통합 조회합니다.</p>
-      </section>
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+      <PageIntroSection
+        id="orders-summary"
+        eyebrow="Orders"
+        title="주문 및 체결"
+        description="모든 전략의 주문 요청과 체결 내역을 통합 조회합니다."
+      />
 
-      <section className="doc-panel doc-panel-info">
-        <p className="section-copy" style={{ marginTop: 0 }}>
+      <section className="p-5 bg-primary-soft/30 border border-primary/20 rounded-xl">
+        <p className="m-0 text-muted text-[0.9375rem] leading-relaxed">
           이 화면은 OpenForge 내부 주문 기록만 표시합니다. 실제 계좌 원장은{" "}
-          <Link href="/broker" className="table-link">
+          <Link href="/broker" className="font-semibold text-primary hover:text-primary-hover underline underline-offset-2 transition-colors">
             Broker
           </Link>
           에서 확인하세요.
         </p>
       </section>
 
-      <div className="summary-grid summary-grid-columns-2">
-        <article className="metric-card metric-card-accent-primary">
-          <p className="metric-card-label">주문 요청</p>
-          <p className="metric-card-value">{filteredOrders.length}</p>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 justify-start">
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-primary">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">주문 요청</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{filteredOrders.length}</p>
+          <p className="m-0 text-muted text-[0.875rem]">현재 필터 기준 주문 요청 수</p>
         </article>
-        <article className="metric-card metric-card-accent-info">
-          <p className="metric-card-label">체결 내역</p>
-          <p className="metric-card-value">{filteredFills.length}</p>
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-secondary">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">체결 내역</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{filteredFills.length}</p>
+          <p className="m-0 text-muted text-[0.875rem]">현재 필터 기준 체결 건수</p>
         </article>
       </div>
 
-      {strategies.length > 0 ? (
-        <div className="filter-bar">
-          <span className="form-label">전략 필터</span>
-          <select
-            className="filter-select"
-            value={selectedStrategyId ?? ""}
-            onChange={(e) => setSelectedStrategyId(e.target.value || null)}
-          >
-            <option value="">전체</option>
-            {strategies.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      <section id="orders-requests">
-        <h2 className="section-title">주문 요청</h2>
-        {filteredOrders.length === 0 ? (
-          <div className="empty-state empty-state-compact">
-            <p className="empty-state-message">주문 내역이 없습니다</p>
+      <OperationsControlPanel
+        id="orders-filters"
+        title="조회 기준"
+        description="전략 기준으로 주문 요청과 체결 내역을 함께 필터링합니다."
+      >
+        {strategies.length > 0 ? (
+          <div className="mt-4">
+            <label className="grid gap-1.5 focus-within:text-primary max-w-sm">
+              <span className="text-subtle text-sm font-medium transition-colors">전략 필터</span>
+              <select
+                className="w-full px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke-width%3D%221.5%22%20stroke%3D%22%2371717a%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M8.25%2015L12%2018.75%2015.75%2015m-7.5-6L12%205.25%2015.75%209%22%20%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0.5rem_center] bg-[size:1.5em_1.5em] pr-10"
+                value={selectedStrategyId ?? ""}
+                onChange={(e) => setSelectedStrategyId(e.target.value || null)}
+              >
+                <option value="">전체</option>
+                {strategies.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         ) : (
-          <div className="doc-panel">
-            <div className="table-shell">
-              <table className="doc-table">
+          <p className="m-0 mt-4 text-muted text-sm border-l-2 border-border pl-3">
+            저장된 전략이 없어 전체 기준으로 주문과 체결을 표시합니다.
+          </p>
+        )}
+      </OperationsControlPanel>
+
+      <section id="orders-requests" className="grid gap-5">
+        <SectionHeaderBlock title="주문 요청" />
+        {filteredOrders.length === 0 ? (
+          <div className="grid justify-items-center p-8 px-6 border border-dashed border-border rounded-xl text-center bg-surface shadow-sm">
+            <p className="m-0 font-medium text-muted">주문 내역이 없습니다</p>
+          </div>
+        ) : (
+          <div className="p-6 border border-border-soft rounded-xl bg-surface shadow-sm overflow-hidden">
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
                 <thead>
                   <tr>
-                    <th>심볼</th>
-                    <th>전략</th>
-                    <th>방향</th>
-                    <th>수량</th>
-                    <th>가격</th>
-                    <th>모드</th>
-                    <th>상태</th>
-                    <th>시간</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">심볼</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">전략</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">방향</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">수량</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">가격</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">모드</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">상태</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">시간</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="align-baseline">
                   {filteredOrders.map((order) => (
-                    <tr key={order.id}>
-                      <td style={{ fontWeight: 600 }}>{order.symbol}</td>
-                      <td>
-                        <Link href={`/strategies/${order.strategyId}`} className="table-link">
+                    <tr key={order.id} className="group hover:bg-slate-50/50">
+                      <td className="py-3 border-b border-border-soft font-mono font-semibold text-foreground">{order.symbol}</td>
+                      <td className="py-3 border-b border-border-soft">
+                        <Link href={`/strategies/${order.strategyId}`} className="font-medium text-foreground hover:text-primary transition-colors">
                           {order.strategyName}
                         </Link>
                       </td>
-                      <td className={order.side === "buy" ? "text-primary" : "text-error"} style={{ fontWeight: 600 }}>
+                      <td className={`py-3 border-b border-border-soft font-bold ${order.side === "buy" ? "text-primary" : "text-error"}`}>
                         {sideLabel[order.side] ?? order.side}
                       </td>
-                      <td>{order.quantity}</td>
-                      <td>{order.price.toLocaleString()}</td>
-                      <td>{modeLabel[order.mode] ?? order.mode}</td>
-                      <td>
-                        <span className={orderStatusChip[order.status] ?? "status-chip"}>
+                      <td className="py-3 border-b border-border-soft font-mono text-right text-muted">{order.quantity}</td>
+                      <td className="py-3 border-b border-border-soft font-mono text-right text-muted">{order.price.toLocaleString()}</td>
+                      <td className="py-3 border-b border-border-soft text-muted">{modeLabel[order.mode] ?? order.mode}</td>
+                      <td className="py-3 border-b border-border-soft">
+                        <span className={orderStatusChip[order.status] ?? "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase border bg-surface text-foreground border-border"}>
                           {orderStatusLabel[order.status] ?? order.status}
                         </span>
                       </td>
-                      <td>{formatDateTime(order.requestedAt)}</td>
+                      <td className="py-3 border-b border-border-soft text-right text-[0.8125rem] text-muted">{formatDateTime(order.requestedAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -158,47 +180,47 @@ export function OrdersPageClient({
         )}
       </section>
 
-      <section id="orders-fills">
-        <h2 className="section-title">체결 내역</h2>
+      <section id="orders-fills" className="grid gap-5">
+        <SectionHeaderBlock title="체결 내역" />
         {filteredFills.length === 0 ? (
-          <div className="empty-state empty-state-compact">
-            <p className="empty-state-message">체결 내역이 없습니다</p>
+          <div className="grid justify-items-center p-8 px-6 border border-dashed border-border rounded-xl text-center bg-surface shadow-sm">
+            <p className="m-0 font-medium text-muted">체결 내역이 없습니다</p>
           </div>
         ) : (
-          <div className="doc-panel">
-            <div className="table-shell">
-              <table className="doc-table">
+          <div className="p-6 border border-border-soft rounded-xl bg-surface shadow-sm overflow-hidden">
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
                 <thead>
                   <tr>
-                    <th>심볼</th>
-                    <th>전략</th>
-                    <th>방향</th>
-                    <th>수량</th>
-                    <th>가격</th>
-                    <th>손익</th>
-                    <th>소스</th>
-                    <th>시간</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">심볼</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">전략</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">방향</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">수량</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">가격</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">손익</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60">소스</th>
+                    <th className="font-semibold text-muted pb-3 border-b border-border/60 text-right">시간</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="align-baseline">
                   {filteredFills.map((fill) => (
-                    <tr key={fill.id}>
-                      <td style={{ fontWeight: 600 }}>{fill.symbol}</td>
-                      <td>
-                        <Link href={`/strategies/${fill.strategyId}`} className="table-link">
+                    <tr key={fill.id} className="group hover:bg-slate-50/50">
+                      <td className="py-3 border-b border-border-soft font-mono font-semibold text-foreground">{fill.symbol}</td>
+                      <td className="py-3 border-b border-border-soft">
+                        <Link href={`/strategies/${fill.strategyId}`} className="font-medium text-foreground hover:text-primary transition-colors">
                           {fill.strategyName}
                         </Link>
                       </td>
-                      <td className={fill.side === "buy" ? "text-primary" : "text-error"} style={{ fontWeight: 600 }}>
+                      <td className={`py-3 border-b border-border-soft font-bold ${fill.side === "buy" ? "text-primary" : "text-error"}`}>
                         {sideLabel[fill.side] ?? fill.side}
                       </td>
-                      <td>{fill.quantity}</td>
-                      <td>{fill.price.toLocaleString()}</td>
-                      <td className={pnlClassName(fill.realizedPnl)} style={{ fontWeight: 600 }}>
+                      <td className="py-3 border-b border-border-soft font-mono text-right text-muted">{fill.quantity}</td>
+                      <td className="py-3 border-b border-border-soft font-mono text-right text-muted">{fill.price.toLocaleString()}</td>
+                      <td className={`py-3 border-b border-border-soft font-mono font-bold text-right ${pnlClassName(fill.realizedPnl)}`}>
                         {formatPnl(fill.realizedPnl)}
                       </td>
-                      <td>{sourceLabel[fill.source] ?? fill.source}</td>
-                      <td>{formatDateTime(fill.filledAt)}</td>
+                      <td className="py-3 border-b border-border-soft text-muted">{sourceLabel[fill.source] ?? fill.source}</td>
+                      <td className="py-3 border-b border-border-soft text-right text-[0.8125rem] text-muted">{formatDateTime(fill.filledAt)}</td>
                     </tr>
                   ))}
                 </tbody>

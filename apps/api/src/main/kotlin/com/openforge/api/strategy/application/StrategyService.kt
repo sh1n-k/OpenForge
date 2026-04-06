@@ -1,7 +1,7 @@
 package com.openforge.api.strategy.application
 
-import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.PayloadFormat
 import com.openforge.api.strategy.domain.StrategyEntity
 import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyRepository

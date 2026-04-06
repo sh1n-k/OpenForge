@@ -22,23 +22,23 @@ export function ConsoleShell({
   const isHealthy = health.status === "UP";
 
   return (
-    <main className="page-shell docs-page-shell">
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
       <section
         id="overview-summary"
-        className="doc-panel"
+        className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
       >
-        <div className="page-intro-row">
-          <div className="page-intro">
-            <p className="page-eyebrow">Overview</p>
-            <h1 className="page-title">개인 자동매매 운영 콘솔의 1단계 부트스트랩</h1>
-            <p className="page-description">
+        <div className="flex flex-wrap items-start justify-between gap-6 mb-2 pb-6 border-b border-border-soft">
+          <div className="grid gap-2">
+            <p className="m-0 text-primary font-bold tracking-wider uppercase text-xs">Overview</p>
+            <h1 className="m-0 font-sans text-3xl font-bold tracking-tight text-foreground">개인 자동매매 운영 콘솔의 1단계 부트스트랩</h1>
+            <p className="m-0 text-muted font-medium flex items-center gap-2 max-w-2xl">
               전략, 백테스트, 주문 추적은 아직 비어 있다. 지금 단계의 목표는
               운영 콘솔 셸과 API, 데이터베이스가 같은 규약으로 기동되는지
               확인하는 것이다.
             </p>
           </div>
-          <div className="page-actions">
-            <span className={isHealthy ? "status-chip status-chip-success" : "status-chip status-chip-warning"}>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-sm text-xs font-bold uppercase border ${isHealthy ? "bg-success-soft text-success border-success/20" : "bg-warning-soft text-warning border-warning/20"}`}>
               {isHealthy ? "서비스 준비" : "점검 필요"}
             </span>
           </div>
@@ -47,7 +47,7 @@ export function ConsoleShell({
 
       <section
         id="overview-health"
-        className="summary-grid summary-grid-columns-2"
+        className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 justify-start"
       >
         <StatusBadge
           label="API"
@@ -63,7 +63,7 @@ export function ConsoleShell({
         <StatusBadge label="Mode" value={mode} tone="neutral" />
       </section>
 
-      <section className="summary-grid summary-grid-columns-3">
+      <section className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 justify-start">
         <MetricCard
           label="Application"
           value={health.appName}
@@ -83,62 +83,62 @@ export function ConsoleShell({
         />
       </section>
 
-      <section className="summary-grid summary-grid-columns-2">
+      <section className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4 justify-start">
         <div
           id="overview-contract"
-          className="doc-panel doc-panel-info"
+          className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm border-l-[3px] border-l-info"
         >
-          <div className="page-intro">
-            <p className="page-eyebrow">Bootstrap Contract</p>
-            <h2 className="section-title">운영 규약</h2>
-            <p className="section-copy">
+          <div className="grid gap-2 mb-6">
+            <p className="m-0 text-primary font-bold tracking-wider uppercase text-xs">Bootstrap Contract</p>
+            <h2 className="m-0 font-sans text-xl font-bold text-foreground">운영 규약</h2>
+            <p className="m-0 text-muted text-[0.9375rem] leading-relaxed">
               현재 단계에서 Web, API, DB가 동일한 계약으로 묶이는지 확인하는 기준입니다.
             </p>
           </div>
-          <div className="stack-list">
-            <div className="list-card">
-              <span className="method-badge method-badge-get">GET</span>
-              <p className="section-copy">
-                Health check: <code className="inline-code">/api/v1/health</code>
+          <div className="grid gap-3">
+            <div className="p-4 bg-surface border border-border-soft rounded-xl shadow-sm">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-info-soft text-info border border-info/20 mb-2">GET</span>
+              <p className="m-0 text-foreground font-medium text-[0.9375rem] leading-relaxed">
+                Health check: <code className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-[0.875rem] font-mono border border-slate-200">/api/v1/health</code>
               </p>
             </div>
-            <div className="list-card">
-              <span className="mono-pill">REST</span>
-              <p className="section-copy">
-                Base path: <code className="inline-code">/api/v1</code>
+            <div className="p-4 bg-surface border border-border-soft rounded-xl shadow-sm">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm font-mono text-[0.6875rem] font-semibold bg-border-soft text-foreground border border-border mb-2 leading-none">REST</span>
+              <p className="m-0 text-foreground font-medium text-[0.9375rem] leading-relaxed">
+                Base path: <code className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-800 text-[0.875rem] font-mono border border-slate-200">/api/v1</code>
               </p>
             </div>
-            <div className="list-card">
-              <span className="mono-pill">DB</span>
-              <p className="section-copy">Migration strategy: Flyway only</p>
+            <div className="p-4 bg-surface border border-border-soft rounded-xl shadow-sm">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm font-mono text-[0.6875rem] font-semibold bg-border-soft text-foreground border border-border mb-2 leading-none">DB</span>
+              <p className="m-0 text-foreground font-medium text-[0.9375rem] leading-relaxed">Migration strategy: Flyway only</p>
             </div>
-            <div className="list-card">
-              <span className="mono-pill">Access</span>
-              <p className="section-copy">Remote access: document first, no public ingress</p>
+            <div className="p-4 bg-surface border border-border-soft rounded-xl shadow-sm">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm font-mono text-[0.6875rem] font-semibold bg-border-soft text-foreground border border-border mb-2 leading-none">Access</span>
+              <p className="m-0 text-foreground font-medium text-[0.9375rem] leading-relaxed">Remote access: document first, no public ingress</p>
             </div>
           </div>
         </div>
 
         <div
           id="overview-next"
-          className="doc-panel"
+          className="p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm"
         >
-          <div className="page-intro">
-            <p className="page-eyebrow">Next Sections</p>
-            <h2 className="section-title">다음 작업 영역</h2>
-            <p className="section-copy">
+          <div className="grid gap-2 mb-6">
+            <p className="m-0 text-primary font-bold tracking-wider uppercase text-xs">Next Sections</p>
+            <h2 className="m-0 font-sans text-xl font-bold text-foreground">다음 작업 영역</h2>
+            <p className="m-0 text-muted text-[0.9375rem] leading-relaxed">
               이후 단계는 전략, 유니버스, 백테스트 흐름을 같은 문서형 구조 안에서 확장합니다.
             </p>
           </div>
-          <div className="stack-list">
+          <div className="grid gap-3">
             {futureSections.map((section) => (
               <Link
                 key={section.label}
                 href={section.href}
-                className="doc-nav-link"
+                className="block p-4 bg-surface border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-primary/50 transition-all font-medium text-foreground hover:text-primary list-card"
               >
-                <span className="doc-nav-title">{section.label}</span>
-                <span className="doc-nav-description">운영 콘솔 다음 단계</span>
+                <div className="font-semibold text-foreground text-[0.9375rem] group-hover:text-primary transition-colors">{section.label}</div>
+                <div className="text-muted text-[0.8125rem] mt-1">운영 콘솔 다음 단계</div>
               </Link>
             ))}
           </div>
@@ -158,12 +158,12 @@ function MetricCard({
   detail: string;
 }) {
   return (
-    <article className="metric-card">
-      <p className="metric-card-label">
+    <article className="grid gap-2.5 p-6 md:p-8 border border-border-soft rounded-2xl bg-surface shadow-sm content-start hover:shadow hover:border-gray-300 transition-all">
+      <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">
         {label}
       </p>
-      <h2 className="metric-card-value">{value}</h2>
-      <p className="metric-card-copy">{detail}</p>
+      <h2 className="m-0 font-sans text-4xl leading-tight font-bold tracking-tight text-foreground">{value}</h2>
+      <p className="m-0 text-muted text-[0.9375rem] leading-relaxed">{detail}</p>
     </article>
   );
 }
@@ -178,18 +178,20 @@ function StatusBadge({
   tone: "good" | "warn" | "neutral";
 }) {
   const toneClassName = {
-    good: "status-chip status-chip-success",
-    warn: "status-chip status-chip-warning",
-    neutral: "status-chip status-chip-info",
+    good: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-success-soft text-success border border-success/20",
+    warn: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-warning-soft text-warning border border-warning/20",
+    neutral: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-info-soft text-info border border-info/20",
   }[tone];
 
   return (
-    <article className="doc-panel">
-      <p className="metric-card-label">
+    <article className="p-5 bg-surface border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-gray-300 transition-all flex flex-col gap-2">
+      <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">
         {label}
       </p>
-      <p className="metric-card-value">{value}</p>
-      <span className={toneClassName}>{label} 상태</span>
+      <p className="m-0 font-sans text-2xl leading-snug font-bold text-foreground">{value}</p>
+      <div className="mt-2 text-left">
+        <span className={toneClassName}>{label} 상태</span>
+      </div>
     </article>
   );
 }

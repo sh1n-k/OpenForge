@@ -11,6 +11,11 @@ import {
   type BrokerLedgerSyncRun,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import {
+  OperationsControlPanel,
+  PageIntroSection,
+  SectionHeaderBlock,
+} from "@/components/page-layout";
 
 type BrokerPageClientProps = {
   initialStatus: BrokerLedgerStatus;
@@ -30,10 +35,10 @@ const runStatusLabel: Record<BrokerLedgerSyncRun["status"], string> = {
 };
 
 const runStatusChip: Record<BrokerLedgerSyncRun["status"], string> = {
-  queued: "status-chip status-chip-warning",
-  running: "status-chip status-chip-info",
-  succeeded: "status-chip status-chip-success",
-  failed: "status-chip status-chip-error",
+  queued: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-warning-soft text-warning border border-warning/20",
+  running: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-info-soft text-info border border-info/20",
+  succeeded: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-success-soft text-success border border-success/20",
+  failed: "inline-flex items-center justify-center px-1.5 py-0.5 rounded-sm text-[0.6875rem] font-bold uppercase bg-error-soft text-error border border-error/20",
 };
 
 function toDateInputValue(date: Date) {
@@ -146,27 +151,26 @@ export function BrokerPageClient({
   const latestRun = status.latestSuccessfulSyncRun;
 
   return (
-    <main className="page-shell docs-page-shell">
-      <section id="broker-summary" className="page-intro">
-        <p className="page-eyebrow">Broker</p>
-        <h1 className="page-title">계좌 원장</h1>
-        <p className="page-description">
-          한국투자증권 실전 계좌 원장을 읽기 전용으로 조회합니다.
-        </p>
-      </section>
+    <main className="grid content-start gap-8 w-[min(100%,var(--content-width))] mx-auto px-5 pt-8 pb-16">
+      <PageIntroSection
+        id="broker-summary"
+        eyebrow="Broker"
+        title="계좌 원장"
+        description="한국투자증권 실전 계좌 원장을 읽기 전용으로 조회합니다."
+      />
 
-      <section className="doc-panel doc-panel-warn">
-        <p className="section-copy" style={{ marginTop: 0 }}>
+      <section className="p-5 bg-warning-soft/30 border border-warning/20 rounded-xl">
+        <p className="m-0 text-muted text-[0.9375rem] leading-relaxed">
           이 화면은 OpenForge 전략 기록이 아니라 한국투자증권 실전 계좌 원장입니다.
           HTS, MTS, 다른 프로그램에서 발생한 거래도 포함될 수 있습니다.
         </p>
       </section>
 
       {!status.liveConfigured ? (
-        <section className="doc-panel doc-panel-error">
-          <p className="section-copy" style={{ marginTop: 0 }}>
+        <section className="p-5 bg-error-soft/30 border border-error/20 rounded-xl">
+          <p className="m-0 text-muted text-[0.9375rem] leading-relaxed">
             실전 브로커 연결이 설정되지 않았습니다.{" "}
-            <Link href="/settings" className="table-link">
+            <Link href="/settings" className="font-semibold text-primary hover:text-primary-hover underline underline-offset-2 transition-colors">
               Settings
             </Link>
             에서 실전 계좌 연결을 먼저 완료하세요.
@@ -175,44 +179,45 @@ export function BrokerPageClient({
       ) : null}
 
       {error ? (
-        <section className="doc-panel doc-panel-error">
-          <p className="section-copy" style={{ marginTop: 0 }}>{error}</p>
+        <section className="p-5 bg-error-soft border border-error/20 rounded-xl">
+          <p className="m-0 text-error font-medium text-[0.9375rem]">{error}</p>
         </section>
       ) : null}
 
-      <div className="summary-grid summary-grid-columns-3">
-        <article className="metric-card metric-card-accent-primary">
-          <p className="metric-card-label">최신 주문/체결</p>
-          <p className="metric-card-value">{latestRun?.tradeCount ?? 0}</p>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 justify-start">
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-primary">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">최신 주문/체결</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{latestRun?.tradeCount ?? 0}</p>
+          <p className="m-0 text-muted text-[0.875rem]">가장 최근 성공 동기화 기준 거래 건수</p>
         </article>
-        <article className="metric-card metric-card-accent-info">
-          <p className="metric-card-label">최신 잔고 종목</p>
-          <p className="metric-card-value">{latestRun?.balanceCount ?? 0}</p>
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-info">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">최신 잔고 종목</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{latestRun?.balanceCount ?? 0}</p>
+          <p className="m-0 text-muted text-[0.875rem]">가장 최근 성공 동기화 기준 잔고 종목 수</p>
         </article>
-        <article className="metric-card metric-card-accent-secondary">
-          <p className="metric-card-label">최신 손익 항목</p>
-          <p className="metric-card-value">{latestRun?.profitCount ?? 0}</p>
+        <article className="grid gap-2.5 p-5 min-h-[138px] border border-border-soft rounded-xl bg-surface shadow-sm border-l-[3px] border-secondary">
+          <p className="m-0 text-subtle text-xs font-semibold tracking-wider uppercase">최신 손익 항목</p>
+          <p className="m-0 font-sans text-3xl leading-snug font-bold text-foreground">{latestRun?.profitCount ?? 0}</p>
+          <p className="m-0 text-muted text-[0.875rem]">가장 최근 성공 동기화 기준 손익 항목 수</p>
         </article>
       </div>
 
-      <section id="broker-sync" className="doc-panel">
-        <div className="flex-between">
-          <div>
-            <h2 className="section-title">수동 동기화</h2>
-            <p className="section-copy">
-              조회 기간과 시장을 선택해 계좌 원장을 DB에 적재합니다.
-            </p>
-          </div>
-          {activeRun ? (
+      <OperationsControlPanel
+        id="broker-sync"
+        title="수동 동기화"
+        description="조회 기간과 시장을 선택해 계좌 원장을 DB에 적재합니다."
+      >
+        {activeRun ? (
+          <div className="flex items-center gap-3 mb-4">
             <span className={runStatusChip[activeRun.status]}>
               {runStatusLabel[activeRun.status]}
             </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="form-row" style={{ marginTop: 16 }}>
-          <label className="form-field">
-            <span className="form-label">시작일</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <label className="grid gap-1.5 focus-within:text-primary">
+            <span className="text-subtle text-sm font-medium transition-colors">시작일</span>
             <input
               type="date"
               value={dateRange.startDate}
@@ -222,10 +227,11 @@ export function BrokerPageClient({
                   startDate: event.target.value,
                 }))
               }
+              className="w-full px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
             />
           </label>
-          <label className="form-field">
-            <span className="form-label">종료일</span>
+          <label className="grid gap-1.5 focus-within:text-primary">
+            <span className="text-subtle text-sm font-medium transition-colors">종료일</span>
             <input
               type="date"
               value={dateRange.endDate}
@@ -235,99 +241,93 @@ export function BrokerPageClient({
                   endDate: event.target.value,
                 }))
               }
+              className="w-full px-3 py-2 bg-surface text-foreground border border-border hover:border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-[0.9375rem] transition-all"
             />
           </label>
         </div>
 
-        <div className="filter-bar" style={{ marginTop: 16 }}>
-          <span className="form-label">시장 선택</span>
-          {(["domestic", "overseas"] as BrokerLedgerMarket[]).map((market) => (
-            <button
-              key={market}
-              type="button"
-              className={
-                selectedMarkets.includes(market)
-                  ? "status-chip status-chip-info"
-                  : "status-chip"
-              }
-              onClick={() => toggleMarket(market)}
-            >
-              {marketLabel[market]}
-            </button>
-          ))}
+        <div className="grid gap-2 mt-5">
+          <span className="text-subtle text-sm font-medium">시장 선택</span>
+          <div className="flex flex-wrap items-center gap-3">
+            {(["domestic", "overseas"] as BrokerLedgerMarket[]).map((market) => (
+              <button
+                key={market}
+                type="button"
+                className={`inline-flex items-center justify-center px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors ${selectedMarkets.includes(market) ? "bg-primary-soft text-primary border-primary/20" : "bg-surface text-muted border-border hover:border-gray-300 hover:text-foreground"}`}
+                onClick={() => toggleMarket(market)}
+              >
+                {marketLabel[market]}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="page-actions" style={{ marginTop: 16 }}>
+        <div className="flex flex-wrap items-center gap-3 mt-6 pt-5 border-t border-border-soft">
           <button
             type="button"
-            className="button-primary"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2 font-medium rounded-lg bg-primary text-white hover:bg-primary-hover shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
             onClick={handleStartSync}
             disabled={!status.liveConfigured || isSubmitting}
           >
             {isSubmitting ? "동기화 시작 중..." : "동기화 시작"}
           </button>
-          <Link href="/broker/ledger" className="button-secondary">
+          <Link href="/broker/ledger" className="inline-flex items-center justify-center px-4 py-2 font-medium rounded-lg bg-surface border border-border text-foreground hover:bg-[#fafafa] hover:border-gray-300 shadow-sm transition-all">
             원장 상세 보기
           </Link>
         </div>
 
         {activeRun ? (
-          <div className="detail-row" style={{ marginTop: 16 }}>
-            <span className="detail-label">현재 실행</span>
-            <span className="detail-value">
+          <div className="flex flex-wrap gap-2 items-center mt-5 p-3 rounded-lg bg-[#fafafa] border border-border-soft text-[0.9375rem]">
+            <span className="font-semibold text-muted">현재 실행</span>
+            <span className="text-foreground">
               {activeRun.startDate} ~ {activeRun.endDate} /{" "}
               {activeRun.markets.map((market) => marketLabel[market]).join(", ")}
             </span>
           </div>
         ) : null}
-      </section>
+      </OperationsControlPanel>
 
-      <section id="broker-sync-runs">
-        <div className="flex-between">
-          <div>
-            <h2 className="section-title">
-              동기화 이력
-              <span className="section-count">{runs.length}건</span>
-            </h2>
-            <p className="section-copy">
-              최신 동기화부터 순서대로 표시합니다. 원장 상세는 가장 최근 성공 run을 기본으로 사용합니다.
-            </p>
-          </div>
-        </div>
+      <section id="broker-sync-runs" className="grid gap-5">
+        <SectionHeaderBlock
+          title="동기화 이력"
+          count={`${runs.length}건`}
+          countStrong
+          description="최신 동기화부터 순서대로 표시합니다. 원장 상세는 가장 최근 성공 run을 기본으로 사용합니다."
+        />
 
         {runs.length === 0 ? (
-          <div className="empty-state empty-state-compact" style={{ marginTop: 16 }}>
-            <p className="empty-state-message">동기화 이력이 없습니다</p>
-            <p className="empty-state-hint">실전 계좌 원장 동기화를 한 번 실행해 주세요.</p>
+          <div className="grid justify-items-center p-12 px-6 border border-dashed border-border rounded-xl text-center bg-surface shadow-sm">
+            <p className="m-0 text-foreground font-semibold text-[1.0625rem]">동기화 이력이 없습니다</p>
+            <p className="m-0 text-muted max-w-sm text-sm">실전 계좌 원장 동기화를 한 번 실행해 주세요.</p>
           </div>
         ) : (
-          <div className="stack-list" style={{ marginTop: 16 }}>
+          <div className="grid gap-3">
             {runs.map((run) => (
-              <article key={run.id} className="list-card">
-                <div className="flex-between">
-                  <div className="flex-center">
+              <article key={run.id} className="p-5 bg-surface border border-border-soft rounded-xl shadow-sm hover:shadow hover:border-gray-300 transition-all group">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className={runStatusChip[run.status]}>
                       {runStatusLabel[run.status]}
                     </span>
-                    <span className="text-muted">
+                    <span className="text-muted font-mono text-[0.9375rem]">
                       {run.startDate} ~ {run.endDate}
                     </span>
-                    <span className="text-subtle">
+                    <span className="text-subtle text-[0.9375rem]">
                       {run.markets.map((market) => marketLabel[market]).join(", ")}
                     </span>
                   </div>
-                  <span className="text-subtle" style={{ fontSize: "0.8125rem" }}>
+                  <span className="text-muted text-[0.8125rem]">
                     {formatDateTime(run.completedAt ?? run.startedAt ?? run.requestedAt)}
                   </span>
                 </div>
-                <div className="detail-row" style={{ marginTop: 12 }}>
-                  <span className="detail-label">건수</span>
-                  <span className="detail-value">
-                    거래 {run.tradeCount} / 잔고 {run.balanceCount} / 손익 {run.profitCount}
+                <div className="flex items-center gap-2 mt-4 text-[0.9375rem]">
+                  <span className="font-semibold text-subtle">건수</span>
+                  <span className="text-foreground">
+                    거래 <span className="font-mono">{run.tradeCount}</span> / 잔고 <span className="font-mono">{run.balanceCount}</span> / 손익 <span className="font-mono">{run.profitCount}</span>
                   </span>
                 </div>
                 {run.errorMessage ? (
-                  <p className="section-copy text-error" style={{ marginTop: 8 }}>
+                  <p className="m-0 mt-3 p-3 bg-error-soft text-error text-[0.9375rem] rounded-md">
                     {run.errorMessage}
                   </p>
                 ) : null}

@@ -21,7 +21,18 @@
 - 기본 포트는 API `8080`, Web `3000`이다.
 - `API_BASE_URL`, `WEB_ORIGIN`은 포트 기반 기본값을 덮어쓸 때만 사용한다.
 
+## Windows PowerShell 실행
+
+- `.env` 생성: `Copy-Item .env.example .env`
+- DB 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-db`
+- API 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-api`
+- Web 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-web`
+- API/Web 동시 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-all`
+- `pnpm ps:dev-db`, `pnpm ps:dev:api`, `pnpm ps:dev:web`, `pnpm ps:check`, `pnpm ps:smoke` 별칭도 사용할 수 있다.
+
 ## 검증
 
 - 전체 체크: `make check`
 - 스모크: API와 Web이 떠 있는 상태에서 `make smoke`
+- Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 check`
+- Windows 스모크: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 smoke`

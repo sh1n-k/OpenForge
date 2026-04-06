@@ -34,7 +34,7 @@ export function AppShell({
           .join(" ")}
       >
         {children}
-        {showToc ? <PageToc sections={sections} /> : null}
+        {showToc ? <PageToc key={pathname} sections={sections} /> : null}
       </div>
     </div>
   );

@@ -9,9 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import tools.jackson.databind.ObjectMapper
-import java.math.BigDecimal
 import java.sql.Timestamp
-import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
@@ -465,19 +463,16 @@ class BrokerLedgerService(
         return request.copy(markets = markets, overseasExchanges = exchanges)
     }
 
-    private fun marketsToStorage(markets: Set<BrokerLedgerMarket>): String =
-        markets.map { it.value }.sorted().joinToString(",")
+    private fun marketsToStorage(markets: Set<BrokerLedgerMarket>): String = markets.map { it.value }.sorted().joinToString(",")
 
-    private fun overseasExchangesToStorage(exchanges: Set<BrokerLedgerOverseasExchange>): String =
-        exchanges.map { it.value }.sorted().joinToString(",")
+    private fun overseasExchangesToStorage(exchanges: Set<BrokerLedgerOverseasExchange>): String = exchanges.map { it.value }.sorted().joinToString(",")
 
     private fun parseMarkets(value: String?): List<BrokerLedgerMarket> =
         value
             ?.split(',')
             ?.mapNotNull { token ->
                 token.trim().takeIf { it.isNotEmpty() }?.let { BrokerLedgerMarket.fromValue(it) }
-            }
-            ?.ifEmpty { listOf(BrokerLedgerMarket.DOMESTIC, BrokerLedgerMarket.OVERSEAS) }
+            }?.ifEmpty { listOf(BrokerLedgerMarket.DOMESTIC, BrokerLedgerMarket.OVERSEAS) }
             ?: emptyList()
 
     private fun parseExchanges(value: String?): List<BrokerLedgerOverseasExchange> =
