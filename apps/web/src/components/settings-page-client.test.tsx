@@ -66,7 +66,7 @@ describe("SettingsPageClient", () => {
 
     expect(screen.getAllByText("브로커 연결").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("모의투자").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("실전투자")).toBeInTheDocument();
+    expect(screen.getAllByText("실전투자").length).toBeGreaterThanOrEqual(1);
     expect(
       screen.getByText(/현재 시스템은 모의투자 기준으로 동작합니다/),
     ).toBeInTheDocument();
@@ -77,7 +77,12 @@ describe("SettingsPageClient", () => {
       <SettingsPageClient
         systemBroker={{
           ...systemBrokerFixture,
-          currentSystemMode: "paper",
+          currentSystemMode: "live",
+          paper: {
+            ...systemBrokerFixture.paper,
+            isConfigured: false,
+            lastConnectionTestStatus: null,
+          },
           live: {
             ...systemBrokerFixture.live,
             isConfigured: true,
@@ -92,7 +97,7 @@ describe("SettingsPageClient", () => {
     );
 
     const currentModeCard = screen.getByText("현재 모드").closest("article");
-    const brokerConnectionCard = screen.getByText("브로커 연결").closest("article");
+    const brokerConnectionCard = screen.getAllByText("브로커 연결")[0].closest("article");
 
     expect(currentModeCard).not.toBeNull();
     expect(brokerConnectionCard).not.toBeNull();
@@ -100,13 +105,13 @@ describe("SettingsPageClient", () => {
     const currentMode = within(currentModeCard as HTMLElement);
     const brokerConnection = within(brokerConnectionCard as HTMLElement);
 
-    expect(currentMode.getByText("모의투자")).toBeInTheDocument();
-    expect(brokerConnection.getByText("미설정")).toBeInTheDocument();
+    expect(currentMode.getByText("실전투자")).toBeInTheDocument();
+    expect(brokerConnection.getByText("연결 준비")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "실전투자" }));
+    fireEvent.click(screen.getByRole("button", { name: "모의투자" }));
 
-    expect(currentMode.getByText("모의투자")).toBeInTheDocument();
-    expect(brokerConnection.getByText("미설정")).toBeInTheDocument();
+    expect(currentMode.getByText("실전투자")).toBeInTheDocument();
+    expect(brokerConnection.getByText("연결 준비")).toBeInTheDocument();
   });
 
   it("renders kill switch section with inactive state", () => {

@@ -186,12 +186,69 @@ describe("StrategyEditorClient", () => {
       expect(apiModule.validateStrategy).toHaveBeenCalled();
     });
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("validation service unavailable"),
-      ).toBeInTheDocument();
-    });
+    expect(screen.getAllByText("validation service unavailable").length).toBeGreaterThanOrEqual(1);
 
     expect(screen.getAllByText("검증 오류").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows pending state before validation finishes and then switches to failure", async () => {
+    vi.spyOn(apiModule, "validateStrategy").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              valid: false,
+              normalizedSpec: null,
+              yamlPreview: "",
+              errors: [],
+              warnings: [],
+              summary: "Validation failed",
+            });
+          }, 10);
+        }),
+    );
+
+    render(
+      <StrategyEditorClient
+        strategy={{
+          id: "strategy-4",
+          name: "Pending Draft",
+          description: "draft",
+          strategyType: "builder",
+          status: "draft",
+          latestVersionId: "version-4",
+          latestVersionNumber: 1,
+          versionCount: 1,
+          universeCount: 0,
+          latestValidationStatus: "invalid",
+          latestValidationErrors: [],
+          latestValidationWarnings: [],
+          latestVersion: {
+            id: "version-4",
+            versionNumber: 1,
+            payloadFormat: "builder_json",
+            payload: {},
+            validationStatus: "invalid",
+            validationErrors: [],
+            validationWarnings: [],
+            changeSummary: "initial",
+            createdAt: "2026-03-31T22:30:00+09:00",
+          },
+          universes: [],
+          createdAt: "2026-03-31T22:30:00+09:00",
+          updatedAt: "2026-03-31T22:30:00+09:00",
+        }}
+      />,
+    );
+
+    expect(screen.getAllByText("검증 대기").length).toBeGreaterThanOrEqual(1);
+
+    await waitFor(() => {
+      expect(apiModule.validateStrategy).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText("검증 실패").length).toBeGreaterThanOrEqual(1);
+    });
   });
 });

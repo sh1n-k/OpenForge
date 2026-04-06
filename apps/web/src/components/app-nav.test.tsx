@@ -1,13 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppNav } from "@/components/app-nav";
+import { systemBrokerStatusUpdatedEvent } from "@/lib/system-status-events";
 
 const push = vi.fn();
 const { loadSystemBrokerStatus } = vi.hoisted(() => ({
   loadSystemBrokerStatus: vi.fn(),
 }));
-const SYSTEM_STATUS_REFRESH_EVENT = "openforge:system-status-refresh";
-
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push,
@@ -157,7 +156,7 @@ describe("AppNav", () => {
       expect(loadSystemBrokerStatus).toHaveBeenCalledTimes(1);
     });
 
-    window.dispatchEvent(new CustomEvent(SYSTEM_STATUS_REFRESH_EVENT));
+    window.dispatchEvent(new CustomEvent(systemBrokerStatusUpdatedEvent));
 
     await waitFor(() => {
       expect(loadSystemBrokerStatus).toHaveBeenCalledTimes(2);
