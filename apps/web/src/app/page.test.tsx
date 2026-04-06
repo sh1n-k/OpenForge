@@ -55,7 +55,7 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("2").length).toBeGreaterThanOrEqual(1); // runningStrategyCount
     expect(screen.getAllByText("5").length).toBeGreaterThanOrEqual(1); // todayOrderCount
     expect(screen.getByText("Test Strategy")).toBeInTheDocument();
-    expect(screen.getByText("자동매매 가동 중")).toBeInTheDocument();
+    expect(screen.getAllByText("신규 주문 차단 중").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows kill switch as stopped when disabled", async () => {
@@ -70,7 +70,7 @@ describe("DashboardPage", () => {
 
     render(await DashboardPage());
 
-    expect(screen.getByText("자동매매 중지됨")).toBeInTheDocument();
+    expect(screen.getAllByText("정상 운영 중").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows empty state messages when no data", async () => {

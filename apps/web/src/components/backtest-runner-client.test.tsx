@@ -46,6 +46,8 @@ describe("BacktestRunnerClient", () => {
       expect(apiModule.loadMarketCoverage).toHaveBeenCalled();
     });
 
+    expect(screen.getByText("실행 보류")).toBeInTheDocument();
+    expect(screen.getByText("유니버스 연결")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "백테스트 실행",
@@ -87,10 +89,13 @@ describe("BacktestRunnerClient", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("미국 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다."),
+        screen.getByText("해외 유니버스가 연결되어 있어 이 화면에서는 백테스트를 실행할 수 없습니다."),
       ).toBeInTheDocument();
     });
 
+    expect(screen.getByText("실행 보류")).toBeInTheDocument();
+    expect(screen.getByText("유니버스 연결")).toBeInTheDocument();
+    expect(screen.getByText("2개 종목")).toBeInTheDocument();
     expect(coverageSpy).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {

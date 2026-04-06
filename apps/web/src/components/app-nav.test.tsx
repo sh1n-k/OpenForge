@@ -1,9 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppNav } from "@/components/app-nav";
+import { systemBrokerStatusUpdatedEvent } from "@/lib/system-status-events";
 
 const push = vi.fn();
-
+const { loadSystemBrokerStatus } = vi.hoisted(() => ({
+  loadSystemBrokerStatus: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push,
@@ -12,17 +15,19 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/api", () => ({
   logout: vi.fn().mockResolvedValue(undefined),
-  loadSystemBrokerStatus: vi.fn().mockResolvedValue({
-    currentSystemMode: "paper",
-    paper: { lastConnectionTestStatus: "success" },
-    live: { lastConnectionTestStatus: null },
-    isCurrentModeConfigured: true,
-  }),
+  loadSystemBrokerStatus,
 }));
 
 describe("AppNav", () => {
   beforeEach(() => {
     push.mockReset();
+    loadSystemBrokerStatus.mockReset();
+    loadSystemBrokerStatus.mockResolvedValue({
+      currentSystemMode: "paper",
+      paper: { lastConnectionTestStatus: "success" },
+      live: { lastConnectionTestStatus: null },
+      isCurrentModeConfigured: true,
+    });
   });
 
   it("marks the current primary route", () => {
@@ -32,7 +37,7 @@ describe("AppNav", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: /Strategies/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /전략/ })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -60,12 +65,12 @@ describe("AppNav", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("섹션 또는 페이지 검색"), {
-      target: { value: "Broker" },
+    fireEvent.change(screen.getByPlaceholderText("페이지 필터"), {
+      target: { value: "브로커" },
     });
 
-    expect(screen.getByText("Broker")).toBeInTheDocument();
-    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+    expect(screen.getByText("브로커")).toBeInTheDocument();
+    expect(screen.queryByText("대시보드")).not.toBeInTheDocument();
   });
 
   it("opens the command palette with the keyboard shortcut", () => {
@@ -78,7 +83,7 @@ describe("AppNav", () => {
     fireEvent.keyDown(window, { key: "k", metaKey: true });
 
     expect(screen.getByRole("dialog", { name: "명령 팔레트" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("페이지, 액션, 섹션 검색")).toHaveFocus();
+    expect(screen.getByPlaceholderText("페이지, 작업, 섹션 검색")).toHaveFocus();
   });
 
   it("opens and closes the docs mobile drawer", () => {
@@ -103,13 +108,13 @@ describe("AppNav", () => {
     );
 
     // Context commands should appear in the sidebar
-    expect(screen.getByText("Strategy Detail")).toBeInTheDocument();
-    expect(screen.getByText("Strategy Editor")).toBeInTheDocument();
-    expect(screen.getByText("Backtest Runner")).toBeInTheDocument();
+    expect(screen.getByText("전략 상세")).toBeInTheDocument();
+    expect(screen.getByText("전략 편집")).toBeInTheDocument();
+    expect(screen.getByText("백테스트 실행")).toBeInTheDocument();
 
     // Navigate via command palette
-    fireEvent.click(screen.getByRole("button", { name: /검색/i }));
-    fireEvent.click(screen.getByRole("option", { name: /Strategy Editor/ }));
+    fireEvent.click(screen.getByRole("button", { name: /빠른 이동/i }));
+    fireEvent.click(screen.getByRole("option", { name: /전략 편집/ }));
 
     expect(push).toHaveBeenCalledWith("/strategies/strategy-1/edit");
   });
@@ -138,5 +143,23 @@ describe("AppNav", () => {
       .find((link) => link.getAttribute("href") === "/settings");
 
     expect(settingsLink).toBeDefined();
+  });
+
+  it("reloads broker status after a system status update event", async () => {
+    render(
+      <AppNav
+        pathname="/settings"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(loadSystemBrokerStatus).toHaveBeenCalledTimes(1);
+    });
+
+    window.dispatchEvent(new CustomEvent(systemBrokerStatusUpdatedEvent));
+
+    await waitFor(() => {
+      expect(loadSystemBrokerStatus).toHaveBeenCalledTimes(2);
+    });
   });
 });

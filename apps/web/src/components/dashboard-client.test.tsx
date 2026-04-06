@@ -74,8 +74,8 @@ describe("DashboardClient", () => {
       <DashboardClient dashboard={dashboardFixture} systemRisk={systemRiskActive} />,
     );
 
-    expect(screen.getByText("자동매매 가동 중")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "전체 중지" })).toBeInTheDocument();
+    expect(screen.getAllByText("신규 주문 차단 중").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "차단 해제" })).toBeInTheDocument();
   });
 
   it("should_show_kill_switch_stopped_label_when_disabled", () => {
@@ -86,8 +86,8 @@ describe("DashboardClient", () => {
       />,
     );
 
-    expect(screen.getByText("자동매매 중지됨")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "가동 시작" })).toBeInTheDocument();
+    expect(screen.getAllByText("정상 운영 중").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("button", { name: "신규 주문 차단" })).toBeInTheDocument();
   });
 
   it("should_show_empty_strategy_message_when_no_strategies", () => {

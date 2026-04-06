@@ -23,7 +23,7 @@ dev-api:
 	cd apps/api && $(ROOT_ENV) && export API_PORT="$${API_PORT:-$${SERVER_PORT:-8080}}" SERVER_PORT="$${API_PORT}" WEB_PORT="$${WEB_PORT:-3000}" WEB_ORIGIN="$${WEB_ORIGIN:-http://127.0.0.1:$${WEB_PORT}}" && ./gradlew --no-daemon bootRun
 
 dev-web:
-	cd apps/web && $(ROOT_ENV) && export WEB_PORT="$${WEB_PORT:-$${PORT:-3000}}" PORT="$${WEB_PORT}" API_PORT="$${API_PORT:-8080}" API_BASE_URL="$${API_BASE_URL:-http://127.0.0.1:$${API_PORT}}" WEB_ORIGIN="$${WEB_ORIGIN:-http://127.0.0.1:$${WEB_PORT}}" && pnpm dev
+	cd apps/web && $(ROOT_ENV) && export WEB_PORT="$${WEB_PORT:-$${PORT:-3000}}" PORT="$${WEB_PORT}" API_PORT="$${API_PORT:-8080}" API_BASE_URL="$${API_BASE_URL:-http://127.0.0.1:$${API_PORT}}" NEXT_PUBLIC_API_BASE_URL="$${NEXT_PUBLIC_API_BASE_URL:-$${API_BASE_URL}}" WEB_ORIGIN="$${WEB_ORIGIN:-http://127.0.0.1:$${WEB_PORT}}" && pnpm dev
 
 check:
 	cd apps/api && $(ROOT_ENV) && ./gradlew test spotlessCheck
