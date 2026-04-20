@@ -15,3 +15,9 @@ apps/api/.gradle/
 apps/api/build/
 apps/api/out/
 .artifacts/
+.pnpm-store/
+.playwright-cli/
+.playwright-mcp/
+lnb-current.png
+output/
+
