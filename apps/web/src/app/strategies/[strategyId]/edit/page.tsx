@@ -1,4 +1,4 @@
-import { StrategyEditorClient } from "@/components/strategy-editor-client";
+import { StrategyEditorClient } from "@/components/strategies/strategy-editor-client";
 import { loadStrategy } from "@/lib/api";
 
 type StrategyEditorPageProps = {

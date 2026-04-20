@@ -1,4 +1,4 @@
-import { StrategyDetailClient } from "@/components/strategy-detail-client";
+import { StrategyDetailClient } from "@/components/strategies/strategy-detail-client";
 import {
   loadStrategyOrderCandidates,
   loadStrategyOrderStatusEvents,

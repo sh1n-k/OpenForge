@@ -1,4 +1,4 @@
-import { BacktestResultClient } from "@/components/backtest-result-client";
+import { BacktestResultClient } from "@/components/backtest/backtest-result-client";
 import { loadBacktest } from "@/lib/api";
 
 type BacktestResultPageProps = {

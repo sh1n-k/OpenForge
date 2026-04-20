@@ -1,4 +1,4 @@
-import { UniversesPageClient } from "@/components/universes-page-client";
+import { UniversesPageClient } from "@/components/universes/universes-page-client";
 import { loadUniverses } from "@/lib/api";
 
 export default async function UniversesPage() {

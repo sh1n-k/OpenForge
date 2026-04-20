@@ -1,4 +1,4 @@
-import { DashboardClient } from "@/components/dashboard-client";
+import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import { loadDashboard, loadSystemRisk } from "@/lib/api";
 
 export default async function DashboardPage() {

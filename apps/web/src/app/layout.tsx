@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Fira_Code, Inter, Plus_Jakarta_Sans } from "next/font/google";
-import { AppShell } from "@/components/app-shell";
+import { AppShell } from "@/components/shell/app-shell";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({

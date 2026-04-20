@@ -1,4 +1,4 @@
-import { BrokerLedgerPageClient } from "@/components/broker-ledger-page-client";
+import { BrokerLedgerPageClient } from "@/components/broker/broker-ledger-page-client";
 import {
   loadBrokerLedgerBalances,
   loadBrokerLedgerProfits,

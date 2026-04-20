@@ -1,4 +1,4 @@
-import { SettingsPageClient } from "@/components/settings-page-client";
+import { SettingsPageClient } from "@/components/settings/settings-page-client";
 import {
   loadSystemBrokerStatus,
   loadSystemBrokerEvents,

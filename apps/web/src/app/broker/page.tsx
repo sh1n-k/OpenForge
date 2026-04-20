@@ -1,4 +1,4 @@
-import { BrokerPageClient } from "@/components/broker-page-client";
+import { BrokerPageClient } from "@/components/broker/broker-page-client";
 import { loadBrokerLedgerStatus, loadBrokerLedgerSyncRuns } from "@/lib/api";
 
 export default async function BrokerPage() {
