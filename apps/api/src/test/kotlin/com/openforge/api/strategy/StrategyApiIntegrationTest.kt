@@ -97,6 +97,164 @@ class StrategyApiIntegrationTest : PostgresIntegrationTestSupport() {
     }
 
     @Test
+    fun `rejects duplicate indicator aliases in builder payload`() {
+        val payload = validBuilderPayload("Alias Guard", "duplicate alias").toMutableMap<String, Any?>()
+        val builderState = (payload["builderState"] as Map<*, *>).entries.associate { it.key.toString() to it.value }.toMutableMap()
+        builderState["indicators"] =
+            listOf(
+                mapOf(
+                    "indicatorId" to "sma",
+                    "alias" to "dup",
+                    "params" to mapOf("period" to 5),
+                    "output" to "value",
+                ),
+                mapOf(
+                    "indicatorId" to "ema",
+                    "alias" to "dup",
+                    "params" to mapOf("period" to 8),
+                    "output" to "value",
+                ),
+            )
+        payload["builderState"] = builderState
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/validate")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "strategyType" to "builder",
+                                "payloadFormat" to "builder_json",
+                                "payload" to payload,
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.valid").value(false))
+            .andExpect(jsonPath("$.errors[0].message").value(org.hamcrest.Matchers.containsString("must be unique")))
+    }
+
+    @Test
+    fun `rejects invalid risk percentages and non integer indicator params`() {
+        val payload = validBuilderPayload("Risk Guard", "bad risk").toMutableMap<String, Any?>()
+        val builderState = (payload["builderState"] as Map<*, *>).entries.associate { it.key.toString() to it.value }.toMutableMap()
+        builderState["indicators"] =
+            listOf(
+                mapOf(
+                    "indicatorId" to "sma",
+                    "alias" to "sma_fast",
+                    "params" to mapOf("period" to 5.5),
+                    "output" to "value",
+                ),
+            )
+        builderState["risk"] =
+            mapOf(
+                "stopLoss" to mapOf("enabled" to true, "percent" to -1),
+                "takeProfit" to mapOf("enabled" to true, "percent" to 101),
+                "trailingStop" to mapOf("enabled" to true, "percent" to 25),
+            )
+        payload["builderState"] = builderState
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/validate")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "strategyType" to "builder",
+                                "payloadFormat" to "builder_json",
+                                "payload" to payload,
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.valid").value(false))
+            .andExpect(jsonPath("$.errors", hasSize<Any>(3)))
+    }
+
+    @Test
+    fun `accepts risk percent boundary values`() {
+        val payload = validBuilderPayload("Risk Boundary", "risk edge").toMutableMap<String, Any?>()
+        val builderState = (payload["builderState"] as Map<*, *>).entries.associate { it.key.toString() to it.value }.toMutableMap()
+        builderState["risk"] =
+            mapOf(
+                "stopLoss" to mapOf("enabled" to true, "percent" to 0),
+                "takeProfit" to mapOf("enabled" to true, "percent" to 100),
+                "trailingStop" to mapOf("enabled" to true, "percent" to 50),
+            )
+        payload["builderState"] = builderState
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/validate")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "strategyType" to "builder",
+                                "payloadFormat" to "builder_json",
+                                "payload" to payload,
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.valid").value(true))
+    }
+
+    @Test
+    fun `rejects invalid risk percentages in yaml payload`() {
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/validate")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "strategyType" to "code",
+                                "payloadFormat" to "code_text",
+                                "payload" to
+                                    mapOf(
+                                        "sourceKind" to "openforge_yaml",
+                                        "source" to
+                                            """
+                                            version: "1.0"
+                                            metadata:
+                                              name: YAML Risk Guard
+                                            strategy:
+                                              id: yaml_risk_guard
+                                              category: custom
+                                              indicators:
+                                                - id: sma
+                                                  alias: sma_fast
+                                                  params:
+                                                    period: 5
+                                                  output: value
+                                              entry:
+                                                logic: AND
+                                                conditions: []
+                                              exit:
+                                                logic: AND
+                                                conditions: []
+                                            risk:
+                                              stop_loss:
+                                                enabled: true
+                                                percent: -1
+                                              take_profit:
+                                                enabled: true
+                                                percent: 101
+                                            """.trimIndent(),
+                                    ),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.valid").value(false))
+            .andExpect(jsonPath("$.errors", hasSize<Any>(2)))
+    }
+
+    @Test
     fun `archives strategy instead of deleting it`() {
         val strategyId =
             mockMvc

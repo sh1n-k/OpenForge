@@ -257,6 +257,11 @@ data class OrderStatusEventResponse(
     val payload: Map<String, Any?>,
 )
 
+data class OrderRequestWithEventsResponse(
+    val orderRequest: OrderRequestResponse,
+    val statusEvents: List<OrderStatusEventResponse>,
+)
+
 data class OrderFillResponse(
     val id: UUID,
     val orderRequestId: UUID,

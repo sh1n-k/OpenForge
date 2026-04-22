@@ -4,6 +4,7 @@ import type {
   OrderCandidate,
   OrderFill,
   OrderRequest,
+  OrderRequestWithEvents,
   OrderStatusEvent,
   StrategyDetail,
   StrategyExecutionResponse,
@@ -204,6 +205,19 @@ export async function loadStrategyOrderRequests(
   params.set("limit", String(limit));
   return apiFetch<OrderRequest[]>(
     `/api/v1/strategies/${strategyId}/orders/requests?${params.toString()}`,
+  );
+}
+
+export async function loadStrategyOrderRequestsWithEvents(
+  strategyId: string,
+  limit = 20,
+  eventLimit = 50,
+) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  params.set("eventLimit", String(eventLimit));
+  return apiFetch<OrderRequestWithEvents[]>(
+    `/api/v1/strategies/${strategyId}/orders/requests-with-events?${params.toString()}`,
   );
 }
 

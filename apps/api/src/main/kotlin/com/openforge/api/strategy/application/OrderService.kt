@@ -5,6 +5,7 @@ import com.openforge.api.strategy.domain.OrderRequestStatus
 import com.openforge.api.strategy.domain.OrderSide
 import com.openforge.api.strategy.domain.OrderType
 import com.openforge.api.strategy.domain.StrategyEntity
+import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyExecutionRunRepository
 import com.openforge.api.strategy.domain.StrategyOrderRequestEntity
 import com.openforge.api.strategy.domain.StrategyOrderRequestRepository
@@ -12,7 +13,6 @@ import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategySignalEventEntity
 import com.openforge.api.strategy.domain.StrategySignalEventRepository
 import com.openforge.api.strategy.domain.StrategySignalType
-import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.web.CreateOrderRequest
 import com.openforge.api.strategy.web.OrderCandidateResponse
 import com.openforge.api.strategy.web.OrderPrecheckResponse
@@ -36,6 +36,7 @@ import java.util.UUID
 @Transactional
 class OrderService(
     private val strategyRepository: StrategyRepository,
+    private val strategyExecutionConfigRepository: StrategyExecutionConfigRepository,
     private val signalEventRepository: StrategySignalEventRepository,
     private val executionRunRepository: StrategyExecutionRunRepository,
     private val orderRequestRepository: StrategyOrderRequestRepository,
@@ -50,6 +51,7 @@ class OrderService(
         limit: Int,
     ): List<OrderCandidateResponse> {
         val strategy = getActiveStrategy(strategyId)
+        val executionEnabled = isExecutionEnabled(strategy.id)
         val signals =
             signalEventRepository.findAllByStrategyIdOrderByCreatedAtDesc(
                 strategy.id,
@@ -75,7 +77,7 @@ class OrderService(
             val alreadyRequested = existingKeys.containsKey(candidateKey(signal.id, side, mode))
             val precheck =
                 orderPrecheckService.precheck(
-                    strategy = strategy,
+                    executionEnabled = executionEnabled,
                     mode = mode,
                     quantity = quantity,
                     price = price,
@@ -116,19 +118,9 @@ class OrderService(
         limit: Int,
     ): List<OrderRequestResponse> {
         getActiveStrategy(strategyId)
-        return orderRequestRepository
-            .findAllByStrategyIdOrderByRequestedAtDesc(
-                strategyId,
-                PageRequest.of(0, normalizeLimit(limit, 20)),
-            ).map { entity ->
-                val symbol =
-                    signalEventRepository
-                        .findById(entity.signalEventId)
-                        .orElseThrow {
-                            ResponseStatusException(HttpStatus.NOT_FOUND, "Signal event not found: ${entity.signalEventId}")
-                        }.symbol
-                orderTrackingService.toOrderRequestResponse(entity, symbol)
-            }
+        return orderTrackingService
+            .listOrderRequestsWithEvents(strategyId, limit, 1)
+            .map { it.orderRequest }
     }
 
     fun createOrderRequest(
@@ -167,7 +159,7 @@ class OrderService(
         val requestedAt = marketTimeProvider.now()
         val precheck =
             orderPrecheckService.precheck(
-                strategy = strategy,
+                executionEnabled = isExecutionEnabled(strategy.id),
                 mode = request.mode,
                 quantity = quantity,
                 price = price,
@@ -263,6 +255,8 @@ class OrderService(
         mode: OrderMode,
     ): String = "$signalEventId:${side.value}:${mode.value}"
 
+    private fun isExecutionEnabled(strategyId: UUID): Boolean = strategyExecutionConfigRepository.findById(strategyId).orElse(null)?.enabled == true
+
     private fun normalizeLimit(
         value: Int,
         defaultValue: Int,
@@ -277,7 +271,7 @@ class OrderService(
 @Service
 class OrderPrecheckService {
     fun precheck(
-        strategy: StrategyEntity,
+        executionEnabled: Boolean,
         mode: OrderMode,
         quantity: Long,
         price: BigDecimal?,
@@ -285,7 +279,7 @@ class OrderPrecheckService {
         alreadyRequested: Boolean,
     ): OrderPrecheckResponse {
         val marketHours = isMarketHours(referenceTime)
-        val strategyStatus = strategy.status == StrategyStatus.RUNNING
+        val strategyStatus = executionEnabled
         val duplicateOrder = alreadyRequested
         val quantityValid = quantity > 0
         val priceValid = price != null && price > BigDecimal.ZERO

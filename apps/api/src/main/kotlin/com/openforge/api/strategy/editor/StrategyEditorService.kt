@@ -244,8 +244,13 @@ class StrategyEditorService {
         indicatorsRaw.forEachIndexed { index, rawIndicator ->
             val normalizedIndicator = normalizeBuilderIndicator(rawIndicator, index, errors)
             if (normalizedIndicator != null) {
+                val alias = normalizedIndicator["alias"] as String
+                if (indicatorOutputsByAlias.containsKey(alias)) {
+                    errors += error("schema", "Indicator alias '$alias' must be unique")
+                    return@forEachIndexed
+                }
                 normalizedIndicators += normalizedIndicator
-                indicatorOutputsByAlias[normalizedIndicator["alias"] as String] =
+                indicatorOutputsByAlias[alias] =
                     indicators[normalizedIndicator["id"] as String]?.outputs.orEmpty()
             }
         }
@@ -326,15 +331,20 @@ class StrategyEditorService {
         listValue(strategy["indicators"]).orEmpty().forEachIndexed { index, rawIndicator ->
             val normalizedIndicator = normalizeYamlIndicator(rawIndicator, index, errors)
             if (normalizedIndicator != null) {
+                val alias = normalizedIndicator["alias"] as String
+                if (indicatorOutputsByAlias.containsKey(alias)) {
+                    errors += error("schema", "Indicator alias '$alias' must be unique")
+                    return@forEachIndexed
+                }
                 normalizedIndicators += normalizedIndicator
-                indicatorOutputsByAlias[normalizedIndicator["alias"] as String] =
+                indicatorOutputsByAlias[alias] =
                     indicators[normalizedIndicator["id"] as String]?.outputs.orEmpty()
             }
         }
 
         val entry = normalizeYamlConditionGroup(strategy["entry"], "entry", indicatorOutputsByAlias, errors, warnings)
         val exit = normalizeYamlConditionGroup(strategy["exit"], "exit", indicatorOutputsByAlias, errors, warnings)
-        val risk = normalizeYamlRisk(rawSpec["risk"], warnings)
+        val risk = normalizeYamlRisk(rawSpec["risk"], errors, warnings)
 
         if (errors.isNotEmpty() || entry == null || exit == null) {
             return null
@@ -452,11 +462,13 @@ class StrategyEditorService {
 
         definition.defaults.forEach { (key, defaultValue) ->
             val candidate = params[key] ?: defaultValue
-            val number = asNumber(candidate)
+            val number = asWholeNumber(candidate)
             if (number == null) {
-                errors += error("schema", "Indicator parameter '$key' for $indicatorId must be numeric")
+                errors += error("schema", "Indicator parameter '$key' for $indicatorId must be a whole number")
+            } else if (number <= 0) {
+                errors += error("schema", "Indicator parameter '$key' for $indicatorId must be greater than zero")
             } else {
-                normalized[key] = number.toInt()
+                normalized[key] = number
             }
         }
 
@@ -629,6 +641,7 @@ class StrategyEditorService {
 
     private fun normalizeYamlRisk(
         rawRisk: Any?,
+        errors: MutableList<StrategyValidationMessage>,
         warnings: MutableList<StrategyValidationMessage>,
     ): Map<String, Any?> {
         if (rawRisk == null) {
@@ -637,9 +650,9 @@ class StrategyEditorService {
         }
         val risk = mapValue(rawRisk).orEmpty()
         return linkedMapOf(
-            "stop_loss" to normalizeYamlRiskItem(risk["stop_loss"]),
-            "take_profit" to normalizeYamlRiskItem(risk["take_profit"]),
-            "trailing_stop" to normalizeYamlRiskItem(risk["trailing_stop"]),
+            "stop_loss" to normalizeYamlRiskItem(risk["stop_loss"], "risk.stop_loss.percent", errors),
+            "take_profit" to normalizeYamlRiskItem(risk["take_profit"], "risk.take_profit.percent", errors),
+            "trailing_stop" to normalizeYamlRiskItem(risk["trailing_stop"], "risk.trailing_stop.percent", errors),
         )
     }
 
@@ -650,19 +663,20 @@ class StrategyEditorService {
     ): Map<String, Any?> {
         val item = mapValue(rawItem).orEmpty()
         val percent =
-            asNumber(item["percent"] ?: 0) ?: run {
-                errors += error("schema", "$label.percent must be numeric")
-                0
-            }
+            validateRiskPercent(item["percent"] ?: 0, "$label.percent", errors)
         return linkedMapOf(
             "enabled" to ((item["enabled"] as? Boolean) ?: false),
             "percent" to percent,
         )
     }
 
-    private fun normalizeYamlRiskItem(rawItem: Any?): Map<String, Any?> {
+    private fun normalizeYamlRiskItem(
+        rawItem: Any?,
+        label: String,
+        errors: MutableList<StrategyValidationMessage>,
+    ): Map<String, Any?> {
         val item = mapValue(rawItem).orEmpty()
-        val percent = asNumber(item["percent"] ?: 0) ?: 0
+        val percent = validateRiskPercent(item["percent"] ?: 0, label, errors)
         return linkedMapOf(
             "enabled" to ((item["enabled"] as? Boolean) ?: false),
             "percent" to percent,
@@ -724,6 +738,35 @@ class StrategyEditorService {
             is String -> value.toDoubleOrNull()
             else -> null
         }
+
+    private fun asWholeNumber(value: Any?): Int? =
+        when (value) {
+            is Byte,
+            is Short,
+            is Int,
+            is Long,
+            -> (value as Number).toInt()
+
+            is String -> value.toIntOrNull()
+            else -> null
+        }
+
+    private fun validateRiskPercent(
+        value: Any?,
+        label: String,
+        errors: MutableList<StrategyValidationMessage>,
+    ): Number {
+        val percent =
+            asNumber(value) ?: run {
+                errors += error("schema", "$label must be numeric")
+                return 0
+            }
+        val normalized = percent.toDouble()
+        if (normalized < 0.0 || normalized > 100.0) {
+            errors += error("schema", "$label must be between 0 and 100")
+        }
+        return normalized
+    }
 
     private fun error(
         category: String,

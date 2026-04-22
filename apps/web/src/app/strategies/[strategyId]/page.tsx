@@ -1,8 +1,7 @@
 import { StrategyDetailClient } from "@/components/strategies/strategy-detail-client";
 import {
   loadStrategyOrderCandidates,
-  loadStrategyOrderStatusEvents,
-  loadStrategyOrderRequests,
+  loadStrategyOrderRequestsWithEvents,
   loadStrategyFills,
   loadStrategy,
   loadStrategyExecution,
@@ -25,6 +24,9 @@ export default async function StrategyDetailPage({
   params,
 }: StrategyDetailPageProps) {
   const { strategyId } = await params;
+  const orderRequestsWithEventsPromise = loadStrategyOrderRequestsWithEvents(strategyId).catch(
+    () => [],
+  );
   const [
     strategy,
     versions,
@@ -33,7 +35,7 @@ export default async function StrategyDetailPage({
     runs,
     signals,
     orderCandidates,
-    orderRequests,
+    orderRequestsWithEvents,
     riskConfig,
     riskEvents,
   ] = await Promise.all([
@@ -44,7 +46,7 @@ export default async function StrategyDetailPage({
     loadStrategyExecutionRuns(strategyId),
     loadStrategySignals(strategyId),
     loadStrategyOrderCandidates(strategyId),
-    loadStrategyOrderRequests(strategyId),
+    orderRequestsWithEventsPromise,
     loadStrategyRisk(strategyId),
     loadStrategyRiskEvents(strategyId),
   ]);
@@ -52,14 +54,10 @@ export default async function StrategyDetailPage({
     loadStrategyFills(strategyId),
     loadStrategyPositions(strategyId),
   ]);
+  const orderRequests = orderRequestsWithEvents.map((entry) => entry.orderRequest);
   const statusEventsByRequestId = Object.fromEntries(
-    await Promise.all(
-      orderRequests.map(async (request) => [
-        request.id,
-        await loadStrategyOrderStatusEvents(strategyId, request.id),
-      ] as const),
-    ),
-  ) as Record<string, Awaited<ReturnType<typeof loadStrategyOrderStatusEvents>>>;
+    orderRequestsWithEvents.map((entry) => [entry.orderRequest.id, entry.statusEvents] as const),
+  );
 
   return (
     <StrategyDetailClient

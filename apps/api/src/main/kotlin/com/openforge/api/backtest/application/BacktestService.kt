@@ -20,6 +20,7 @@ import com.openforge.api.backtest.web.MarketCoverageResponse
 import com.openforge.api.backtest.web.MarketCoverageSymbolResponse
 import com.openforge.api.backtest.web.MarketDataImportResponse
 import com.openforge.api.strategy.domain.MarketType
+import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.domain.StrategyUniverseRepository
@@ -49,6 +50,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @Transactional
 class BacktestService(
     private val strategyRepository: StrategyRepository,
+    private val strategyExecutionConfigRepository: StrategyExecutionConfigRepository,
     private val strategyVersionRepository: StrategyVersionRepository,
     private val strategyUniverseRepository: StrategyUniverseRepository,
     private val universeRepository: UniverseRepository,
@@ -320,7 +322,12 @@ class BacktestService(
 
             val strategy = strategyRepository.findByIdAndIsArchivedFalse(run.strategyId)
             if (strategy != null && strategy.latestVersionId == run.strategyVersionId) {
-                strategy.status = StrategyStatus.BACKTEST_COMPLETED
+                strategy.status =
+                    if (strategyExecutionConfigRepository.findById(strategy.id).orElse(null)?.enabled == true) {
+                        StrategyStatus.RUNNING
+                    } else {
+                        StrategyStatus.BACKTEST_COMPLETED
+                    }
                 strategyRepository.save(strategy)
             }
         } catch (exception: Exception) {

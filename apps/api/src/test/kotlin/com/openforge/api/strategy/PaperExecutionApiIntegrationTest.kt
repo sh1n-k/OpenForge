@@ -19,7 +19,12 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.json.JsonMapper
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
     @Autowired
@@ -167,6 +172,124 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(get("/api/v1/strategies/$strategyId/signals?limit=50"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$", hasSize<Any>(0)))
+    }
+
+    @Test
+    fun `retries same scheduled date after a failed run`() {
+        importCsv(
+            """
+            symbol,date,open,high,low,close,volume
+            AAA,2026-01-01,10,10,10,10,1000
+            AAA,2026-01-02,9,9,9,9,1000
+            AAA,2026-01-05,12,12,12,12,1000
+            """.trimIndent(),
+        )
+        val strategyId = createStrategy("Paper Retry After Failure")
+        val universeId = createUniverse("KR Retry", "AAA")
+        linkStrategyUniverse(strategyId, universeId)
+        markBacktestCompleted(strategyId)
+        enableExecution(strategyId, "09:00")
+
+        jdbcTemplate.update("update universe set is_archived = true where id = ?::uuid", universeId)
+
+        val scheduledAt = ZonedDateTime.parse("2026-01-05T09:30:00+09:00[Asia/Seoul]")
+        paperExecutionService.processDueExecutionsAt(scheduledAt)
+
+        mockMvc
+            .perform(get("/api/v1/strategies/$strategyId/execution/runs?limit=20"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(1)))
+            .andExpect(jsonPath("$[0].status").value("failed"))
+
+        jdbcTemplate.update("update universe set is_archived = false where id = ?::uuid", universeId)
+
+        paperExecutionService.processDueExecutionsAt(scheduledAt.plusMinutes(1))
+
+        mockMvc
+            .perform(get("/api/v1/strategies/$strategyId/execution/runs?limit=20"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(2)))
+            .andExpect(jsonPath("$[0].status").value("completed"))
+            .andExpect(jsonPath("$[0].scheduledDate").value("2026-01-05"))
+            .andExpect(jsonPath("$[1].status").value("failed"))
+    }
+
+    @Test
+    fun `returns non past next run time when same day retry is still possible`() {
+        val strategyId = createStrategy("Paper Next Run Guard")
+        val universeId = createUniverse("KR Next Run", "AAA")
+        linkStrategyUniverse(strategyId, universeId)
+        markBacktestCompleted(strategyId)
+
+        val scheduleTime =
+            ZonedDateTime
+                .now(ZoneId.of("Asia/Seoul"))
+                .minusMinutes(1)
+                .toLocalTime()
+                .withSecond(0)
+                .withNano(0)
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/execution")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "enabled" to true,
+                                "scheduleTime" to scheduleTime.toString(),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+
+        val responseBody =
+            mockMvc
+                .perform(get("/api/v1/strategies/$strategyId/execution"))
+                .andExpect(status().isOk)
+                .andReturn()
+                .response
+                .contentAsString
+
+        val nextRunAt = OffsetDateTime.parse(objectMapper.readTree(responseBody).get("nextRunAt").asText())
+        val lowerBound = OffsetDateTime.now(ZoneId.of("Asia/Seoul")).minusMinutes(1)
+        check(!nextRunAt.isBefore(lowerBound)) { "nextRunAt should not point to the past when retry is immediately available" }
+    }
+
+    @Test
+    fun `creates only one scheduled run under concurrent calls`() {
+        importCsv(
+            """
+            symbol,date,open,high,low,close,volume
+            AAA,2026-01-01,10,10,10,10,1000
+            AAA,2026-01-02,9,9,9,9,1000
+            AAA,2026-01-05,12,12,12,12,1000
+            """.trimIndent(),
+        )
+
+        val strategyId = createStrategy("Paper Concurrent Guard")
+        val universeId = createUniverse("KR Concurrent", "AAA")
+        linkStrategyUniverse(strategyId, universeId)
+        markBacktestCompleted(strategyId)
+        enableExecution(strategyId, "09:00")
+
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val scheduledAt = ZonedDateTime.parse("2026-01-05T09:30:00+09:00[Asia/Seoul]")
+            val tasks =
+                listOf(
+                    Callable { paperExecutionService.processDueExecutionsAt(scheduledAt) },
+                    Callable { paperExecutionService.processDueExecutionsAt(scheduledAt) },
+                )
+            executor.invokeAll(tasks)
+        } finally {
+            executor.shutdown()
+            executor.awaitTermination(5, TimeUnit.SECONDS)
+        }
+
+        mockMvc
+            .perform(get("/api/v1/strategies/$strategyId/execution/runs?limit=20"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(1)))
     }
 
     @Test

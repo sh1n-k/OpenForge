@@ -163,6 +163,11 @@ export type OrderStatusEvent = {
   payload: Record<string, unknown>;
 };
 
+export type OrderRequestWithEvents = {
+  orderRequest: OrderRequest;
+  statusEvents: OrderStatusEvent[];
+};
+
 export type OrderFillSource = "paper_manual" | "live_sync_reserved";
 
 export type OrderFill = {

@@ -34,6 +34,7 @@ import jakarta.annotation.PostConstruct
 import jakarta.transaction.Transactional
 import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -53,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @Transactional
 class PaperExecutionService(
     private val strategyRepository: StrategyRepository,
+    private val jdbcTemplate: JdbcTemplate,
     private val strategyVersionRepository: StrategyVersionRepository,
     private val strategyUniverseRepository: StrategyUniverseRepository,
     private val universeRepository: UniverseRepository,
@@ -153,26 +155,34 @@ class PaperExecutionService(
                 val zoneId = ZoneId.of(config.timezone)
                 val zonedNow = referenceTime.withZoneSameInstant(zoneId)
                 val scheduledDate = zonedNow.toLocalDate()
-                if (config.lastScheduledDate == scheduledDate) {
-                    return@forEach
-                }
                 if (zonedNow.toLocalTime().isBefore(config.scheduleTime)) {
                     return@forEach
                 }
-
-                config.lastScheduledDate = scheduledDate
-                strategyExecutionConfigRepository.save(config)
-                executeScheduledRun(config, zonedNow)
+                executeScheduledRunIfNeeded(config, zonedNow)
             }
         } finally {
             processing.set(false)
         }
     }
 
-    private fun executeScheduledRun(
+    private fun executeScheduledRunIfNeeded(
         config: StrategyExecutionConfigEntity,
         scheduledAt: ZonedDateTime,
     ) {
+        if (!acquireScheduleLock(config.strategyId, scheduledAt.toLocalDate())) {
+            return
+        }
+        if (
+            strategyExecutionRunRepository
+                .findAllByStrategyIdAndScheduledDateAndStatusIn(
+                    config.strategyId,
+                    scheduledAt.toLocalDate(),
+                    NON_RETRYABLE_RUN_STATUSES,
+                ).isNotEmpty()
+        ) {
+            return
+        }
+
         val strategy = strategyRepository.findByIdAndIsArchivedFalse(config.strategyId) ?: return
         val versions = strategyVersionRepository.findAllByStrategyIdOrderByVersionNumberDesc(strategy.id)
         if (versions.isEmpty()) {
@@ -193,6 +203,8 @@ class PaperExecutionService(
                     signalCount = 0,
                 ),
             )
+        config.lastScheduledDate = scheduledAt.toLocalDate()
+        strategyExecutionConfigRepository.save(config)
 
         try {
             ensureStrategyExecutable(strategy)
@@ -383,7 +395,7 @@ class PaperExecutionService(
             enabled = config.enabled,
             scheduleTime = config.scheduleTime.format(SCHEDULE_TIME_FORMATTER),
             timezone = config.timezone,
-            strategyStatus = strategy.status,
+            strategyStatus = StrategyRuntimeState.resolveDisplayStatus(strategy.status, config.enabled),
             lastRun = lastRun?.let(::toLastRunResponse),
             nextRunAt = nextRunAt(config),
         )
@@ -397,13 +409,36 @@ class PaperExecutionService(
         val zoneId = ZoneId.of(config.timezone)
         val now = ZonedDateTime.now(zoneId)
         val nextDate =
-            if (config.lastScheduledDate == now.toLocalDate()) {
+            if (
+                strategyExecutionRunRepository
+                    .findAllByStrategyIdAndScheduledDateAndStatusIn(
+                        config.strategyId,
+                        now.toLocalDate(),
+                        NON_RETRYABLE_RUN_STATUSES,
+                    ).isNotEmpty()
+            ) {
                 now.toLocalDate().plusDays(1)
             } else {
                 now.toLocalDate()
             }
-        return ZonedDateTime.of(nextDate, config.scheduleTime, zoneId).toOffsetDateTime()
+        val candidate = ZonedDateTime.of(nextDate, config.scheduleTime, zoneId)
+        return if (candidate.isBefore(now)) {
+            now.toOffsetDateTime()
+        } else {
+            candidate.toOffsetDateTime()
+        }
     }
+
+    private fun acquireScheduleLock(
+        strategyId: UUID,
+        scheduledDate: LocalDate,
+    ): Boolean =
+        jdbcTemplate.queryForObject(
+            "select pg_try_advisory_xact_lock(hashtext(?), ?)",
+            Boolean::class.java,
+            strategyId.toString(),
+            scheduledDate.toEpochDay().toInt(),
+        ) == true
 
     private fun toLastRunResponse(run: StrategyExecutionRunEntity): StrategyExecutionLastRunResponse =
         StrategyExecutionLastRunResponse(
@@ -462,6 +497,11 @@ class PaperExecutionService(
         private const val DEFAULT_TIMEZONE = "Asia/Seoul"
         private val DEFAULT_SCHEDULE_TIME: LocalTime = LocalTime.of(16, 0)
         private val SCHEDULE_TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        private val NON_RETRYABLE_RUN_STATUSES =
+            setOf(
+                StrategyExecutionRunStatus.RUNNING,
+                StrategyExecutionRunStatus.COMPLETED,
+            )
     }
 }
 

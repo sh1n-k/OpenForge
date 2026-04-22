@@ -46,6 +46,8 @@ interface StrategyOrderStatusEventRepository : JpaRepository<StrategyOrderStatus
         pageable: Pageable,
     ): List<StrategyOrderStatusEventEntity>
 
+    fun findAllByOrderRequestIdInOrderByOccurredAtDesc(orderRequestIds: Collection<UUID>): List<StrategyOrderStatusEventEntity>
+
     fun findTopByOrderRequestIdOrderByOccurredAtDesc(orderRequestId: UUID): StrategyOrderStatusEventEntity?
 }
 
@@ -58,6 +60,8 @@ interface StrategyOrderFillRepository : JpaRepository<StrategyOrderFillEntity, U
     fun findAllByStrategyIdOrderByFilledAtAsc(strategyId: UUID): List<StrategyOrderFillEntity>
 
     fun findAllByOrderRequestIdOrderByFilledAtAsc(orderRequestId: UUID): List<StrategyOrderFillEntity>
+
+    fun findAllByOrderRequestIdInOrderByFilledAtAsc(orderRequestIds: Collection<UUID>): List<StrategyOrderFillEntity>
 
     fun findAllByOrderByFilledAtDesc(pageable: Pageable): List<StrategyOrderFillEntity>
 }

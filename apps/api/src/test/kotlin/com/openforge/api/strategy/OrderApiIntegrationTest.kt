@@ -1,5 +1,6 @@
 package com.openforge.api.strategy
 
+import com.openforge.api.backtest.application.BacktestService
 import com.openforge.api.strategy.application.MarketTimeProvider
 import com.openforge.api.strategy.application.PaperExecutionService
 import com.openforge.api.support.PostgresIntegrationTestSupport
@@ -31,6 +32,9 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
     @Autowired
     lateinit var marketTimeProvider: MarketTimeProvider
 
+    @Autowired
+    lateinit var backtestService: BacktestService
+
     private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
     @AfterEach
@@ -55,10 +59,22 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
     }
 
     @Test
-    fun `marks candidate as invalid when strategy status is not running`() {
+    fun `marks candidate as invalid when execution is disabled`() {
         val prepared = prepareSignal("Status Guard")
         marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
-        markBacktestCompleted(prepared.strategyId)
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/${prepared.strategyId}/execution")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "enabled" to false,
+                                "scheduleTime" to "09:00",
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
 
         mockMvc
             .perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
@@ -145,6 +161,92 @@ class OrderApiIntegrationTest : PostgresIntegrationTestSupport() {
                     ),
             ).andExpect(status().isConflict)
             .andExpect(jsonPath("$.detail").value(containsString("Duplicate order request")))
+    }
+
+    @Test
+    fun `keeps order candidates eligible after backtest completes on running strategy`() {
+        val prepared = prepareSignal("Running Backtest Guard")
+        importCsv(
+            """
+            symbol,date,open,high,low,close,volume
+            AAA,2026-01-06,13,13,13,13,1000
+            AAA,2026-01-07,8,8,8,8,1000
+            AAA,2026-01-08,8,8,8,8,1000
+            """.trimIndent(),
+        )
+
+        val backtestRunId =
+            mockMvc
+                .perform(
+                    post("/api/v1/backtests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "strategyId" to prepared.strategyId,
+                                    "startDate" to "2026-01-01",
+                                    "endDate" to "2026-01-08",
+                                    "symbols" to listOf("AAA"),
+                                ),
+                            ),
+                        ),
+                ).andExpect(status().isOk)
+                .andReturn()
+                .response
+                .contentAsString
+                .let { objectMapper.readTree(it).get("runId").asText() }
+
+        backtestService.processNextQueuedRun()
+        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
+
+        mockMvc
+            .perform(get("/api/v1/backtests/$backtestRunId"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("completed"))
+
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("running"))
+
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}/orders/candidates?limit=50"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].precheck.passed").value(true))
+            .andExpect(jsonPath("$[0].precheck.strategyStatus").value(true))
+    }
+
+    @Test
+    fun `lists order requests with status events in one response`() {
+        val prepared = prepareSignal("Order Request Aggregate")
+        marketTimeProvider.setFixedNowForTesting(ZonedDateTime.parse("2026-01-05T10:00:00+09:00[Asia/Seoul]"))
+
+        val orderRequestId =
+            mockMvc
+                .perform(
+                    post("/api/v1/strategies/${prepared.strategyId}/orders/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "signalEventId" to prepared.signalEventId,
+                                    "mode" to "paper",
+                                ),
+                            ),
+                        ),
+                ).andExpect(status().isOk)
+                .andReturn()
+                .response
+                .contentAsString
+                .let { objectMapper.readTree(it).get("id").asText() }
+
+        mockMvc
+            .perform(get("/api/v1/strategies/${prepared.strategyId}/orders/requests-with-events?limit=20&eventLimit=50"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$", hasSize<Any>(1)))
+            .andExpect(jsonPath("$[0].orderRequest.id").value(orderRequestId))
+            .andExpect(jsonPath("$[0].statusEvents", hasSize<Any>(1)))
+            .andExpect(jsonPath("$[0].statusEvents[0].status").value("requested"))
     }
 
     @Test

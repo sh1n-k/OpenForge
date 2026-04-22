@@ -68,7 +68,7 @@ class BacktestApiIntegrationTest : PostgresIntegrationTestSupport() {
                 .contentAsString
                 .let { objectMapper.readTree(it).get("runId").asText() }
 
-        backtestService.processNextQueuedRun()
+        awaitBacktestStatus(runId, "completed")
 
         mockMvc
             .perform(get("/api/v1/backtests/$runId"))
@@ -364,5 +364,41 @@ class BacktestApiIntegrationTest : PostgresIntegrationTestSupport() {
             exchange,
             symbol,
         )
+    }
+
+    private fun awaitBacktestStatus(
+        runId: String,
+        expectedStatus: String,
+    ) {
+        repeat(20) { attempt ->
+            backtestService.processNextQueuedRun()
+            val response =
+                mockMvc
+                    .perform(get("/api/v1/backtests/$runId"))
+                    .andExpect(status().isOk)
+                    .andReturn()
+                    .response
+                    .contentAsString
+            val currentStatus = objectMapper.readTree(response).get("status").asText()
+            if (currentStatus == expectedStatus) {
+                return
+            }
+            if (currentStatus == "failed") {
+                throw AssertionError("Expected backtest $runId to reach $expectedStatus but was failed")
+            }
+            if (attempt < 19) {
+                Thread.sleep(50)
+            }
+        }
+
+        val finalResponse =
+            mockMvc
+                .perform(get("/api/v1/backtests/$runId"))
+                .andExpect(status().isOk)
+                .andReturn()
+                .response
+                .contentAsString
+        val finalStatus = objectMapper.readTree(finalResponse).get("status").asText()
+        throw AssertionError("Expected backtest $runId to reach $expectedStatus but was $finalStatus")
     }
 }
