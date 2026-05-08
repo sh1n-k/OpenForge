@@ -11,48 +11,36 @@
 
 1. 루트에서 `.env.example`을 `.env`로 복사한다.
 2. 필요하면 `.env`의 `API_PORT`, `WEB_PORT`를 수정한다.
-3. 워크스페이스 의존성을 설치한다: `pnpm install`
-4. DB를 띄운다: `make dev-db`
+3. 워크스페이스 의존성을 설치한다: `pnpm install --frozen-lockfile`
+4. DB를 띄운다: `pnpm dev:db`
 
 ## 실행
 
-- API: `make dev-api`
-- Web: `make dev-web` 또는 `pnpm web:dev`
+- API: `pnpm dev:api`
+- Web: `pnpm dev:web`
+- API/Web 동시 실행: `pnpm dev:all`
 - 기본 포트는 API `8080`, Web `3000`이다.
 - 로컬 Web은 Vite dev server로 실행되며 `/api` 요청을 API 서버로 프록시한다.
 - `API_BASE_URL`, `VITE_API_BASE_URL`, `WEB_ORIGIN`은 포트 기반 기본값을 덮어쓸 때만 사용한다.
-- Windows Docker Desktop 환경에서는 Postgres 포트가 IPv6 loopback(`::1`)으로 전달될 수 있으므로 `.env`의 `DB_HOST` 기본값은 `localhost`다. PowerShell 스크립트는 Java 실행 시 `-Djava.net.preferIPv6Addresses=true`를 자동 적용한다.
-
-## Windows PowerShell 실행
-
-- `.env` 생성: `Copy-Item .env.example .env`
-- DB 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-db`
-- API 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-api`
-- Web 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-web`
-- API/Web 동시 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-all`
-- `pnpm ps:dev-db`, `pnpm ps:dev:api`, `pnpm ps:dev:web`, `pnpm ps:check`, `pnpm ps:smoke` 별칭도 사용할 수 있다.
+- Windows Docker Desktop 환경에서는 Postgres 포트가 IPv6 loopback(`::1`)으로 전달될 수 있으므로 `.env`의 `DB_HOST` 기본값은 `localhost`다. Windows에서는 같은 `pnpm` 명령이 내부적으로 PowerShell 스크립트를 호출하고, Java 실행 시 `-Djava.net.preferIPv6Addresses=true`를 자동 적용한다.
 
 ## 검증
 
-- 전체 체크: `make check`
-- 스모크: API와 Web이 떠 있는 상태에서 `make smoke`
-- Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 check`
-- Windows 스모크: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 smoke`
+- 전체 체크: `pnpm check`
+- 스모크: API와 Web이 떠 있는 상태에서 `pnpm smoke`
 
 ## 배포 Jar 빌드
 
-- macOS/Linux: `make jar`
-- Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 jar`
-- Windows 별칭: `pnpm ps:jar`
+- `pnpm jar`
 
 `bootJar`는 먼저 `apps/web`에서 `pnpm build`를 실행하고, 생성된 `apps/web/dist` 내용을 Jar의 `BOOT-INF/classes/static`에 포함한다.
 
 ## 배포 Jar 스모크
 
-Windows PowerShell에서는 다음 명령으로 배포 Jar를 빌드하고 임시로 실행한 뒤 주요 응답을 확인한다.
+다음 명령으로 배포 Jar를 빌드하고 임시로 실행한 뒤 주요 응답을 확인한다.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 jar-smoke
+```bash
+pnpm jar:smoke
 ```
 
 `jar-smoke`는 로컬 DB 접근을 확인하고, 필요하면 개발 DB를 시작한 다음 다음 항목을 점검한다.
@@ -80,10 +68,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 jar-smoke
 ## 배포 전 체크리스트
 
 - `.env` 또는 운영 secret에 DB와 인증 환경변수가 설정되어 있는지 확인한다.
-- `make check` 또는 `pnpm ps:check`가 통과하는지 확인한다.
-- `make jar` 또는 `pnpm ps:jar`로 Jar가 생성되는지 확인한다.
+- `pnpm check`가 통과하는지 확인한다.
+- `pnpm jar`로 Jar가 생성되는지 확인한다.
 - Jar 안에 `BOOT-INF/classes/static/index.html`과 `BOOT-INF/classes/static/assets/index-*.js`, `index-*.css`가 포함되는지 확인한다.
-- 가능하면 `pnpm ps:jar-smoke`로 Jar 실행 스모크를 수행한다.
+- 가능하면 `pnpm jar:smoke`로 Jar 실행 스모크를 수행한다.
 
 ## 배포 후 체크리스트
 

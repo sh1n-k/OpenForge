@@ -264,9 +264,6 @@ class PaperExecutionService(
     }
 
     private fun ensureStrategyExecutable(strategy: StrategyEntity) {
-        if (strategy.status == StrategyStatus.DRAFT) {
-            throw ResponseStatusException(HttpStatus.CONFLICT, "Only backtested strategies can enable paper execution")
-        }
         ensureDomesticUniverseScope(strategy.id)
         if (resolveLinkedSymbols(strategy.id).isEmpty()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Strategy requires at least one linked symbol")
@@ -282,9 +279,13 @@ class PaperExecutionService(
         versions: List<StrategyVersionEntity>,
     ): StrategyVersionEntity {
         val validatedVersions = versions.map { ensureExecutableValidation(it, strategy) }
-        return validatedVersions.firstOrNull {
-            it.validationStatus == StrategyValidationStatus.VALID && it.normalizedSpec != null
-        } ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy does not have a valid executable version")
+        val latestVersion =
+            validatedVersions.firstOrNull()
+                ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Strategy does not have a valid executable version")
+        if (latestVersion.validationStatus != StrategyValidationStatus.VALID || latestVersion.normalizedSpec == null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Latest strategy version is not executable")
+        }
+        return latestVersion
     }
 
     private fun ensureExecutableValidation(

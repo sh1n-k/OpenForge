@@ -39,27 +39,10 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
     private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
     @Test
-    fun `enables only after backtest completed`() {
-        val strategyId = createStrategy("Paper Enable Guard")
+    fun `enables draft strategy when latest version is executable`() {
+        val strategyId = createStrategy("Paper Enable Draft")
         val universeId = createUniverse("KR Core", "AAA")
         linkStrategyUniverse(strategyId, universeId)
-
-        mockMvc
-            .perform(
-                put("/api/v1/strategies/$strategyId/execution")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        objectMapper.writeValueAsBytes(
-                            mapOf(
-                                "enabled" to true,
-                                "scheduleTime" to "09:00",
-                            ),
-                        ),
-                    ),
-            ).andExpect(status().isConflict)
-            .andExpect(jsonPath("$.detail").value(containsString("backtested")))
-
-        markBacktestCompleted(strategyId)
 
         mockMvc
             .perform(
@@ -77,6 +60,43 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
             .andExpect(jsonPath("$.enabled").value(true))
             .andExpect(jsonPath("$.strategyStatus").value("running"))
             .andExpect(jsonPath("$.scheduleTime").value("09:00"))
+    }
+
+    @Test
+    fun `rejects enabling when latest version is not executable`() {
+        val strategyId = createStrategy("Paper Latest Version Guard")
+        val universeId = createUniverse("KR Latest Guard", "AAA")
+        linkStrategyUniverse(strategyId, universeId)
+        jdbcTemplate.update(
+            """
+            update strategy_version
+            set payload = '{}'::jsonb,
+                normalized_spec = null,
+                validation_status = 'INVALID',
+                validation_errors = '[{"category":"validation","message":"corrupt latest version"}]'::jsonb
+            where id = (
+                select latest_version_id
+                from strategy
+                where id = ?::uuid
+            )
+            """.trimIndent(),
+            strategyId,
+        )
+
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/execution")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "enabled" to true,
+                                "scheduleTime" to "09:00",
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("Latest strategy version is not executable")))
     }
 
     @Test

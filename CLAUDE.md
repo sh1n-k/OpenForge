@@ -10,11 +10,13 @@
 ## 빌드 & 검증
 
 ```bash
-make check          # API 테스트 + 코드 스타일 + web lint + test (전체 검증)
-make dev-db         # PostgreSQL 컨테이너 시작
-make dev-api        # API 서버 (Gradle bootRun)
-make dev-web        # 웹 서버 (Vite dev)
-make smoke          # 실행 중인 서버 헬스 체크
+pnpm check          # API 테스트 + 코드 스타일 + web lint + typecheck + test + build
+pnpm dev:db         # PostgreSQL 컨테이너 시작
+pnpm dev:api        # API 서버 (Gradle bootRun)
+pnpm dev:web        # 웹 서버 (Vite dev)
+pnpm dev:all        # API/Web 동시 실행
+pnpm smoke          # 실행 중인 서버 헬스 체크
+pnpm jar            # Svelte 빌드 산출물을 포함한 배포 Jar
 ```
 
 ### API (apps/api)
@@ -32,7 +34,7 @@ pnpm --filter web lint        # ESLint
 pnpm --filter web typecheck   # svelte-check
 pnpm --filter web test --run  # Vitest
 pnpm --filter web build       # 프로덕션 빌드
-cd apps/api && ./gradlew bootJar # Svelte 빌드 산출물을 포함한 배포 Jar
+pnpm jar                      # Svelte 빌드 산출물을 포함한 배포 Jar
 ```
 
 ## 패키지 구조 규칙

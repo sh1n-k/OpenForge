@@ -281,7 +281,7 @@ class StrategyApiIntegrationTest : PostgresIntegrationTestSupport() {
 
         mockMvc
             .perform(delete("/api/v1/strategies/$strategyId"))
-            .andExpect(status().isOk)
+            .andExpect(status().isNoContent)
 
         mockMvc
             .perform(get("/api/v1/strategies"))

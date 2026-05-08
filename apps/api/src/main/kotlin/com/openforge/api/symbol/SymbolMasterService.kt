@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient
 import java.io.ByteArrayInputStream
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
 
@@ -128,7 +129,9 @@ class SymbolMasterService(
                         collectedAt = status.collectedAt,
                         needsUpdate =
                             status.collectedAt == null ||
-                                status.collectedAt!!.toLocalDate() < LocalDate.now(),
+                                status.collectedAt!!
+                                    .atZoneSameInstant(ZoneId.systemDefault())
+                                    .toLocalDate() < LocalDate.now(),
                     )
                 },
         )

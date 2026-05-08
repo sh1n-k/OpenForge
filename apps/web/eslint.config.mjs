@@ -5,9 +5,11 @@ import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
   globalIgnores([
+    ".next/**",
     "dist/**",
     "build/**",
     "coverage/**",
+    "out/**",
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

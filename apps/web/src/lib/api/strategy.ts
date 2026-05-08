@@ -272,7 +272,7 @@ export async function createOrderFill(
     filledAt: string;
   },
 ) {
-  return apiFetch<void>(
+  return apiFetch<OrderFill>(
     `/api/v1/strategies/${strategyId}/orders/requests/${orderRequestId}/fills`,
     {
       method: "POST",

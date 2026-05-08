@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
@@ -246,6 +247,37 @@ class UniverseApiIntegrationTest : PostgresIntegrationTestSupport() {
                     ),
             ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("exchange")))
+    }
+
+    @Test
+    fun `archives universe instead of deleting it`() {
+        val universeId =
+            mockMvc
+                .perform(
+                    post("/api/v1/universes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            objectMapper.writeValueAsBytes(
+                                mapOf(
+                                    "name" to "Archive Universe",
+                                    "marketScope" to "domestic",
+                                    "description" to "archive target",
+                                ),
+                            ),
+                        ),
+                ).andReturn()
+                .response
+                .contentAsString
+                .let { objectMapper.readTree(it).get("id").asText() }
+
+        mockMvc
+            .perform(delete("/api/v1/universes/$universeId"))
+            .andExpect(status().isNoContent)
+
+        mockMvc
+            .perform(get("/api/v1/universes"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(0))
     }
 
     private fun seedSymbolMaster(

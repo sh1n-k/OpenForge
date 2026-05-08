@@ -11,44 +11,38 @@ OpenForge는 국내 시장 우선의 1인용 자동매매 운영 앱을 목표�
 
 ## 빠른 시작
 
-1. `cp .env.example .env`
+1. `.env.example`을 `.env`로 복사
 2. 필요하면 `.env`의 `API_PORT`, `WEB_PORT`를 수정
-3. `make dev-db`
-4. `pnpm install`
+3. `pnpm install --frozen-lockfile`
+4. `pnpm dev:db`
 5. API만 실행: `pnpm dev:api`
 6. Web만 실행: `pnpm dev:web`
 7. 둘 다 함께 실행: `pnpm dev:all`
 
 포트 기본값은 API `8080`, Web `3000`이며, `API_BASE_URL`과 `WEB_ORIGIN`은 필요 시 개별 override 용도로 유지한다.
 
-검증은 `make check`, 실행 중 서비스 점검은 `make smoke`를 사용한다. 배포용 Jar는 `make jar`로 생성하며, 이 과정에서 `apps/web`의 Vite 빌드 산출물이 Jar 정적 리소스로 포함된다.
+검증은 `pnpm check`, 실행 중 서비스 점검은 `pnpm smoke`를 사용한다. 배포용 Jar는 `pnpm jar`로 생성하며, 이 과정에서 `apps/web`의 Vite 빌드 산출물이 Jar 정적 리소스로 포함된다.
 
-## Windows PowerShell
+## 공통 명령
 
-Windows에서는 `Makefile`과 `zsh` 대신 `scripts/openforge.ps1`를 사용한다.
+- DB 시작: `pnpm dev:db`
+- DB 종료: `pnpm dev:db:down`
+- API 시작: `pnpm dev:api`
+- Web 시작: `pnpm dev:web`
+- API/Web 동시 시작: `pnpm dev:all`
+- 전체 체크: `pnpm check`
+- 실행 중 서비스 스모크: `pnpm smoke`
+- 배포 Jar 빌드: `pnpm jar`
+- 배포 Jar 스모크: `pnpm jar:smoke`
 
-1. `Copy-Item .env.example .env`
-2. `pnpm install`
-3. `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-db`
-4. API만 실행: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-api`
-5. Web만 실행: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-web`
-6. 둘 다 실행: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-all`
-
-`package.json`에도 Windows용 별칭이 있다.
-
-- DB: `pnpm ps:dev-db`
-- API: `pnpm ps:dev:api`
-- Web: `pnpm ps:dev:web`
-- 전체 체크: `pnpm ps:check`
-- 배포 Jar 빌드: `pnpm ps:jar`
-- 배포 Jar 스모크: `pnpm ps:jar-smoke`
+Windows에서도 같은 `pnpm` 명령을 사용한다. 내부적으로는 `scripts/openforge.ps1`가 호출된다.
 
 ## 배포 점검
 
 1. `.env` 또는 운영 환경변수에서 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `OPENFORGE_AUTH_PASSWORD`, `OPENFORGE_JWT_SECRET`를 확인한다.
-2. `pnpm ps:check` 또는 `make check`로 API 테스트와 Web lint/typecheck/test/build를 실행한다.
-3. `pnpm ps:jar` 또는 `make jar`로 배포 Jar를 생성한다.
-4. Windows 로컬에서는 `pnpm ps:jar-smoke`로 Jar 실행, 헬스체크, 주요 SPA 라우트, Vite asset 로딩을 점검한다.
+2. `pnpm check`로 API 테스트와 Web lint/typecheck/test/build를 실행한다.
+3. `pnpm jar`로 배포 Jar를 생성한다.
+4. 가능하면 `pnpm jar:smoke`로 Jar 실행, 헬스체크, 주요 SPA 라우트, Vite asset 로딩을 점검한다.
 5. 운영 배포 후 `/api/v1/health`, `/`, 주요 딥링크 새로고침, `/assets/index-*.js` 응답을 확인한다.
 
 Vite가 생성한 `/assets/**` 정적 파일은 해시 파일명을 전제로 장기 캐시된다. `index.html`은 캐시 정책을 별도로 길게 두지 않아 새 배포의 asset 참조가 바로 반영되도록 유지한다.
