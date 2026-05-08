@@ -47,6 +47,12 @@
 
 `bootJar`는 먼저 `apps/web`에서 `pnpm build`를 실행하고, 생성된 `apps/web/dist` 내용을 Jar의 `BOOT-INF/classes/static`에 포함한다.
 
+## 운영 기능 범위
+
+- UI에서는 기존 API/DB의 `universe` 개념을 `종목 그룹`으로 표시한다. 종목 그룹은 전략이 자동 실행 시 검사할 종목 묶음이다.
+- 자동 실행 활성화는 백테스트 완료를 요구하지 않는다. 대신 유효한 전략 버전, 하나 이상의 국내 종목 그룹 연결, 종목 구성, 리스크 설정을 실행 전 검증한다.
+- 백테스트는 핵심 운용 기능이 아니라 `과거 데이터 점검` 보조 기능으로 취급한다. 여러 종목 입력 시 초기 자본을 종목 수로 균등 분할해 독립 시뮬레이션하며, 자동 실행의 주문 수량 정책과 일치하지 않을 수 있다.
+
 ## 배포 Jar 스모크
 
 Windows PowerShell에서는 다음 명령으로 배포 Jar를 빌드하고 임시로 실행한 뒤 주요 응답을 확인한다.
@@ -64,6 +70,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 jar-smoke
 ## 운영 환경변수
 
 - `SERVER_PORT` 또는 `API_PORT`: Jar 실행 포트
+- `JAR_SMOKE_PORT`: `jar-smoke`가 임시 Jar 실행에 사용할 포트. 기본값은 `18083`이다.
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`: PostgreSQL 연결
 - `OPENFORGE_AUTH_PASSWORD`: 값이 있으면 `/api/**` 인증을 요구한다.
 - `OPENFORGE_JWT_SECRET`: 운영에서는 기본 개발 secret 대신 고정된 비밀값을 사용한다.

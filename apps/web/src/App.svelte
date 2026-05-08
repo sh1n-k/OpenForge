@@ -58,7 +58,12 @@
   <LoginPage />
 {:else}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="app-shell app-shell-docs" on:click={handleShellClick}>
+  <div
+    class="app-shell"
+    class:app-shell-docs={routeMeta?.mode !== "workbench"}
+    class:app-shell-workbench={routeMeta?.mode === "workbench"}
+    on:click={handleShellClick}
+  >
     <aside class="doc-sidebar">
       <div class="doc-sidebar-scroll">
         <div class="doc-sidebar-head">
@@ -110,7 +115,7 @@
       </div>
     {/if}
 
-    <main class="app-main">
+    <main class="app-main" class:app-main-workbench={routeMeta?.mode === "workbench"}>
       <div class:app-main-with-toc={sections.length > 0}>
         <RouteView {route} />
         {#if sections.length > 0}

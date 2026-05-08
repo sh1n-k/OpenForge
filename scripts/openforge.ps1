@@ -185,21 +185,59 @@ function Stop-ProcessIfRunning {
     }
 }
 
+function Test-ExpectedInteractiveStopExitCode {
+    param($ExitCode)
+
+    return $ExitCode -in @(-1073741510, 3221225786)
+}
+
 function Test-TcpPortOpen {
     param(
         [Parameter(Mandatory = $true)]
         [string]$HostName,
 
         [Parameter(Mandatory = $true)]
-        [int]$Port
+        [int]$Port,
+
+        [int]$TimeoutMilliseconds = 1500
     )
 
     try {
-        return Test-NetConnection -ComputerName $HostName -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue
+        $addresses = [System.Net.Dns]::GetHostAddresses($HostName)
     }
     catch {
-        return $false
+        $addresses = @()
     }
+
+    if ($addresses.Count -eq 0) {
+        $addresses = @($HostName)
+    }
+
+    foreach ($address in $addresses) {
+        $client = if ($address -is [System.Net.IPAddress]) {
+            [System.Net.Sockets.TcpClient]::new($address.AddressFamily)
+        }
+        else {
+            [System.Net.Sockets.TcpClient]::new()
+        }
+        try {
+            $connect = $client.BeginConnect($address, $Port, $null, $null)
+            if (-not $connect.AsyncWaitHandle.WaitOne($TimeoutMilliseconds, $false)) {
+                continue
+            }
+
+            $client.EndConnect($connect)
+            return $true
+        }
+        catch {
+            continue
+        }
+        finally {
+            $client.Close()
+        }
+    }
+
+    return $false
 }
 
 function Wait-ForTcpPort {
@@ -303,11 +341,11 @@ function Start-All {
 
     $apiStdOut = Join-Path $logDir "api.out.log"
     $apiStdErr = Join-Path $logDir "api.err.log"
-    $apiProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-api") -WorkingDirectory $RootDir -PassThru -RedirectStandardOutput $apiStdOut -RedirectStandardError $apiStdErr
+    $apiProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-api") -WorkingDirectory $RootDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $apiStdOut -RedirectStandardError $apiStdErr
     Start-Sleep -Seconds 2
     $webStdOut = Join-Path $logDir "web.out.log"
     $webStdErr = Join-Path $logDir "web.err.log"
-    $webProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-web") -WorkingDirectory $RootDir -PassThru -RedirectStandardOutput $webStdOut -RedirectStandardError $webStdErr
+    $webProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-web") -WorkingDirectory $RootDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $webStdOut -RedirectStandardError $webStdErr
 
     Write-Host "API PID: $($apiProcess.Id)"
     Write-Host "WEB PID: $($webProcess.Id)"
@@ -324,11 +362,19 @@ function Start-All {
 
             if ($apiProcess.HasExited) {
                 $apiExitCode = try { $apiProcess.ExitCode } catch { "unknown" }
+                if (Test-ExpectedInteractiveStopExitCode $apiExitCode) {
+                    Write-Host "API process stopped by interactive termination."
+                    return
+                }
                 throw "API process exited with code $apiExitCode. Check logs in $logDir."
             }
 
             if ($webProcess.HasExited) {
                 $webExitCode = try { $webProcess.ExitCode } catch { "unknown" }
+                if (Test-ExpectedInteractiveStopExitCode $webExitCode) {
+                    Write-Host "Web process stopped by interactive termination."
+                    return
+                }
                 throw "Web process exited with code $webExitCode. Check logs in $logDir."
             }
 
@@ -385,7 +431,7 @@ function Invoke-JarSmoke {
     Enable-JavaIpv6LoopbackPreference
     Ensure-LocalDevDb
 
-    $apiPort = [int](Get-EnvOrDefault "API_PORT" "18083")
+    $apiPort = [int](Get-EnvOrDefault "JAR_SMOKE_PORT" "18083")
     Assert-PortAvailable -Port $apiPort -ServiceName "Jar smoke"
 
     Invoke-JarBuild

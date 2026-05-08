@@ -975,12 +975,14 @@ kbd {
 }
 
 .table-shell {
+  width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .doc-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.9375rem;
   color: var(--muted-foreground);
@@ -995,9 +997,16 @@ kbd {
 
 .doc-table th,
 .doc-table td {
-  padding: 12px 0;
+  padding: 12px 18px 12px 0;
   text-align: left;
   border-bottom: 1px solid var(--border-soft);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.doc-table th:last-child,
+.doc-table td:last-child {
+  padding-right: 0;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1148,6 +1157,18 @@ kbd {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.checkbox-list {
+  display: grid;
+  gap: 10px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1360,7 +1381,7 @@ kbd {
   display: none;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1536px) {
   .app-main-with-toc {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 200px;
@@ -1538,25 +1559,4 @@ kbd {
 
 .symbol-section-pulse {
   animation: symbol-section-pulse 0.8s ease-out;
-}
-
-@layer components {
-  /* Core Layout */
-  .app-shell {
-    @apply relative min-h-full flex flex-col;
-  }
-
-  .app-main {
-    @apply flex flex-col flex-1 min-w-0 transition-all duration-300;
-  }
-
-  @media (min-width: 1024px) {
-    .app-main {
-      padding-left: var(--sidebar-width);
-    }
-  }
-
-  .app-main-with-toc {
-    @apply lg:pr-64; /* Space for TOC on the right if needed */
-  }
 }

@@ -39,27 +39,10 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
     private val objectMapper = JsonMapper.builder().findAndAddModules().build()
 
     @Test
-    fun `enables only after backtest completed`() {
+    fun `enables when strategy has valid version and domestic universe`() {
         val strategyId = createStrategy("Paper Enable Guard")
         val universeId = createUniverse("KR Core", "AAA")
         linkStrategyUniverse(strategyId, universeId)
-
-        mockMvc
-            .perform(
-                put("/api/v1/strategies/$strategyId/execution")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(
-                        objectMapper.writeValueAsBytes(
-                            mapOf(
-                                "enabled" to true,
-                                "scheduleTime" to "09:00",
-                            ),
-                        ),
-                    ),
-            ).andExpect(status().isConflict)
-            .andExpect(jsonPath("$.detail").value(containsString("backtested")))
-
-        markBacktestCompleted(strategyId)
 
         mockMvc
             .perform(
@@ -82,7 +65,6 @@ class PaperExecutionApiIntegrationTest : PostgresIntegrationTestSupport() {
     @Test
     fun `rejects enabling when universe is missing`() {
         val strategyId = createStrategy("Paper No Universe")
-        markBacktestCompleted(strategyId)
 
         mockMvc
             .perform(
