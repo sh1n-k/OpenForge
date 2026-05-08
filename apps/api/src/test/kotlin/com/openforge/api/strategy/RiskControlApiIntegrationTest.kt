@@ -251,6 +251,22 @@ class RiskControlApiIntegrationTest : PostgresIntegrationTestSupport() {
     private fun prepareStrategyContext(name: String): PreparedStrategy {
         val strategyId = createStrategy(name)
         jdbcTemplate.update("update strategy set status = 'RUNNING' where id = ?::uuid", strategyId)
+        jdbcTemplate.update(
+            """
+            insert into strategy_execution_config (
+                strategy_id, enabled, mode, schedule_time, timezone, created_at, updated_at
+            ) values (
+                ?::uuid, true, 'PAPER', '09:00', 'Asia/Seoul', now(), now()
+            )
+            on conflict (strategy_id) do update set
+                enabled = excluded.enabled,
+                mode = excluded.mode,
+                schedule_time = excluded.schedule_time,
+                timezone = excluded.timezone,
+                updated_at = now()
+            """.trimIndent(),
+            strategyId,
+        )
         val strategyVersionId =
             jdbcTemplate.queryForObject(
                 "select id from strategy_version where strategy_id = ?::uuid order by version_number desc limit 1",

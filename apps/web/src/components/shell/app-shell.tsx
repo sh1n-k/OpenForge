@@ -1,0 +1,41 @@
+"use client";
+
+import { useMemo } from "react";
+import { usePathname } from "next/navigation";
+import { AppNav } from "@/components/shell/app-nav";
+import { PageToc } from "@/components/shell/page-toc";
+import { getPageSections, getScreenMode } from "@/lib/route-meta";
+
+export function AppShell({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const pathname = usePathname();
+  const screenMode = useMemo(() => getScreenMode(pathname), [pathname]);
+  const sections = useMemo(() => getPageSections(pathname), [pathname]);
+  const showToc = screenMode === "docs" && sections.length >= 3;
+
+  // Login page renders without the navigation shell
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  return (
+    <div className={`app-shell app-shell-${screenMode}`}>
+      <AppNav pathname={pathname} />
+      <div
+        className={[
+          "app-main",
+          screenMode === "workbench" ? "app-main-workbench" : "",
+          showToc ? "app-main-with-toc" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {children}
+        {showToc ? <PageToc key={pathname} sections={sections} /> : null}
+      </div>
+    </div>
+  );
+}

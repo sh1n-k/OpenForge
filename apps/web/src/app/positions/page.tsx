@@ -1,4 +1,4 @@
-import { PositionsPageClient } from "@/components/positions-page-client";
+import { PositionsPageClient } from "@/components/positions/positions-page-client";
 import { loadAllPositions, loadStrategies } from "@/lib/api";
 
 export default async function PositionsPage() {

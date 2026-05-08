@@ -1,4 +1,4 @@
-import { BacktestRunnerClient } from "@/components/backtest-runner-client";
+import { BacktestRunnerClient } from "@/components/backtest/backtest-runner-client";
 import {
   loadStrategy,
   loadStrategyBacktests,

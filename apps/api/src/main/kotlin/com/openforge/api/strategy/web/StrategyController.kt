@@ -79,6 +79,13 @@ class StrategyController(
         @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") limit: Int,
     ): List<OrderRequestResponse> = orderService.listOrderRequests(strategyId, limit)
 
+    @GetMapping("/{strategyId}/orders/requests-with-events")
+    fun orderRequestsWithEvents(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") limit: Int,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") eventLimit: Int,
+    ): List<OrderRequestWithEventsResponse> = orderTrackingService.listOrderRequestsWithEvents(strategyId, limit, eventLimit)
+
     @PostMapping("/{strategyId}/orders/requests")
     fun createOrderRequest(
         @PathVariable strategyId: UUID,

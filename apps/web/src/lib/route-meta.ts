@@ -40,7 +40,7 @@ export type RouteMeta = {
 const routeMetaList: RouteMeta[] = [
   {
     href: "/",
-    label: "Dashboard",
+    label: "대시보드",
     description: "운영 대시보드와 현황 요약",
     mode: "docs",
     match: /^\/$/,
@@ -57,7 +57,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/strategies",
-    label: "Strategies",
+    label: "전략",
     description: "전략 레지스트리와 실행 관리",
     mode: "docs",
     match: /^\/strategies$/,
@@ -71,9 +71,9 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/strategies/[strategyId]",
-    label: "Strategy Detail",
+    label: "전략 상세",
     description: "전략 실행, 리스크, 주문 현황",
-    mode: "docs",
+    mode: "workbench",
     match: /^\/strategies\/[^/]+$/,
     sections: [
       { id: "strategy-overview", label: "개요" },
@@ -86,9 +86,9 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/strategies/[strategyId]/edit",
-    label: "Strategy Editor",
+    label: "전략 편집",
     description: "전략 편집과 검증",
-    mode: "docs",
+    mode: "workbench",
     match: /^\/strategies\/[^/]+\/edit$/,
     sections: [
       { id: "editor-summary", label: "편집기 개요" },
@@ -99,9 +99,9 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/strategies/[strategyId]/backtest",
-    label: "Backtest Runner",
+    label: "백테스트 실행",
     description: "백테스트 실행과 데이터 준비",
-    mode: "docs",
+    mode: "workbench",
     match: /^\/strategies\/[^/]+\/backtest$/,
     sections: [
       { id: "backtest-summary", label: "개요" },
@@ -113,7 +113,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/universes",
-    label: "Universes",
+    label: "유니버스",
     description: "유니버스 레지스트리와 종목 구성",
     mode: "docs",
     match: /^\/universes$/,
@@ -127,7 +127,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/universes/[universeId]",
-    label: "Universe Detail",
+    label: "유니버스 상세",
     description: "유니버스 상세와 심볼 구성",
     mode: "docs",
     match: /^\/universes\/[^/]+$/,
@@ -139,9 +139,9 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/backtests/[runId]",
-    label: "Backtest Result",
+    label: "백테스트 결과",
     description: "백테스트 결과와 차트",
-    mode: "docs",
+    mode: "workbench",
     match: /^\/backtests\/[^/]+$/,
     sections: [
       { id: "run-summary", label: "요약" },
@@ -152,7 +152,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/broker",
-    label: "Broker",
+    label: "브로커",
     description: "한투 계좌 원장과 동기화 상태",
     mode: "docs",
     match: /^\/broker$/,
@@ -166,7 +166,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/broker/ledger",
-    label: "Broker Ledger",
+    label: "브로커 원장",
     description: "브로커 원장 상세 조회",
     mode: "docs",
     match: /^\/broker\/ledger$/,
@@ -180,7 +180,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/orders",
-    label: "Orders",
+    label: "주문",
     description: "전체 주문 및 체결 조회",
     mode: "docs",
     match: /^\/orders$/,
@@ -195,7 +195,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/positions",
-    label: "Positions",
+    label: "포지션",
     description: "전체 포지션 현황",
     mode: "docs",
     match: /^\/positions$/,
@@ -209,7 +209,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/logs",
-    label: "Logs",
+    label: "로그",
     description: "실행 로그와 오류 추적",
     mode: "docs",
     match: /^\/logs$/,
@@ -223,7 +223,7 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/settings",
-    label: "Settings",
+    label: "설정",
     description: "시스템 설정과 브로커 연결",
     mode: "docs",
     match: /^\/settings$/,
@@ -290,7 +290,7 @@ export function getCommandEntries(pathname: string): CommandEntry[] {
   const sectionCommands = (routeMeta?.sections ?? []).map((section) => ({
     id: `section:${pathname}:${section.id}`,
     label: section.label,
-    description: `${routeMeta?.label ?? "Current Page"} 섹션으로 이동`,
+    description: `${routeMeta?.label ?? "현재 페이지"} 섹션으로 이동`,
     href: `${pathname}#${section.id}`,
     group: "Sections" as const,
   }));
@@ -303,19 +303,19 @@ export function getContextCommands(pathname: string): CommandEntry[] {
     return [
       {
         id: "context:broker:home",
-        label: "Broker",
+        label: "브로커",
         description: "원장 요약 화면으로 이동",
         href: "/broker",
         group: "Context",
-        keywords: ["broker", "ledger", "원장", "sync"],
+        keywords: ["broker", "ledger", "원장", "sync", "브로커"],
       },
       {
         id: "context:broker:ledger",
-        label: "Broker Ledger",
+        label: "브로커 원장",
         description: "원장 상세 화면으로 이동",
         href: "/broker/ledger",
         group: "Context",
-        keywords: ["broker", "ledger", "원장", "거래", "잔고", "손익"],
+        keywords: ["broker", "ledger", "원장", "거래", "잔고", "손익", "브로커"],
       },
     ];
   }
@@ -333,27 +333,27 @@ export function getContextCommands(pathname: string): CommandEntry[] {
   return [
     {
       id: `context:strategy:${strategyId}:detail`,
-      label: "Strategy Detail",
+      label: "전략 상세",
       description: "전략 상세 화면으로 이동",
       href: `/strategies/${strategyId}`,
       group: "Context",
-      keywords: ["strategy", "detail", strategyId],
+      keywords: ["strategy", "detail", strategyId, "전략"],
     },
     {
       id: `context:strategy:${strategyId}:edit`,
-      label: "Strategy Editor",
+      label: "전략 편집",
       description: "전략 편집기 열기",
       href: `/strategies/${strategyId}/edit`,
       group: "Context",
-      keywords: ["strategy", "editor", "edit", strategyId],
+      keywords: ["strategy", "editor", "edit", strategyId, "전략", "편집"],
     },
     {
       id: `context:strategy:${strategyId}:backtest`,
-      label: "Backtest Runner",
+      label: "백테스트 실행",
       description: "백테스트 실행 화면으로 이동",
       href: `/strategies/${strategyId}/backtest`,
       group: "Context",
-      keywords: ["backtest", "runner", strategyId],
+      keywords: ["backtest", "runner", strategyId, "백테스트"],
     },
   ];
 }

@@ -64,7 +64,11 @@ class StrategyService(
     fun listStrategies(): List<StrategySummaryResponse> =
         strategyRepository
             .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
-            .map(::toSummary)
+            .let { strategies ->
+                val executionEnabledByStrategyId =
+                    strategyExecutionConfigRepository.findAll().associate { it.strategyId to it.enabled }
+                strategies.map { toSummary(it, executionEnabledByStrategyId[it.id] == true) }
+            }
 
     fun createStrategy(request: CreateStrategyRequest): StrategyDetailResponse {
         ensureUniqueStrategyName(request.name, null)
@@ -116,7 +120,7 @@ class StrategyService(
             name = strategy.name,
             description = strategy.description,
             strategyType = strategy.strategyType,
-            status = strategy.status,
+            status = StrategyRuntimeState.resolveDisplayStatus(strategy.status, isExecutionEnabled(strategy.id)),
             latestVersionId = strategy.latestVersionId,
             latestVersionNumber = versions.firstOrNull()?.versionNumber,
             versionCount = versions.size.toLong(),
@@ -353,7 +357,10 @@ class StrategyService(
         strategyRepository.findByIdAndIsArchivedFalse(strategyId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Strategy not found: $strategyId")
 
-    private fun toSummary(strategy: StrategyEntity): StrategySummaryResponse {
+    private fun toSummary(
+        strategy: StrategyEntity,
+        executionEnabled: Boolean,
+    ): StrategySummaryResponse {
         val latestVersion =
             strategy.latestVersionId
                 ?.let { strategyVersionRepository.findById(it).orElse(null) }
@@ -363,7 +370,7 @@ class StrategyService(
             name = strategy.name,
             description = strategy.description,
             strategyType = strategy.strategyType,
-            status = strategy.status,
+            status = StrategyRuntimeState.resolveDisplayStatus(strategy.status, executionEnabled),
             latestVersionId = strategy.latestVersionId,
             latestVersionNumber = latestVersion?.versionNumber,
             versionCount = strategyVersionRepository.countByStrategyId(strategy.id),
@@ -371,6 +378,8 @@ class StrategyService(
             updatedAt = strategy.updatedAt,
         )
     }
+
+    private fun isExecutionEnabled(strategyId: UUID): Boolean = strategyExecutionConfigRepository.findById(strategyId).orElse(null)?.enabled == true
 
     private fun toVersionResponse(version: StrategyVersionEntity): StrategyVersionResponse =
         StrategyVersionResponse(

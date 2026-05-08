@@ -1,4 +1,4 @@
-import { OrdersPageClient } from "@/components/orders-page-client";
+import { OrdersPageClient } from "@/components/orders/orders-page-client";
 import { loadAllOrders, loadAllFills, loadStrategies } from "@/lib/api";
 
 export default async function OrdersPage() {

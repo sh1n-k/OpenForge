@@ -1,4 +1,4 @@
-import { UniverseDetailClient } from "@/components/universe-detail-client";
+import { UniverseDetailClient } from "@/components/universes/universe-detail-client";
 import { loadSymbolMasterStatus, loadUniverse } from "@/lib/api";
 
 type UniverseDetailPageProps = {

@@ -1,4 +1,4 @@
-import { LogsPageClient } from "@/components/logs-page-client";
+import { LogsPageClient } from "@/components/logs/logs-page-client";
 import { loadSystemActivity } from "@/lib/api";
 
 export default async function LogsPage() {

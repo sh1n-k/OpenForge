@@ -1,6 +1,7 @@
 package com.openforge.api.operations
 
 import com.openforge.api.strategy.application.OrderTrackingService
+import com.openforge.api.strategy.application.StrategyRuntimeState
 import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyExecutionRunRepository
 import com.openforge.api.strategy.domain.StrategyOrderFillRepository
@@ -8,7 +9,6 @@ import com.openforge.api.strategy.domain.StrategyOrderRequestRepository
 import com.openforge.api.strategy.domain.StrategyRepository
 import com.openforge.api.strategy.domain.StrategyRiskEventRepository
 import com.openforge.api.strategy.domain.StrategyRiskEventType
-import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.system.health.HealthStatusService
 import com.openforge.api.system.risk.SystemRiskService
 import org.springframework.data.domain.PageRequest
@@ -50,7 +50,7 @@ class DashboardService(
                     id = strategy.id,
                     name = strategy.name,
                     strategyType = strategy.strategyType.value,
-                    status = strategy.status.value,
+                    status = StrategyRuntimeState.resolveDisplayStatus(strategy.status, config?.enabled == true).value,
                     executionEnabled = config?.enabled ?: false,
                     lastRunStatus = lastRun?.status?.value,
                     lastRunAt = lastRun?.startedAt,
@@ -59,7 +59,7 @@ class DashboardService(
                 )
             }
 
-        val runningStrategyCount = strategies.count { it.status == StrategyStatus.RUNNING }
+        val runningStrategyCount = strategySummaries.count { it.executionEnabled }
 
         val allTodayOrders =
             strategies.flatMap { strategy ->

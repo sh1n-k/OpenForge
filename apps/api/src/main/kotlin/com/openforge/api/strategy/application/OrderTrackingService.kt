@@ -16,6 +16,7 @@ import com.openforge.api.strategy.domain.StrategySignalEventRepository
 import com.openforge.api.strategy.web.CreateOrderFillRequest
 import com.openforge.api.strategy.web.OrderFillResponse
 import com.openforge.api.strategy.web.OrderRequestResponse
+import com.openforge.api.strategy.web.OrderRequestWithEventsResponse
 import com.openforge.api.strategy.web.OrderStatusEventResponse
 import com.openforge.api.strategy.web.StrategyPositionResponse
 import jakarta.transaction.Transactional
@@ -83,6 +84,26 @@ class OrderTrackingService(
     fun listPositions(strategyId: UUID): List<StrategyPositionResponse> {
         getStrategy(strategyId)
         return projectPositions(strategyId)
+    }
+
+    fun listOrderRequestsWithEvents(
+        strategyId: UUID,
+        limit: Int,
+        eventLimit: Int,
+    ): List<OrderRequestWithEventsResponse> {
+        getStrategy(strategyId)
+        return buildOrderRequestViews(
+            orderRequestRepository.findAllByStrategyIdOrderByRequestedAtDesc(
+                strategyId,
+                PageRequest.of(0, normalizeLimit(limit, 20)),
+            ),
+            eventLimit = eventLimit,
+        ).map { view ->
+            OrderRequestWithEventsResponse(
+                orderRequest = view.response,
+                statusEvents = view.statusEvents,
+            )
+        }
     }
 
     fun currentPositionProjections(strategyId: UUID): List<PositionProjection> =
@@ -340,18 +361,64 @@ class OrderTrackingService(
         )
     }
 
-    private fun currentStatus(orderRequest: StrategyOrderRequestEntity): OrderLifecycleStatus =
-        orderStatusEventRepository.findTopByOrderRequestIdOrderByOccurredAtDesc(orderRequest.id)?.status
-            ?: when (orderRequest.status) {
-                OrderRequestStatus.REQUESTED,
-                OrderRequestStatus.PENDING,
-                -> OrderLifecycleStatus.REQUESTED
+    private fun buildOrderRequestViews(
+        requests: List<StrategyOrderRequestEntity>,
+        eventLimit: Int,
+    ): List<OrderRequestView> {
+        if (requests.isEmpty()) {
+            return emptyList()
+        }
 
-                OrderRequestStatus.REJECTED_DUPLICATE,
-                OrderRequestStatus.REJECTED_PRECHECK,
-                OrderRequestStatus.REJECTED_RISK,
-                -> OrderLifecycleStatus.REJECTED
-            }
+        val orderRequestIds = requests.map { it.id }
+        val signalById = signalEventRepository.findAllById(requests.map { it.signalEventId }).associateBy { it.id }
+        val fillsByOrderRequestId =
+            orderFillRepository
+                .findAllByOrderRequestIdInOrderByFilledAtAsc(orderRequestIds)
+                .groupBy { it.orderRequestId }
+        val statusEventsByOrderRequestId =
+            orderStatusEventRepository
+                .findAllByOrderRequestIdInOrderByOccurredAtDesc(orderRequestIds)
+                .groupBy { it.orderRequestId }
+
+        return requests.map { request ->
+            val symbol =
+                signalById[request.signalEventId]?.symbol
+                    ?: throw ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Signal event not found for order request: ${request.signalEventId}",
+                    )
+            val fills = fillsByOrderRequestId[request.id].orEmpty()
+            val statusEvents = statusEventsByOrderRequestId[request.id].orEmpty()
+            OrderRequestView(
+                response =
+                    toOrderRequestResponse(
+                        orderRequest = request,
+                        symbol = symbol,
+                        filledQuantity = fills.sumOf { it.quantity },
+                        currentStatus = currentStatus(request, statusEvents.firstOrNull()),
+                    ),
+                statusEvents = statusEvents.take(normalizeLimit(eventLimit, 50)).map(::toOrderStatusEventResponse),
+            )
+        }
+    }
+
+    private fun currentStatus(orderRequest: StrategyOrderRequestEntity): OrderLifecycleStatus =
+        currentStatus(orderRequest, orderStatusEventRepository.findTopByOrderRequestIdOrderByOccurredAtDesc(orderRequest.id))
+
+    private fun currentStatus(
+        orderRequest: StrategyOrderRequestEntity,
+        latestStatusEvent: StrategyOrderStatusEventEntity?,
+    ): OrderLifecycleStatus =
+        latestStatusEvent?.status ?: when (orderRequest.status) {
+            OrderRequestStatus.REQUESTED,
+            OrderRequestStatus.PENDING,
+            -> OrderLifecycleStatus.REQUESTED
+
+            OrderRequestStatus.REJECTED_DUPLICATE,
+            OrderRequestStatus.REJECTED_PRECHECK,
+            OrderRequestStatus.REJECTED_RISK,
+            -> OrderLifecycleStatus.REJECTED
+        }
 
     private fun projectPositions(strategyId: UUID): List<StrategyPositionResponse> =
         projectPositionState(strategyId)
@@ -423,6 +490,29 @@ class OrderTrackingService(
             source = entity.source,
         )
 
+    private fun toOrderRequestResponse(
+        orderRequest: StrategyOrderRequestEntity,
+        symbol: String,
+        filledQuantity: Long,
+        currentStatus: OrderLifecycleStatus,
+    ): OrderRequestResponse =
+        OrderRequestResponse(
+            id = orderRequest.id,
+            signalEventId = orderRequest.signalEventId,
+            symbol = symbol,
+            side = orderRequest.side,
+            quantity = orderRequest.quantity,
+            price = orderRequest.price.toDouble(),
+            mode = orderRequest.mode,
+            status = orderRequest.status,
+            currentStatus = currentStatus,
+            filledQuantity = filledQuantity,
+            remainingQuantity = (orderRequest.quantity - filledQuantity).coerceAtLeast(0),
+            precheckPassed = orderRequest.precheckPassed,
+            failureReason = orderRequest.failureReason,
+            requestedAt = orderRequest.requestedAt,
+        )
+
     private fun BigDecimal.scaled(): BigDecimal = setScale(6, RoundingMode.HALF_UP)
 
     private fun symbolFor(orderRequest: StrategyOrderRequestEntity): String =
@@ -439,6 +529,11 @@ class OrderTrackingService(
         value: Int,
         defaultValue: Int,
     ): Int = value.coerceIn(1, 100).takeIf { it > 0 } ?: defaultValue
+
+    private data class OrderRequestView(
+        val response: OrderRequestResponse,
+        val statusEvents: List<OrderStatusEventResponse>,
+    )
 
     private data class PositionState(
         val symbol: String,
