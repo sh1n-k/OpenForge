@@ -1,18 +1,40 @@
+import js from "@eslint/js";
+import svelte from "eslint-plugin-svelte";
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
+    "dist/**",
     "build/**",
-    "next-env.d.ts",
+    "coverage/**",
   ]),
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  ...svelte.configs.recommended,
+  {
+    files: ["**/*.ts", "**/*.svelte"],
+    languageOptions: {
+      globals: {
+        __dirname: "readonly",
+        CustomEvent: "readonly",
+        document: "readonly",
+        HTMLElement: "readonly",
+        HTMLInputElement: "readonly",
+        MouseEvent: "readonly",
+        PopStateEvent: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        window: "readonly",
+      },
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+    },
+    rules: {
+      "svelte/require-each-key": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

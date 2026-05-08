@@ -5,7 +5,7 @@
 ## 구조
 
 - `apps/api` — Spring Boot 4 + Kotlin, PostgreSQL, Flyway
-- `apps/web` — Next.js 16 (App Router) + React 19 + Tailwind 4
+- `apps/web` — Svelte 5 + Vite + Tailwind 4
 
 ## 빌드 & 검증
 
@@ -13,7 +13,7 @@
 make check          # API 테스트 + 코드 스타일 + web lint + test (전체 검증)
 make dev-db         # PostgreSQL 컨테이너 시작
 make dev-api        # API 서버 (Gradle bootRun)
-make dev-web        # 웹 서버 (Next.js dev)
+make dev-web        # 웹 서버 (Vite dev)
 make smoke          # 실행 중인 서버 헬스 체크
 ```
 
@@ -29,8 +29,10 @@ cd apps/api && ./gradlew spotlessApply     # 자동 포맷팅
 
 ```bash
 pnpm --filter web lint        # ESLint
+pnpm --filter web typecheck   # svelte-check
 pnpm --filter web test --run  # Vitest
 pnpm --filter web build       # 프로덕션 빌드
+cd apps/api && ./gradlew bootJar # Svelte 빌드 산출물을 포함한 배포 Jar
 ```
 
 ## 패키지 구조 규칙
@@ -63,8 +65,9 @@ com.openforge.api
 
 ```
 apps/web/src
-├── app/               # Next.js App Router 페이지
-├── components/        # 클라이언트 컴포넌트
+├── pages/             # Svelte 페이지와 화면 섹션
+├── App.svelte         # 라우팅과 앱 셸
+├── router.ts          # 클라이언트 라우트 파서
 └── lib/
     └── api/           # API 클라이언트(client.ts) + 타입 정의(types.ts)
 ```

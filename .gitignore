@@ -6,7 +6,7 @@
 .idea/
 node_modules/
 .kotlin/
-apps/web/.next/
+apps/web/dist/
 apps/web/build/
 apps/web/coverage/
 apps/web/node_modules/
@@ -15,6 +15,7 @@ apps/api/.gradle/
 apps/api/build/
 apps/api/out/
 .artifacts/
+.codex-tmp/
 .pnpm-store/
 .playwright-cli/
 .playwright-mcp/

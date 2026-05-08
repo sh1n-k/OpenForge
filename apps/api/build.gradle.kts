@@ -20,6 +20,9 @@ repositories {
     mavenCentral()
 }
 
+val webDir = layout.projectDirectory.dir("../web")
+val pnpmExecutable = if (System.getProperty("os.name").lowercase().contains("windows")) "pnpm.cmd" else "pnpm"
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -64,6 +67,18 @@ allOpen {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+val buildWeb by tasks.registering(Exec::class) {
+    workingDir = webDir.asFile
+    commandLine(pnpmExecutable, "build")
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    dependsOn(buildWeb)
+    from(webDir.dir("dist")) {
+        into("BOOT-INF/classes/static")
+    }
 }
 
 spotless {

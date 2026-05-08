@@ -11,13 +11,13 @@ export type HealthSnapshot = {
   mode: string;
 };
 
-const defaultApiPort = process.env.API_PORT ?? "8080";
+const defaultApiPort = import.meta.env.VITE_API_PORT ?? "8080";
 const defaultBaseUrl = `http://127.0.0.1:${defaultApiPort}`;
 
 export async function loadHealthStatus(): Promise<HealthSnapshot> {
   try {
     const response = await fetch(
-      `${process.env.API_BASE_URL ?? defaultBaseUrl}/api/v1/health`,
+      `${import.meta.env.VITE_API_BASE_URL ?? defaultBaseUrl}/api/v1/health`,
       {
         cache: "no-store",
       },
@@ -38,8 +38,8 @@ export async function loadHealthStatus(): Promise<HealthSnapshot> {
         status: "DOWN",
         product: "Unavailable",
       },
-      environment: process.env.APP_ENV ?? "local",
-      mode: process.env.APP_MODE ?? "paper",
+      environment: import.meta.env.VITE_APP_ENV ?? "local",
+      mode: import.meta.env.VITE_APP_MODE ?? "paper",
     };
   }
 }

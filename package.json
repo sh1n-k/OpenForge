@@ -13,8 +13,12 @@
     "ps:dev:all": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-all",
     "ps:check": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 check",
     "ps:smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 smoke",
+    "ps:jar": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 jar",
+    "ps:jar-smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 jar-smoke",
     "web:dev": "pnpm --filter web dev",
     "web:lint": "pnpm --filter web lint",
-    "web:test": "pnpm --filter web test --run"
+    "web:typecheck": "pnpm --filter web typecheck",
+    "web:test": "pnpm --filter web test --run",
+    "web:build": "pnpm --filter web build"
   }
 }
