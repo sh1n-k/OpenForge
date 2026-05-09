@@ -10,11 +10,11 @@
 ## 빌드 & 검증
 
 ```bash
-make check          # API 테스트 + 코드 스타일 + web lint + test (전체 검증)
-make dev-db         # PostgreSQL 컨테이너 시작
-make dev-api        # API 서버 (Gradle bootRun)
-make dev-web        # 웹 서버 (Vite dev)
-make smoke          # 실행 중인 서버 헬스 체크
+pnpm check          # API 테스트 + 코드 스타일 + web lint + test (전체 검증)
+pnpm dev:db         # PostgreSQL 컨테이너 시작
+pnpm dev:api        # API 서버 (Gradle bootRun)
+pnpm dev:web        # 웹 서버 (Vite dev)
+pnpm smoke          # 실행 중인 서버 헬스 체크
 ```
 
 ### API (apps/api)
