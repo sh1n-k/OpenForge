@@ -14,6 +14,10 @@
 3. 워크스페이스 의존성을 설치한다: `pnpm install`
 4. DB를 띄운다: `make dev-db`
 
+`make dev-db-down`은 DB 컨테이너와 Compose 네트워크만 제거하고 `postgres-data` 볼륨은 보존한다. 로컬 DB 데이터를 초기화해야 할 때만 `make dev-db-reset`을 사용한다.
+
+Docker Compose 컨테이너 이름은 고정하지 않고 프로젝트명 기준으로 자동 생성한다. 여러 OpenForge checkout을 동시에 실행하려면 각 checkout의 `.env`에서 `COMPOSE_PROJECT_NAME`과 `DB_PORT`를 서로 다르게 지정한다.
+
 ## 실행
 
 - API: `make dev-api`
@@ -27,10 +31,12 @@
 
 - `.env` 생성: `Copy-Item .env.example .env`
 - DB 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-db`
+- DB 중지/컨테이너 제거: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-db-down`
+- DB 데이터 초기화: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-db-reset`
 - API 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-api`
 - Web 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-web`
 - API/Web 동시 시작: `powershell -ExecutionPolicy Bypass -File .\scripts\openforge.ps1 dev-all`
-- `pnpm ps:dev-db`, `pnpm ps:dev:api`, `pnpm ps:dev:web`, `pnpm ps:check`, `pnpm ps:smoke` 별칭도 사용할 수 있다.
+- `pnpm ps:dev-db`, `pnpm ps:dev-db-down`, `pnpm ps:dev-db-reset`, `pnpm ps:dev:api`, `pnpm ps:dev:web`, `pnpm ps:check`, `pnpm ps:smoke` 별칭도 사용할 수 있다.
 
 ## 검증
 

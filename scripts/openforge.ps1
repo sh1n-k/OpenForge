@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("dev-db", "dev-db-down", "dev-api", "dev-web", "dev-all", "check", "smoke", "jar", "jar-smoke")]
+    [ValidateSet("dev-db", "dev-db-down", "dev-db-reset", "dev-api", "dev-web", "dev-all", "check", "smoke", "jar", "jar-smoke")]
     [string]$Task
 )
 
@@ -165,17 +165,59 @@ function Invoke-InRepo {
     }
 }
 
-function Stop-ProcessIfRunning {
+function Stop-ProcessTreeIfRunning {
     param([System.Diagnostics.Process]$Process)
 
     if (-not $Process) {
         return
     }
 
+    $rootProcessId = $Process.Id
+    $processesByParent = @{}
+    Get-CimInstance Win32_Process |
+        ForEach-Object {
+            if (-not $processesByParent.ContainsKey($_.ParentProcessId)) {
+                $processesByParent[$_.ParentProcessId] = @()
+            }
+
+            $processesByParent[$_.ParentProcessId] += $_
+        }
+
+    $orderedProcessIds = New-Object System.Collections.Generic.List[int]
+    function Add-DescendantProcessIds {
+        param([int]$ProcessId)
+
+        if ($processesByParent.ContainsKey($ProcessId)) {
+            foreach ($childProcess in $processesByParent[$ProcessId]) {
+                Add-DescendantProcessIds -ProcessId $childProcess.ProcessId
+            }
+        }
+
+        $orderedProcessIds.Add($ProcessId)
+    }
+
+    Add-DescendantProcessIds -ProcessId $rootProcessId
+
     try {
+        $previousNativeCommandPreference = $PSNativeCommandUseErrorActionPreference
+        $PSNativeCommandUseErrorActionPreference = $false
+        try {
+            & taskkill.exe /PID $rootProcessId /T /F 2>$null | Out-Null
+        }
+        finally {
+            $PSNativeCommandUseErrorActionPreference = $previousNativeCommandPreference
+        }
+
+        foreach ($processId in $orderedProcessIds) {
+            $runningProcess = Get-Process -Id $processId -ErrorAction SilentlyContinue
+            if ($runningProcess) {
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        $Process.Refresh()
         if (-not $Process.HasExited) {
-            Stop-Process -Id $Process.Id -Force
-            $Process.WaitForExit()
+            $Process.WaitForExit(5000)
         }
     }
     catch {
@@ -183,6 +225,22 @@ function Stop-ProcessIfRunning {
             throw
         }
     }
+}
+
+function Invoke-DockerCompose {
+    param([string[]]$Arguments = @())
+
+    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
+    $composeFile = Join-Path $RootDir "infra\docker-compose.yml"
+    Invoke-NativeCommand "docker" (@("compose", "--project-directory", $RootDir, "-f", $composeFile) + $Arguments)
+}
+
+function Invoke-LegacyDockerCompose {
+    param([string[]]$Arguments = @())
+
+    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
+    $composeFile = Join-Path $RootDir "infra\docker-compose.yml"
+    Invoke-NativeCommand "docker" (@("compose", "-p", "infra", "-f", $composeFile) + $Arguments)
 }
 
 function Test-ExpectedInteractiveStopExitCode {
@@ -280,13 +338,17 @@ function Ensure-LocalDevDb {
 }
 
 function Start-DevDb {
-    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
-    Invoke-NativeCommand "docker" @("compose", "-f", (Join-Path $RootDir "infra\docker-compose.yml"), "up", "-d", "db")
+    Invoke-DockerCompose @("up", "-d", "db")
 }
 
 function Stop-DevDb {
-    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
-    Invoke-NativeCommand "docker" @("compose", "-f", (Join-Path $RootDir "infra\docker-compose.yml"), "down")
+    Invoke-DockerCompose @("down", "--remove-orphans")
+    Invoke-LegacyDockerCompose @("down", "--remove-orphans")
+}
+
+function Reset-DevDb {
+    Invoke-DockerCompose @("down", "-v", "--remove-orphans")
+    Invoke-LegacyDockerCompose @("down", "-v", "--remove-orphans")
 }
 
 function Start-Api {
@@ -323,7 +385,9 @@ function Start-Web {
     [Environment]::SetEnvironmentVariable("PORT", $webPort, "Process")
     [Environment]::SetEnvironmentVariable("API_PORT", $apiPort, "Process")
     [Environment]::SetEnvironmentVariable("API_BASE_URL", $apiBaseUrl, "Process")
-    [Environment]::SetEnvironmentVariable("VITE_API_BASE_URL", $apiBaseUrl, "Process")
+    if ((Get-EnvOrDefault "VITE_API_BASE_URL" "") -eq $apiBaseUrl) {
+        [Environment]::SetEnvironmentVariable("VITE_API_BASE_URL", "", "Process")
+    }
     [Environment]::SetEnvironmentVariable("WEB_ORIGIN", $webOrigin, "Process")
 
     Invoke-InRepo (Join-Path $RootDir "apps\web") {
@@ -382,8 +446,8 @@ function Start-All {
         }
     }
     finally {
-        Stop-ProcessIfRunning $apiProcess
-        Stop-ProcessIfRunning $webProcess
+        Stop-ProcessTreeIfRunning $apiProcess
+        Stop-ProcessTreeIfRunning $webProcess
     }
 }
 
@@ -498,7 +562,7 @@ function Invoke-JarSmoke {
         Write-Host "Jar smoke check passed on http://localhost:$apiPort"
     }
     finally {
-        Stop-ProcessIfRunning $process
+        Stop-ProcessTreeIfRunning $process
     }
 }
 
@@ -508,6 +572,7 @@ Initialize-ToolPaths
 switch ($Task) {
     "dev-db" { Start-DevDb }
     "dev-db-down" { Stop-DevDb }
+    "dev-db-reset" { Reset-DevDb }
     "dev-api" { Start-Api }
     "dev-web" { Start-Web }
     "dev-all" { Start-All }

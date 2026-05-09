@@ -11,13 +11,10 @@ export type HealthSnapshot = {
   mode: string;
 };
 
-const defaultApiPort = import.meta.env.VITE_API_PORT ?? "8080";
-const defaultBaseUrl = `http://127.0.0.1:${defaultApiPort}`;
-
 export async function loadHealthStatus(): Promise<HealthSnapshot> {
   try {
     const response = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL ?? defaultBaseUrl}/api/v1/health`,
+      `${import.meta.env.VITE_API_BASE_URL ?? ""}/api/v1/health`,
       {
         cache: "no-store",
       },

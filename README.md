@@ -19,6 +19,10 @@ OpenForge는 국내 시장 우선의 1인용 자동매매 운영 앱을 목표�
 6. Web만 실행: `pnpm dev:web`
 7. 둘 다 함께 실행: `pnpm dev:all`
 
+DB 컨테이너를 중지/제거하되 데이터 볼륨을 보존하려면 `make dev-db-down`을 사용한다. 로컬 DB 데이터를 초기화해야 할 때만 `make dev-db-reset`을 사용한다.
+
+Docker Compose 컨테이너 이름은 프로젝트명 기준으로 자동 생성한다. 여러 OpenForge checkout을 동시에 실행하려면 각 `.env`에서 `COMPOSE_PROJECT_NAME`과 `DB_PORT`를 서로 다르게 지정한다.
+
 포트 기본값은 API `8080`, Web `3000`이며, `API_BASE_URL`과 `WEB_ORIGIN`은 필요 시 개별 override 용도로 유지한다.
 
 검증은 `make check`, 실행 중 서비스 점검은 `make smoke`를 사용한다. 배포용 Jar는 `make jar`로 생성하며, 이 과정에서 `apps/web`의 Vite 빌드 산출물이 Jar 정적 리소스로 포함된다.
@@ -37,6 +41,8 @@ Windows에서는 `Makefile`과 `zsh` 대신 `scripts/openforge.ps1`를 사용한
 `package.json`에도 Windows용 별칭이 있다.
 
 - DB: `pnpm ps:dev-db`
+- DB 중지/컨테이너 제거: `pnpm ps:dev-db-down`
+- DB 데이터 초기화: `pnpm ps:dev-db-reset`
 - API: `pnpm ps:dev:api`
 - Web: `pnpm ps:dev:web`
 - 전체 체크: `pnpm ps:check`

@@ -8,6 +8,7 @@
     "dev:all": "./scripts/dev-all.sh",
     "ps:dev-db": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-db",
     "ps:dev-db-down": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-db-down",
+    "ps:dev-db-reset": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-db-reset",
     "ps:dev:api": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-api",
     "ps:dev:web": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-web",
     "ps:dev:all": "powershell -ExecutionPolicy Bypass -File ./scripts/openforge.ps1 dev-all",
