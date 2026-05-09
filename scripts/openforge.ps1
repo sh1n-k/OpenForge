@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("dev-db", "dev-db-down", "dev-api", "dev-web", "dev-all", "check", "smoke", "jar", "jar-smoke")]
+    [ValidateSet("dev-db", "dev-db-down", "dev-db-reset", "dev-api", "dev-web", "dev-all", "check", "smoke", "jar", "jar-smoke")]
     [string]$Task
 )
 
@@ -165,17 +165,59 @@ function Invoke-InRepo {
     }
 }
 
-function Stop-ProcessIfRunning {
+function Stop-ProcessTreeIfRunning {
     param([System.Diagnostics.Process]$Process)
 
     if (-not $Process) {
         return
     }
 
+    $rootProcessId = $Process.Id
+    $processesByParent = @{}
+    Get-CimInstance Win32_Process |
+        ForEach-Object {
+            if (-not $processesByParent.ContainsKey($_.ParentProcessId)) {
+                $processesByParent[$_.ParentProcessId] = @()
+            }
+
+            $processesByParent[$_.ParentProcessId] += $_
+        }
+
+    $orderedProcessIds = New-Object System.Collections.Generic.List[int]
+    function Add-DescendantProcessIds {
+        param([int]$ProcessId)
+
+        if ($processesByParent.ContainsKey($ProcessId)) {
+            foreach ($childProcess in $processesByParent[$ProcessId]) {
+                Add-DescendantProcessIds -ProcessId $childProcess.ProcessId
+            }
+        }
+
+        $orderedProcessIds.Add($ProcessId)
+    }
+
+    Add-DescendantProcessIds -ProcessId $rootProcessId
+
     try {
+        $previousNativeCommandPreference = $PSNativeCommandUseErrorActionPreference
+        $PSNativeCommandUseErrorActionPreference = $false
+        try {
+            & taskkill.exe /PID $rootProcessId /T /F 2>$null | Out-Null
+        }
+        finally {
+            $PSNativeCommandUseErrorActionPreference = $previousNativeCommandPreference
+        }
+
+        foreach ($processId in $orderedProcessIds) {
+            $runningProcess = Get-Process -Id $processId -ErrorAction SilentlyContinue
+            if ($runningProcess) {
+                Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        $Process.Refresh()
         if (-not $Process.HasExited) {
-            Stop-Process -Id $Process.Id -Force
-            $Process.WaitForExit()
+            $Process.WaitForExit(5000)
         }
     }
     catch {
@@ -185,21 +227,75 @@ function Stop-ProcessIfRunning {
     }
 }
 
+function Invoke-DockerCompose {
+    param([string[]]$Arguments = @())
+
+    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
+    $composeFile = Join-Path $RootDir "infra\docker-compose.yml"
+    Invoke-NativeCommand "docker" (@("compose", "--project-directory", $RootDir, "-f", $composeFile) + $Arguments)
+}
+
+function Invoke-LegacyDockerCompose {
+    param([string[]]$Arguments = @())
+
+    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
+    $composeFile = Join-Path $RootDir "infra\docker-compose.yml"
+    Invoke-NativeCommand "docker" (@("compose", "-p", "infra", "-f", $composeFile) + $Arguments)
+}
+
+function Test-ExpectedInteractiveStopExitCode {
+    param($ExitCode)
+
+    return $ExitCode -in @(-1073741510, 3221225786)
+}
+
 function Test-TcpPortOpen {
     param(
         [Parameter(Mandatory = $true)]
         [string]$HostName,
 
         [Parameter(Mandatory = $true)]
-        [int]$Port
+        [int]$Port,
+
+        [int]$TimeoutMilliseconds = 1500
     )
 
     try {
-        return Test-NetConnection -ComputerName $HostName -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue
+        $addresses = [System.Net.Dns]::GetHostAddresses($HostName)
     }
     catch {
-        return $false
+        $addresses = @()
     }
+
+    if ($addresses.Count -eq 0) {
+        $addresses = @($HostName)
+    }
+
+    foreach ($address in $addresses) {
+        $client = if ($address -is [System.Net.IPAddress]) {
+            [System.Net.Sockets.TcpClient]::new($address.AddressFamily)
+        }
+        else {
+            [System.Net.Sockets.TcpClient]::new()
+        }
+        try {
+            $connect = $client.BeginConnect($address, $Port, $null, $null)
+            if (-not $connect.AsyncWaitHandle.WaitOne($TimeoutMilliseconds, $false)) {
+                continue
+            }
+
+            $client.EndConnect($connect)
+            return $true
+        }
+        catch {
+            continue
+        }
+        finally {
+            $client.Close()
+        }
+    }
+
+    return $false
 }
 
 function Wait-ForTcpPort {
@@ -242,13 +338,17 @@ function Ensure-LocalDevDb {
 }
 
 function Start-DevDb {
-    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
-    Invoke-NativeCommand "docker" @("compose", "-f", (Join-Path $RootDir "infra\docker-compose.yml"), "up", "-d", "db")
+    Invoke-DockerCompose @("up", "-d", "db")
 }
 
 function Stop-DevDb {
-    Assert-CommandAvailable "docker" "Open Docker Desktop or install Docker Desktop first."
-    Invoke-NativeCommand "docker" @("compose", "-f", (Join-Path $RootDir "infra\docker-compose.yml"), "down")
+    Invoke-DockerCompose @("down", "--remove-orphans")
+    Invoke-LegacyDockerCompose @("down", "--remove-orphans")
+}
+
+function Reset-DevDb {
+    Invoke-DockerCompose @("down", "-v", "--remove-orphans")
+    Invoke-LegacyDockerCompose @("down", "-v", "--remove-orphans")
 }
 
 function Start-Api {
@@ -285,7 +385,9 @@ function Start-Web {
     [Environment]::SetEnvironmentVariable("PORT", $webPort, "Process")
     [Environment]::SetEnvironmentVariable("API_PORT", $apiPort, "Process")
     [Environment]::SetEnvironmentVariable("API_BASE_URL", $apiBaseUrl, "Process")
-    [Environment]::SetEnvironmentVariable("VITE_API_BASE_URL", $apiBaseUrl, "Process")
+    if ((Get-EnvOrDefault "VITE_API_BASE_URL" "") -eq $apiBaseUrl) {
+        [Environment]::SetEnvironmentVariable("VITE_API_BASE_URL", "", "Process")
+    }
     [Environment]::SetEnvironmentVariable("WEB_ORIGIN", $webOrigin, "Process")
 
     Invoke-InRepo (Join-Path $RootDir "apps\web") {
@@ -303,11 +405,11 @@ function Start-All {
 
     $apiStdOut = Join-Path $logDir "api.out.log"
     $apiStdErr = Join-Path $logDir "api.err.log"
-    $apiProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-api") -WorkingDirectory $RootDir -PassThru -RedirectStandardOutput $apiStdOut -RedirectStandardError $apiStdErr
+    $apiProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-api") -WorkingDirectory $RootDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $apiStdOut -RedirectStandardError $apiStdErr
     Start-Sleep -Seconds 2
     $webStdOut = Join-Path $logDir "web.out.log"
     $webStdErr = Join-Path $logDir "web.err.log"
-    $webProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-web") -WorkingDirectory $RootDir -PassThru -RedirectStandardOutput $webStdOut -RedirectStandardError $webStdErr
+    $webProcess = Start-Process -FilePath $hostPath -ArgumentList ($commonArguments + "dev-web") -WorkingDirectory $RootDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $webStdOut -RedirectStandardError $webStdErr
 
     Write-Host "API PID: $($apiProcess.Id)"
     Write-Host "WEB PID: $($webProcess.Id)"
@@ -324,11 +426,19 @@ function Start-All {
 
             if ($apiProcess.HasExited) {
                 $apiExitCode = try { $apiProcess.ExitCode } catch { "unknown" }
+                if (Test-ExpectedInteractiveStopExitCode $apiExitCode) {
+                    Write-Host "API process stopped by interactive termination."
+                    return
+                }
                 throw "API process exited with code $apiExitCode. Check logs in $logDir."
             }
 
             if ($webProcess.HasExited) {
                 $webExitCode = try { $webProcess.ExitCode } catch { "unknown" }
+                if (Test-ExpectedInteractiveStopExitCode $webExitCode) {
+                    Write-Host "Web process stopped by interactive termination."
+                    return
+                }
                 throw "Web process exited with code $webExitCode. Check logs in $logDir."
             }
 
@@ -336,8 +446,8 @@ function Start-All {
         }
     }
     finally {
-        Stop-ProcessIfRunning $apiProcess
-        Stop-ProcessIfRunning $webProcess
+        Stop-ProcessTreeIfRunning $apiProcess
+        Stop-ProcessTreeIfRunning $webProcess
     }
 }
 
@@ -385,7 +495,7 @@ function Invoke-JarSmoke {
     Enable-JavaIpv6LoopbackPreference
     Ensure-LocalDevDb
 
-    $apiPort = [int](Get-EnvOrDefault "API_PORT" "18083")
+    $apiPort = [int](Get-EnvOrDefault "JAR_SMOKE_PORT" "18083")
     Assert-PortAvailable -Port $apiPort -ServiceName "Jar smoke"
 
     Invoke-JarBuild
@@ -452,7 +562,7 @@ function Invoke-JarSmoke {
         Write-Host "Jar smoke check passed on http://localhost:$apiPort"
     }
     finally {
-        Stop-ProcessIfRunning $process
+        Stop-ProcessTreeIfRunning $process
     }
 }
 
@@ -462,6 +572,7 @@ Initialize-ToolPaths
 switch ($Task) {
     "dev-db" { Start-DevDb }
     "dev-db-down" { Stop-DevDb }
+    "dev-db-reset" { Reset-DevDb }
     "dev-api" { Start-Api }
     "dev-web" { Start-Web }
     "dev-all" { Start-All }

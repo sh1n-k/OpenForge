@@ -77,9 +77,10 @@ const routeMetaList: RouteMeta[] = [
     match: /^\/strategies\/[^/]+$/,
     sections: [
       { id: "strategy-overview", label: "개요" },
+      { id: "strategy-universes", label: "종목 그룹" },
       { id: "strategy-execution", label: "자동 실행" },
       { id: "strategy-risk", label: "리스크" },
-      { id: "strategy-versions", label: "버전과 유니버스" },
+      { id: "strategy-versions", label: "버전" },
       { id: "strategy-orders", label: "주문" },
       { id: "strategy-activity", label: "실행 로그" },
     ],
@@ -99,22 +100,22 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/strategies/[strategyId]/backtest",
-    label: "백테스트 실행",
-    description: "백테스트 실행과 데이터 준비",
+    label: "과거 데이터 점검",
+    description: "보조 과거 데이터 점검과 데이터 준비",
     mode: "workbench",
     match: /^\/strategies\/[^/]+\/backtest$/,
     sections: [
       { id: "backtest-summary", label: "개요" },
-      { id: "backtest-config", label: "실행 설정" },
+      { id: "backtest-config", label: "점검 설정" },
       { id: "backtest-datasets", label: "데이터 입력" },
       { id: "backtest-coverage", label: "커버리지" },
-      { id: "backtest-runs", label: "실행 이력" },
+      { id: "backtest-runs", label: "점검 이력" },
     ],
   },
   {
     href: "/universes",
-    label: "유니버스",
-    description: "유니버스 레지스트리와 종목 구성",
+    label: "종목 그룹",
+    description: "종목 그룹 레지스트리와 종목 구성",
     mode: "docs",
     match: /^\/universes$/,
     navGroup: "전략 관리",
@@ -127,20 +128,20 @@ const routeMetaList: RouteMeta[] = [
   },
   {
     href: "/universes/[universeId]",
-    label: "유니버스 상세",
-    description: "유니버스 상세와 심볼 구성",
+    label: "종목 그룹 상세",
+    description: "종목 그룹 상세와 종목 구성",
     mode: "docs",
     match: /^\/universes\/[^/]+$/,
     sections: [
       { id: "universe-overview", label: "개요" },
       { id: "universe-basic-info", label: "기본 정보" },
-      { id: "universe-symbols", label: "심볼 구성" },
+      { id: "universe-symbols", label: "종목 구성" },
     ],
   },
   {
     href: "/backtests/[runId]",
-    label: "백테스트 결과",
-    description: "백테스트 결과와 차트",
+    label: "과거 데이터 점검 결과",
+    description: "과거 데이터 점검 결과와 차트",
     mode: "workbench",
     match: /^\/backtests\/[^/]+$/,
     sections: [
@@ -172,7 +173,6 @@ const routeMetaList: RouteMeta[] = [
     match: /^\/broker\/ledger$/,
     sections: [
       { id: "broker-ledger-summary", label: "조회 기준" },
-      { id: "broker-ledger-filters", label: "필터" },
       { id: "broker-ledger-trades", label: "거래 원장" },
       { id: "broker-ledger-balances", label: "잔고 스냅샷" },
       { id: "broker-ledger-profits", label: "손익 스냅샷" },
@@ -188,7 +188,6 @@ const routeMetaList: RouteMeta[] = [
     icon: "ShoppingCart",
     sections: [
       { id: "orders-summary", label: "요약" },
-      { id: "orders-filters", label: "조회 기준" },
       { id: "orders-requests", label: "주문 요청" },
       { id: "orders-fills", label: "체결 내역" },
     ],
@@ -203,7 +202,6 @@ const routeMetaList: RouteMeta[] = [
     icon: "PieChart",
     sections: [
       { id: "positions-summary", label: "포지션 요약" },
-      { id: "positions-filters", label: "조회 기준" },
       { id: "positions-detail", label: "전략별 보유" },
     ],
   },
@@ -217,7 +215,6 @@ const routeMetaList: RouteMeta[] = [
     icon: "ScrollText",
     sections: [
       { id: "logs-summary", label: "요약" },
-      { id: "logs-filters", label: "필터" },
       { id: "logs-timeline", label: "이벤트 타임라인" },
     ],
   },
@@ -349,11 +346,11 @@ export function getContextCommands(pathname: string): CommandEntry[] {
     },
     {
       id: `context:strategy:${strategyId}:backtest`,
-      label: "백테스트 실행",
-      description: "백테스트 실행 화면으로 이동",
+      label: "과거 데이터 점검",
+      description: "과거 데이터 점검 화면으로 이동",
       href: `/strategies/${strategyId}/backtest`,
       group: "Context",
-      keywords: ["backtest", "runner", strategyId, "백테스트"],
+      keywords: ["backtest", "historical", "check", strategyId, "백테스트", "과거 데이터 점검"],
     },
   ];
 }

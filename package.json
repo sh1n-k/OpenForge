@@ -5,6 +5,7 @@
   "scripts": {
     "dev:db": "node ./scripts/openforge.mjs dev-db",
     "dev:db:down": "node ./scripts/openforge.mjs dev-db-down",
+    "dev:db:reset": "node ./scripts/openforge.mjs dev-db-reset",
     "dev:api": "node ./scripts/openforge.mjs dev-api",
     "dev:web": "node ./scripts/openforge.mjs dev-web",
     "dev:all": "node ./scripts/openforge.mjs dev-all",

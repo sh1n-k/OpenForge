@@ -14,11 +14,15 @@
 3. 워크스페이스 의존성을 설치한다: `pnpm install --frozen-lockfile`
 4. DB를 띄운다: `pnpm dev:db`
 
+`pnpm dev:db:down`은 DB 컨테이너와 Compose 네트워크만 제거하고 `postgres-data` 볼륨은 보존한다. 로컬 DB 데이터를 초기화해야 할 때만 `pnpm dev:db:reset`을 사용한다.
+
 ## 실행
 
 - API: `pnpm dev:api`
 - Web: `pnpm dev:web`
 - API/Web 동시 실행: `pnpm dev:all`
+- DB 중지/컨테이너 제거: `pnpm dev:db:down`
+- DB 데이터 초기화: `pnpm dev:db:reset`
 - 기본 포트는 API `8080`, Web `3000`이다.
 - 로컬 Web은 Vite dev server로 실행되며 `/api` 요청을 API 서버로 프록시한다.
 - `API_BASE_URL`, `VITE_API_BASE_URL`, `WEB_ORIGIN`은 포트 기반 기본값을 덮어쓸 때만 사용한다.
@@ -52,6 +56,7 @@ pnpm jar:smoke
 ## 운영 환경변수
 
 - `SERVER_PORT` 또는 `API_PORT`: Jar 실행 포트
+- `JAR_SMOKE_PORT`: `jar-smoke`가 임시 Jar 실행에 사용할 포트. 기본값은 `18083`이다.
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`: PostgreSQL 연결
 - `OPENFORGE_AUTH_PASSWORD`: 값이 있으면 `/api/**` 인증을 요구한다.
 - `OPENFORGE_JWT_SECRET`: 운영에서는 기본 개발 secret 대신 고정된 비밀값을 사용한다.

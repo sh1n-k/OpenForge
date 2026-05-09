@@ -65,6 +65,7 @@ vi.mock("@/lib/api", () => {
       description: "test strategy",
       strategyType: "builder",
       latestVersion: null,
+      universes: [],
     }),
     loadStrategyBacktests: vi.fn().mockResolvedValue([]),
     loadStrategyExecution: ok,
@@ -92,6 +93,7 @@ vi.mock("@/lib/api", () => {
       symbols: [],
     }),
     loadUniverses: vi.fn().mockResolvedValue([]),
+    replaceStrategyUniverses: ok,
     replaceUniverseSymbols: ok,
     searchSymbols: vi.fn().mockResolvedValue({ items: [] }),
     startBrokerLedgerSync: ok,
@@ -133,7 +135,7 @@ describe("RouteView", () => {
     render(RouteView, { props: { route: { name: "strategy-backtest", strategyId: "strategy-1" } } });
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Strategy 1 백테스트" })).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "Strategy 1 과거 데이터 점검" })).toBeTruthy();
     });
 
     expect(loadStrategy).toHaveBeenCalledWith("strategy-1");
@@ -190,7 +192,7 @@ describe("RouteView", () => {
     expect(loadBrokerLedgerSyncRuns).not.toHaveBeenCalled();
   });
 
-  it("does not fetch unrendered strategy detail collections", async () => {
+  it("loads strategy detail data needed for execution management", async () => {
     render(RouteView, { props: { route: { name: "strategy-detail", strategyId: "strategy-1" } } });
 
     await waitFor(() => {
@@ -198,6 +200,6 @@ describe("RouteView", () => {
     });
 
     expect(loadStrategyFills).not.toHaveBeenCalled();
-    expect(loadUniverses).not.toHaveBeenCalled();
+    expect(loadUniverses).toHaveBeenCalledTimes(1);
   });
 });

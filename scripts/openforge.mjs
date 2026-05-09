@@ -12,6 +12,7 @@ const task = process.argv[2];
 const tasks = new Set([
   "dev-db",
   "dev-db-down",
+  "dev-db-reset",
   "dev-api",
   "dev-web",
   "dev-all",
@@ -22,7 +23,7 @@ const tasks = new Set([
 ]);
 
 if (!tasks.has(task)) {
-  console.error(`Usage: pnpm <dev:db|dev:db:down|dev:api|dev:web|dev:all|check|smoke|jar|jar:smoke>`);
+  console.error(`Usage: pnpm <dev:db|dev:db:down|dev:db:reset|dev:api|dev:web|dev:all|check|smoke|jar|jar:smoke>`);
   process.exit(1);
 }
 
@@ -41,10 +42,15 @@ if (process.platform === "win32") {
 
 switch (task) {
   case "dev-db":
-    await run("docker", ["compose", "-f", "infra/docker-compose.yml", "up", "-d", "db"]);
+    await runDockerCompose(["up", "-d", "db"]);
     break;
   case "dev-db-down":
-    await run("docker", ["compose", "-f", "infra/docker-compose.yml", "down"]);
+    await runDockerCompose(["down", "--remove-orphans"]);
+    await runLegacyDockerCompose(["down", "--remove-orphans"]);
+    break;
+  case "dev-db-reset":
+    await runDockerCompose(["down", "-v", "--remove-orphans"]);
+    await runLegacyDockerCompose(["down", "-v", "--remove-orphans"]);
     break;
   case "dev-api":
     await startApi();
@@ -113,6 +119,23 @@ function run(command, args = [], options = {}) {
   });
 }
 
+function dockerComposeArgs(args, legacy = false) {
+  const composeFile = path.join(rootDir, "infra", "docker-compose.yml");
+  if (legacy) {
+    return ["compose", "-p", "infra", "-f", composeFile, ...args];
+  }
+
+  return ["compose", "--project-directory", rootDir, "-f", composeFile, ...args];
+}
+
+async function runDockerCompose(args) {
+  await run("docker", dockerComposeArgs(args));
+}
+
+async function runLegacyDockerCompose(args) {
+  await run("docker", dockerComposeArgs(args, true));
+}
+
 function devApiEnv() {
   const apiPort = env.API_PORT || env.SERVER_PORT || "8080";
   const webPort = env.WEB_PORT || "3000";
@@ -134,6 +157,7 @@ function devWebEnv() {
   const webPort = env.WEB_PORT || env.PORT || "3000";
   const apiPort = env.API_PORT || "8080";
   const apiBaseUrl = env.API_BASE_URL || `http://127.0.0.1:${apiPort}`;
+  const viteApiBaseUrl = env.VITE_API_BASE_URL === apiBaseUrl ? "" : env.VITE_API_BASE_URL;
 
   return {
     ...env,
@@ -141,7 +165,7 @@ function devWebEnv() {
     PORT: webPort,
     API_PORT: apiPort,
     API_BASE_URL: apiBaseUrl,
-    VITE_API_BASE_URL: env.VITE_API_BASE_URL || apiBaseUrl,
+    VITE_API_BASE_URL: viteApiBaseUrl || "",
     WEB_ORIGIN: env.WEB_ORIGIN || `http://127.0.0.1:${webPort}`,
   };
 }
@@ -310,10 +334,10 @@ async function smoke() {
 }
 
 async function jarSmoke() {
-  await run("docker", ["compose", "-f", "infra/docker-compose.yml", "up", "-d", "db"]);
+  await runDockerCompose(["up", "-d", "db"]);
   await run("./gradlew", ["bootJar"], { cwd: path.join(rootDir, "apps", "api") });
 
-  const apiPort = env.API_PORT || "18083";
+  const apiPort = env.JAR_SMOKE_PORT || "18083";
   if (await isPortOpen("127.0.0.1", Number(apiPort))) {
     throw new Error(`Jar smoke cannot start because port ${apiPort} is already in use.`);
   }

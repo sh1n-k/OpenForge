@@ -19,6 +19,8 @@ OpenForge는 국내 시장 우선의 1인용 자동매매 운영 앱을 목표�
 6. Web만 실행: `pnpm dev:web`
 7. 둘 다 함께 실행: `pnpm dev:all`
 
+DB 컨테이너를 중지/제거하되 데이터 볼륨을 보존하려면 `pnpm dev:db:down`을 사용한다. 로컬 DB 데이터를 초기화해야 할 때만 `pnpm dev:db:reset`을 사용한다.
+
 포트 기본값은 API `8080`, Web `3000`이며, `API_BASE_URL`과 `WEB_ORIGIN`은 필요 시 개별 override 용도로 유지한다.
 
 검증은 `pnpm check`, 실행 중 서비스 점검은 `pnpm smoke`를 사용한다. 배포용 Jar는 `pnpm jar`로 생성하며, 이 과정에서 `apps/web`의 Vite 빌드 산출물이 Jar 정적 리소스로 포함된다.
@@ -27,6 +29,7 @@ OpenForge는 국내 시장 우선의 1인용 자동매매 운영 앱을 목표�
 
 - DB 시작: `pnpm dev:db`
 - DB 종료: `pnpm dev:db:down`
+- DB 데이터 초기화: `pnpm dev:db:reset`
 - API 시작: `pnpm dev:api`
 - Web 시작: `pnpm dev:web`
 - API/Web 동시 시작: `pnpm dev:all`

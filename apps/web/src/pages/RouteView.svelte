@@ -45,6 +45,7 @@
     loadSystemRiskEvents,
     loadUniverse,
     loadUniverses,
+    replaceStrategyUniverses,
     replaceUniverseSymbols,
     searchSymbols,
     startBrokerLedgerSync,
@@ -129,6 +130,7 @@
   let symbolQuery = "";
   let symbolResults: SymbolSearchItem[] = [];
   let symbolText = "";
+  let selectedUniverseIds: string[] = [];
   let editorMode = "builder" as "builder" | "code";
   let codeSource = "";
   let changeSummary = "";
@@ -176,6 +178,7 @@
           riskEvents,
           positions,
           requestsWithEvents,
+          universes,
         ] = await Promise.all([
           loadStrategy(strategyId),
           loadStrategyVersions(strategyId),
@@ -188,8 +191,9 @@
           loadStrategyRiskEvents(strategyId),
           loadStrategyPositions(strategyId),
           loadStrategyOrderRequestsWithEvents(strategyId),
+          loadUniverses(),
         ]);
-        return { strategy, versions, execution, runs, signals, orderCandidates, orderRequests, riskConfig, riskEvents, positions, requestsWithEvents };
+        return { strategy, versions, execution, runs, signals, orderCandidates, orderRequests, riskConfig, riskEvents, positions, requestsWithEvents, universes };
       }
       case "strategy-edit": {
         const strategy = await loadStrategy(nextRoute.strategyId);
@@ -261,6 +265,10 @@
       codeSource = deriveCodeSource(strategy);
       validation = null;
     }
+    if (nextRoute.name === "strategy-detail") {
+      const strategy = data.strategy as StrategyDetail | undefined;
+      selectedUniverseIds = strategy?.universes.map((universe) => universe.id) ?? [];
+    }
   }
 
   function statusClass(value: string | null | undefined) {
@@ -274,11 +282,12 @@
     void loadRoute(route);
   }
 
-  async function runAction(work: () => Promise<unknown>, success?: () => void) {
+  async function runAction(work: () => Promise<unknown>, success?: () => boolean | void) {
     try {
       error = null;
       await work();
-      success?.();
+      const shouldRefresh = success?.() !== false;
+      if (!shouldRefresh) return;
       refresh();
     } catch (e) {
       error = e instanceof Error ? e.message : "요청 처리 중 오류가 발생했습니다.";
@@ -373,6 +382,12 @@
     const coverage = await loadMarketCoverage({ symbols, startDate: backtestForm.startDate, endDate: backtestForm.endDate });
     data = { ...data, coverage };
   }
+
+  function toggleUniverseSelection(universeId: string, checked: boolean) {
+    selectedUniverseIds = checked
+      ? [...new Set([...selectedUniverseIds, universeId])]
+      : selectedUniverseIds.filter((id) => id !== universeId);
+  }
 </script>
 
 {#if loading}
@@ -438,6 +453,7 @@
   {@const strategy = data.strategy as StrategyDetail}
   {@const execution = data.execution as StrategyExecutionResponse}
   {@const riskConfig = data.riskConfig as StrategyRiskConfig}
+  {@const availableUniverses = data.universes as UniverseSummary[]}
   <section class="page-shell docs-page-shell">
     <header id="strategy-overview" class="doc-panel">
       <div class="page-intro-row">
@@ -448,15 +464,38 @@
         </div>
         <div class="page-actions">
           <a class="button-secondary" href={`/strategies/${strategy.id}/edit`}>편집</a>
-          <a class="button-secondary" href={`/strategies/${strategy.id}/backtest`}>백테스트</a>
+          <a class="button-secondary" href={`/strategies/${strategy.id}/backtest`}>과거 데이터 점검</a>
           <button class="button-secondary" type="button" on:click={() => runAction(() => cloneStrategy(strategy.id))}>복제</button>
-          <button class="button-danger" type="button" on:click={() => runAction(() => archiveStrategy(strategy.id), () => (window.location.href = "/strategies"))}>보관</button>
+          <button class="button-danger" type="button" on:click={() => runAction(() => archiveStrategy(strategy.id), () => { window.location.href = "/strategies"; return false; })}>보관</button>
         </div>
       </div>
     </header>
+    <div id="strategy-universes" class="doc-panel grid-section">
+      <h2 class="section-title">종목 그룹</h2>
+      <p class="section-copy">자동 실행은 연결된 국내 종목 그룹의 종목을 대상으로 전략 신호를 계산합니다.</p>
+      {#if availableUniverses.length === 0}
+        <p class="section-copy">사용 가능한 종목 그룹이 없습니다.</p>
+      {:else}
+        <div class="checkbox-list">
+          {#each availableUniverses as item}
+            <label class="checkbox-row">
+              <input
+                type="checkbox"
+                checked={selectedUniverseIds.includes(item.id)}
+                on:change={(event) => toggleUniverseSelection(item.id, event.currentTarget.checked)}
+              />
+              <span>{item.name}</span>
+              <span class="section-copy">{item.marketScope} / {item.symbolCount}개</span>
+            </label>
+          {/each}
+        </div>
+        <button class="button-primary" type="button" on:click={() => runAction(() => replaceStrategyUniverses(strategy.id, selectedUniverseIds))}>종목 그룹 저장</button>
+      {/if}
+    </div>
     <div id="strategy-execution" class="doc-panel grid-section">
       <h2 class="section-title">자동 실행</h2>
       <p class="section-copy">다음 실행: {formatDateTime(execution.nextRunAt) ?? "대기 중"}</p>
+      <p class="section-copy">실행 전 유효한 전략 버전, 국내 종목 그룹 연결, 종목 구성, 리스크 설정을 확인합니다.</p>
       <button class={execution.enabled ? "button-danger" : "button-primary"} type="button" on:click={() => runAction(() => updateStrategyExecution(strategy.id, { enabled: !execution.enabled, scheduleTime: execution.scheduleTime, timezone: execution.timezone, mode: "paper" }))}>
         {execution.enabled ? "실행 중지" : "실행 활성화"}
       </button>
@@ -504,17 +543,17 @@
 {:else if route.name === "strategy-backtest"}
   {@const strategy = data.strategy as StrategyDetail}
   <section class="page-shell docs-page-shell">
-    <PageHeader id="backtest-summary" eyebrow="Backtest" title={`${strategy.name} 백테스트`} description="기간과 데이터 범위를 지정해 백테스트를 실행합니다." />
+    <PageHeader id="backtest-summary" eyebrow="Historical Check" title={`${strategy.name} 과거 데이터 점검`} description="보조 점검 기능입니다. 여러 종목은 균등 자본으로 독립 시뮬레이션하며 자동 실행 수량 정책과 다를 수 있습니다." />
     <form id="backtest-config" class="doc-panel grid-section" on:submit|preventDefault={submitBacktest}>
       <div class="form-row">
         <label class="form-field"><span class="form-label">시작일</span><input type="date" bind:value={backtestForm.startDate} /></label>
         <label class="form-field"><span class="form-label">종료일</span><input type="date" bind:value={backtestForm.endDate} /></label>
         <label class="form-field"><span class="form-label">초기 자본</span><input type="number" bind:value={backtestForm.initialCapital} /></label>
       </div>
-      <label class="form-field"><span class="form-label">심볼</span><input bind:value={backtestForm.symbols} placeholder="005930, 000660" /></label>
+      <label class="form-field"><span class="form-label">종목 코드</span><input bind:value={backtestForm.symbols} placeholder="005930, 000660" /></label>
       <div class="page-actions">
         <button class="button-secondary" type="button" on:click={checkCoverage}>커버리지 확인</button>
-        <button class="button-primary" type="submit">백테스트 실행</button>
+        <button class="button-primary" type="submit">과거 데이터 점검 실행</button>
       </div>
     </form>
     <div id="backtest-datasets" class="doc-panel">
@@ -523,12 +562,12 @@
     {#if data.coverage}
       <ListSection id="backtest-coverage" title="커버리지" rows={(data.coverage as MarketCoverage).symbols} columns={["symbol", "covered", "firstDate", "lastDate"]} />
     {/if}
-    <ListSection id="backtest-runs" title="실행 이력" rows={data.runs as BacktestRunSummary[]} columns={["runId", "status", "requestedAt", "completedAt"]} linkPrefix="/backtests" linkKey="runId" />
+    <ListSection id="backtest-runs" title="점검 이력" rows={data.runs as BacktestRunSummary[]} columns={["runId", "status", "requestedAt", "completedAt"]} linkPrefix="/backtests" linkKey="runId" />
   </section>
 {:else if route.name === "backtest-result"}
   {@const run = data.run as BacktestRunDetail}
   <section class="page-shell docs-page-shell">
-    <PageHeader id="run-summary" eyebrow="Backtest Result" title={`백테스트 ${shortId(run.runId)}`} description={run.errorMessage ?? `상태: ${run.status}`} />
+    <PageHeader id="run-summary" eyebrow="Historical Check" title={`과거 데이터 점검 ${shortId(run.runId)}`} description={run.errorMessage ?? `상태: ${run.status}`} />
     <ListSection id="run-charts" title="자산 곡선" rows={run.equityCurve} columns={["tradingDate", "equity", "cash", "drawdown"]} />
     <pre id="run-config" class="code-block">{JSON.stringify(run.config, null, 2)}</pre>
     <ListSection id="run-trades" title="거래 이력" rows={run.trades} columns={["symbol", "entryDate", "exitDate", "quantity", "netPnl", "exitReason"]} />
@@ -536,7 +575,7 @@
 {:else if route.name === "universes"}
   {@const universes = data.universes as UniverseSummary[]}
   <section class="page-shell docs-page-shell">
-    <PageHeader id="universes-summary" eyebrow="Universes" title="유니버스" description="전략에 연결할 종목 묶음을 관리합니다." />
+    <PageHeader id="universes-summary" eyebrow="Symbol Groups" title="종목 그룹" description="전략에 연결할 종목 묶음을 관리합니다." />
     <form id="universes-create" class="doc-panel grid-section" on:submit|preventDefault={submitUniverse}>
       <div class="form-row">
         <label class="form-field"><span class="form-label">이름</span><input bind:value={universeForm.name} required /></label>
@@ -550,13 +589,13 @@
 {:else if route.name === "universe-detail"}
   {@const universe = data.universe as UniverseDetail}
   <section class="page-shell docs-page-shell">
-    <PageHeader id="universe-overview" eyebrow="Universe" title={universe.name} description={universe.description ?? "설명 없음"} />
+    <PageHeader id="universe-overview" eyebrow="Symbol Group" title={universe.name} description={universe.description ?? "설명 없음"} />
     <form id="universe-basic-info" class="doc-panel grid-section" on:submit|preventDefault={() => runAction(() => updateUniverse(universe.id, { name: universe.name, description: universe.description ?? undefined }))}>
-      <p>시장: {universe.marketScope} / 심볼 {universe.symbolCount}개</p>
-      <button class="button-danger" type="button" on:click={() => runAction(() => archiveUniverse(universe.id), () => (window.location.href = "/universes"))}>보관</button>
+      <p>시장: {universe.marketScope} / 종목 {universe.symbolCount}개</p>
+      <button class="button-danger" type="button" on:click={() => runAction(() => archiveUniverse(universe.id), () => { window.location.href = "/universes"; return false; })}>보관</button>
     </form>
     <div id="universe-symbols" class="doc-panel grid-section">
-      <h2 class="section-title">심볼 구성</h2>
+      <h2 class="section-title">종목 구성</h2>
       <textarea bind:value={symbolText} rows="10"></textarea>
       <div class="page-actions">
         <button class="button-primary" type="button" on:click={() => runAction(() => replaceUniverseSymbols(universe.id, parseSymbolRows(universe)))}>저장</button>
