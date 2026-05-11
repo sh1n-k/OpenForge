@@ -24,6 +24,8 @@ interface StrategyExecutionRunRepository : JpaRepository<StrategyExecutionRunEnt
         pageable: Pageable,
     ): List<StrategyExecutionRunEntity>
 
+    fun findAllByStatusOrderByStartedAtAsc(status: StrategyExecutionRunStatus): List<StrategyExecutionRunEntity>
+
     fun findAllByStrategyIdAndScheduledDateAndStatusIn(
         strategyId: UUID,
         scheduledDate: LocalDate,

@@ -71,9 +71,7 @@ class PaperExecutionService(
     @PostConstruct
     fun markInterruptedRuns() {
         val interrupted =
-            strategyExecutionRunRepository.findAll().filter {
-                it.status == StrategyExecutionRunStatus.RUNNING
-            }
+            strategyExecutionRunRepository.findAllByStatusOrderByStartedAtAsc(StrategyExecutionRunStatus.RUNNING)
         interrupted.forEach {
             it.status = StrategyExecutionRunStatus.FAILED
             it.errorMessage = "interrupted"

@@ -2,6 +2,7 @@ package com.openforge.api.strategy.domain
 
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -53,6 +54,22 @@ interface StrategyOrderStatusEventRepository : JpaRepository<StrategyOrderStatus
 
     fun findAllByOrderRequestIdInOrderByOccurredAtDesc(orderRequestIds: Collection<UUID>): List<StrategyOrderStatusEventEntity>
 
+    @Query(
+        value =
+            """
+            select *
+            from strategy_order_status_event
+            where id in (
+                select distinct on (order_request_id) id
+                from strategy_order_status_event
+                where order_request_id in (:orderRequestIds)
+                order by order_request_id, occurred_at desc
+            )
+            """,
+        nativeQuery = true,
+    )
+    fun findLatestByOrderRequestIdIn(orderRequestIds: Collection<UUID>): List<StrategyOrderStatusEventEntity>
+
     fun findTopByOrderRequestIdOrderByOccurredAtDesc(orderRequestId: UUID): StrategyOrderStatusEventEntity?
 }
 
@@ -74,6 +91,16 @@ interface StrategyOrderFillRepository : JpaRepository<StrategyOrderFillEntity, U
     fun findAllByOrderRequestIdOrderByFilledAtAsc(orderRequestId: UUID): List<StrategyOrderFillEntity>
 
     fun findAllByOrderRequestIdInOrderByFilledAtAsc(orderRequestIds: Collection<UUID>): List<StrategyOrderFillEntity>
+
+    @Query(
+        """
+        select f.orderRequestId as id, coalesce(sum(f.quantity), 0) as total
+        from StrategyOrderFillEntity f
+        where f.orderRequestId in :orderRequestIds
+        group by f.orderRequestId
+        """,
+    )
+    fun sumQuantityByOrderRequestIdIn(orderRequestIds: Collection<UUID>): List<UuidCount>
 
     fun findAllByOrderByFilledAtDesc(pageable: Pageable): List<StrategyOrderFillEntity>
 }
