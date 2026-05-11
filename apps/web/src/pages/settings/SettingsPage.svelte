@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import KillSwitchToggle from "@/lib/components/KillSwitchToggle.svelte";
   import StatusChip from "@/lib/components/StatusChip.svelte";
@@ -60,7 +60,7 @@
           연결 테스트
         </button>
       </div>
-      <ListSection
+      <DataTable
         title="브로커 이벤트"
         rows={systemBrokerEvents}
         columns={["targetMode", "eventType", "message", "occurredAt"]}
@@ -73,7 +73,7 @@
         scope="system"
         onToggle={(next) => runAction(() => updateSystemRiskKillSwitch({ enabled: next }))}
       />
-      <ListSection
+      <DataTable
         title="리스크 이벤트"
         rows={systemRiskEvents}
         columns={["eventType", "reasonCode", "message", "occurredAt"]}

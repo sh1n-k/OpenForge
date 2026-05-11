@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import KillSwitchToggle from "@/lib/components/KillSwitchToggle.svelte";
   import StatusChip from "@/lib/components/StatusChip.svelte";
   import { updateSystemRiskKillSwitch, type DashboardResponse, type SystemRisk } from "@/lib/api";
@@ -48,7 +48,7 @@
     onToggle={(next) => runAction(() => updateSystemRiskKillSwitch({ enabled: next }))}
   />
   <div class="split-grid">
-    <ListSection
+    <DataTable
       id="dashboard-strategies"
       title="전략 현황"
       rows={dashboard.strategySummaries}
@@ -56,19 +56,19 @@
       linkPrefix="/strategies"
       linkKey="id"
     />
-    <ListSection
+    <DataTable
       id="dashboard-positions"
       title="현재 포지션"
       rows={dashboard.currentPositions}
       columns={["strategyName", "symbol", "netQuantity", "avgEntryPrice", "lastFillAt"]}
     />
-    <ListSection
+    <DataTable
       id="dashboard-fills"
       title="최근 체결"
       rows={dashboard.recentFills}
       columns={["strategyName", "symbol", "side", "quantity", "price", "filledAt"]}
     />
-    <ListSection
+    <DataTable
       id="dashboard-errors"
       title="최근 오류"
       rows={dashboard.recentErrors}

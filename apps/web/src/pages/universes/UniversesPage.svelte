@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import { createUniverse, type UniverseSummary } from "@/lib/api";
 
@@ -39,7 +39,7 @@
         <button class="button-primary" type="submit">생성</button>
       </div>
     </form>
-    <ListSection
+    <DataTable
       id="universes-registry"
       title="레지스트리"
       rows={universes}

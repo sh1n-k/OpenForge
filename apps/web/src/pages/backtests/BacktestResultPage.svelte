@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { Component } from "svelte";
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import type { BacktestRunDetail } from "@/lib/api";
   import { shortId } from "@/lib/format";
@@ -50,7 +50,7 @@
     {/if}
     <details>
       <summary class="text-subtle">자산 곡선 표 펼치기</summary>
-      <ListSection
+      <DataTable
         title=""
         rows={run.equityCurve as unknown as Record<string, unknown>[]}
         columns={["tradingDate", "equity", "cash", "drawdown"]}
@@ -61,7 +61,7 @@
     <summary class="section-title">실행 설정</summary>
     <pre class="code-block">{JSON.stringify(run.config, null, 2)}</pre>
   </details>
-  <ListSection
+  <DataTable
     id="run-trades"
     title="거래 이력"
     rows={run.trades as unknown as Record<string, unknown>[]}

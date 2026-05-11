@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import {
     startBrokerLedgerSync,
@@ -38,7 +38,7 @@
         <button class="button-primary" type="submit">동기화 시작</button>
       </div>
     </form>
-    <ListSection
+    <DataTable
       id="broker-sync-runs"
       title="동기화 이력"
       rows={runs}

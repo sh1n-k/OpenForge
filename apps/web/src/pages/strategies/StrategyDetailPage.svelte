@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import KillSwitchToggle from "@/lib/components/KillSwitchToggle.svelte";
   import ConfirmDialog from "@/lib/components/ConfirmDialog.svelte";
   import Tabs from "@/lib/components/Tabs.svelte";
@@ -164,7 +164,7 @@
 
   {#if active === "versions"}
     <div class="grid-section" role="tabpanel" id="versions" aria-labelledby="tab-versions">
-      <ListSection
+      <DataTable
         id="strategy-versions"
         title="버전"
         rows={versions}
@@ -176,7 +176,7 @@
   {#if active === "orders"}
     <div class="grid-section" role="tabpanel" id="orders" aria-labelledby="tab-orders">
       <div class="split-grid">
-        <ListSection
+        <DataTable
           id="strategy-orders"
           title="주문 후보"
           rows={orderCandidates}
@@ -187,17 +187,17 @@
               createOrderRequest(strategy.id, { signalEventId: (row as OrderCandidate).signalEventId, mode: "paper" }),
             )}
         />
-        <ListSection
+        <DataTable
           title="주문 요청"
           rows={orderRequests}
           columns={["symbol", "side", "quantity", "price", "currentStatus", "requestedAt"]}
         />
-        <ListSection
+        <DataTable
           title="시그널"
           rows={signals}
           columns={["symbol", "signalType", "tradingDate", "createdAt"]}
         />
-        <ListSection
+        <DataTable
           title="상태 이벤트"
           rows={requestsWithEvents.flatMap((item) => item.statusEvents)}
           columns={["status", "reason", "occurredAt"]}
@@ -208,7 +208,7 @@
 
   {#if active === "positions"}
     <div class="grid-section" role="tabpanel" id="positions" aria-labelledby="tab-positions">
-      <ListSection
+      <DataTable
         title="포지션"
         rows={positions}
         columns={["symbol", "netQuantity", "avgEntryPrice", "lastFillAt"]}
@@ -219,13 +219,13 @@
   {#if active === "activity"}
     <div class="grid-section" role="tabpanel" id="activity" aria-labelledby="tab-activity">
       <div class="split-grid">
-        <ListSection
+        <DataTable
           id="strategy-activity"
           title="실행 로그"
           rows={runs}
           columns={["runId", "status", "scheduledDate", "signalCount", "errorMessage"]}
         />
-        <ListSection
+        <DataTable
           title="리스크 이벤트"
           rows={riskEvents}
           columns={["scope", "eventType", "reasonCode", "message", "occurredAt"]}
