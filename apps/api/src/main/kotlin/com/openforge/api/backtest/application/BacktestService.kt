@@ -200,9 +200,7 @@ class BacktestService(
             parseCsv(reader, rows)
         }
 
-        rows.forEach { entity ->
-            marketDailyBarRepository.save(entity)
-        }
+        marketDailyBarRepository.saveAll(rows)
         return MarketDataImportResponse(
             importedRows = rows.size,
             symbols = rows.map { it.symbol }.distinct().sorted(),
@@ -215,15 +213,31 @@ class BacktestService(
         endDate: LocalDate,
     ): MarketCoverageResponse {
         val normalizedSymbols = symbols.map { it.trim().uppercase() }.filter { it.isNotBlank() }.distinct()
+        val firstDateBySymbol =
+            if (normalizedSymbols.isEmpty()) {
+                emptyMap()
+            } else {
+                marketDailyBarRepository
+                    .findLatestDatesOnOrBefore(normalizedSymbols, startDate)
+                    .associate { it.symbol to it.tradingDate }
+            }
+        val lastDateBySymbol =
+            if (normalizedSymbols.isEmpty()) {
+                emptyMap()
+            } else {
+                marketDailyBarRepository
+                    .findEarliestDatesOnOrAfter(normalizedSymbols, endDate)
+                    .associate { it.symbol to it.tradingDate }
+            }
         val coverage =
             normalizedSymbols.map { symbol ->
-                val first = marketDailyBarRepository.findTopBySymbolAndTradingDateLessThanEqualOrderByTradingDateDesc(symbol, startDate)
-                val last = marketDailyBarRepository.findTopBySymbolAndTradingDateGreaterThanEqualOrderByTradingDateAsc(symbol, endDate)
+                val first = firstDateBySymbol[symbol]
+                val last = lastDateBySymbol[symbol]
                 MarketCoverageSymbolResponse(
                     symbol = symbol,
-                    covered = first != null && last != null && !first.tradingDate.isAfter(startDate) && !last.tradingDate.isBefore(endDate),
-                    firstDate = first?.tradingDate,
-                    lastDate = last?.tradingDate,
+                    covered = first != null && last != null && !first.isAfter(startDate) && !last.isBefore(endDate),
+                    firstDate = first,
+                    lastDate = last,
                 )
             }
         return MarketCoverageResponse(
@@ -264,14 +278,14 @@ class BacktestService(
                     taxRate = numberValue(run.runConfig["taxRate"]),
                     slippageRate = numberValue(run.runConfig["slippageRate"]),
                 )
+            val startDate = LocalDate.parse(run.runConfig["startDate"].toString())
+            val endDate = LocalDate.parse(run.runConfig["endDate"].toString())
             val barsBySymbol =
-                run.symbols.associateWith { symbol ->
-                    marketDailyBarRepository
-                        .findAllBySymbolAndTradingDateBetweenOrderByTradingDateAsc(
-                            symbol,
-                            LocalDate.parse(run.runConfig["startDate"].toString()),
-                            LocalDate.parse(run.runConfig["endDate"].toString()),
-                        ).map {
+                marketDailyBarRepository
+                    .findAllBySymbolInAndTradingDateBetweenOrderBySymbolAscTradingDateAsc(run.symbols, startDate, endDate)
+                    .groupBy { it.symbol }
+                    .mapValues { (_, bars) ->
+                        bars.map {
                             Bar(
                                 tradingDate = it.tradingDate,
                                 open = it.open.toDouble(),
@@ -281,7 +295,7 @@ class BacktestService(
                                 volume = it.volume.toDouble(),
                             )
                         }
-                }
+                    }
             val result = engine.run(spec, run.symbols, barsBySymbol, config)
 
             backtestTradeRepository.deleteAllByRunId(run.id)
@@ -420,10 +434,10 @@ class BacktestService(
             throw ResponseStatusException(HttpStatus.CONFLICT, "Backtest does not support overseas universes yet")
         }
 
-        return resolvedUniverseIds
-            .flatMap { universeId ->
-                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universeId).map { it.symbol.uppercase() }
-            }.distinct()
+        return universeSymbolRepository
+            .findAllByUniverseIdInOrderByUniverseIdAscSortOrderAscSymbolAscExchangeAsc(resolvedUniverseIds)
+            .map { it.symbol.uppercase() }
+            .distinct()
     }
 
     private fun ensureDomesticDirectSymbols(symbols: List<String>) {

@@ -47,6 +47,11 @@ interface SymbolMasterRepository : JpaRepository<SymbolMasterEntity, SymbolMaste
         code: String,
     ): Boolean
 
+    fun findAllByMarketScopeAndCodeIn(
+        marketScope: String,
+        codes: Collection<String>,
+    ): List<SymbolMasterEntity>
+
     @Query(
         """
         select distinct s.marketScope

@@ -71,9 +71,7 @@ class PaperExecutionService(
     @PostConstruct
     fun markInterruptedRuns() {
         val interrupted =
-            strategyExecutionRunRepository.findAll().filter {
-                it.status == StrategyExecutionRunStatus.RUNNING
-            }
+            strategyExecutionRunRepository.findAllByStatusOrderByStartedAtAsc(StrategyExecutionRunStatus.RUNNING)
         interrupted.forEach {
             it.status = StrategyExecutionRunStatus.FAILED
             it.errorMessage = "interrupted"
@@ -216,18 +214,21 @@ class PaperExecutionService(
             run.strategyVersionId = executableVersion.id
             val spec = StrategySignalSupport.parseStrategySpec(executableVersion.normalizedSpec!!)
             val barsBySymbol =
-                symbols.associateWith { symbol ->
-                    marketDailyBarRepository.findAllBySymbolOrderByTradingDateAsc(symbol).map {
-                        Bar(
-                            tradingDate = it.tradingDate,
-                            open = it.open.toDouble(),
-                            high = it.high.toDouble(),
-                            low = it.low.toDouble(),
-                            close = it.close.toDouble(),
-                            volume = it.volume.toDouble(),
-                        )
+                marketDailyBarRepository
+                    .findAllBySymbolInOrderBySymbolAscTradingDateAsc(symbols)
+                    .groupBy { it.symbol }
+                    .mapValues { (_, bars) ->
+                        bars.map {
+                            Bar(
+                                tradingDate = it.tradingDate,
+                                open = it.open.toDouble(),
+                                high = it.high.toDouble(),
+                                low = it.low.toDouble(),
+                                close = it.close.toDouble(),
+                                volume = it.volume.toDouble(),
+                            )
+                        }
                     }
-                }
             val signals = signalEngine.generateSignals(spec, barsBySymbol)
 
             strategySignalEventRepository.saveAll(
@@ -332,10 +333,10 @@ class PaperExecutionService(
             return emptyList()
         }
 
-        return universeIds
-            .flatMap { universeId ->
-                universeSymbolRepository.findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universeId).map { it.symbol.uppercase() }
-            }.distinct()
+        return universeSymbolRepository
+            .findAllByUniverseIdInOrderByUniverseIdAscSortOrderAscSymbolAscExchangeAsc(universeIds)
+            .map { it.symbol.uppercase() }
+            .distinct()
     }
 
     private fun ensureDomesticUniverseScope(strategyId: UUID) {
