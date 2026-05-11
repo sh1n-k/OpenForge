@@ -12,6 +12,7 @@
   import Toast from "@/lib/components/Toast.svelte";
   import ThemeToggle from "@/lib/components/ThemeToggle.svelte";
   import Drawer from "@/lib/components/Drawer.svelte";
+  import NavIcon from "@/lib/components/NavIcon.svelte";
 
   const navGroups = getGroupedRoutes();
   let pathname = window.location.pathname;
@@ -91,8 +92,10 @@
                   href={item.href}
                   aria-current={isRouteActive(pathname, item.href) ? "page" : undefined}
                 >
+                  {#if item.icon}
+                    <NavIcon name={item.icon} />
+                  {/if}
                   <span class="doc-nav-title">{item.label}</span>
-                  <span class="doc-nav-description">{item.description}</span>
                 </a>
               {/each}
             </div>
@@ -124,7 +127,10 @@
                 href={item.href}
                 aria-current={isRouteActive(pathname, item.href) ? "page" : undefined}
               >
-                {item.label}
+                {#if item.icon}
+                  <NavIcon name={item.icon} />
+                {/if}
+                <span class="doc-nav-title">{item.label}</span>
               </a>
             {/each}
           </nav>

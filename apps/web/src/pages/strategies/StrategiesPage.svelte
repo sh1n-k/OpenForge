@@ -45,9 +45,9 @@
 
 <section class="page-shell docs-page-shell">
   <PageHeader id="strategies-summary" eyebrow="Strategies" title="전략" description="전략 레지스트리와 실행 상태를 관리합니다." />
-  <form id="strategies-create" class="doc-panel grid-section" on:submit|preventDefault={submitStrategy}>
-    <h2 class="section-title">전략 생성</h2>
-    <div class="form-row">
+  <div class="split-grid-narrow">
+    <form id="strategies-create" class="doc-panel grid-section" on:submit|preventDefault={submitStrategy}>
+      <h2 class="section-title">전략 생성</h2>
       <label class="form-field"><span class="form-label">이름</span><input bind:value={form.name} required /></label>
       <label class="form-field">
         <span class="form-label">유형</span>
@@ -56,16 +56,18 @@
           <option value="code">코드형</option>
         </select>
       </label>
-    </div>
-    <label class="form-field"><span class="form-label">설명</span><input bind:value={form.description} /></label>
-    <button class="button-primary" type="submit">생성</button>
-  </form>
-  <ListSection
-    id="strategies-registry"
-    title="전략 레지스트리"
-    rows={strategies}
-    columns={["name", "strategyType", "status", "latestVersionNumber", "universeCount", "updatedAt"]}
-    linkPrefix="/strategies"
-    linkKey="id"
-  />
+      <label class="form-field"><span class="form-label">설명</span><input bind:value={form.description} /></label>
+      <div class="form-actions">
+        <button class="button-primary" type="submit">생성</button>
+      </div>
+    </form>
+    <ListSection
+      id="strategies-registry"
+      title="전략 레지스트리"
+      rows={strategies}
+      columns={["name", "strategyType", "status", "latestVersionNumber", "universeCount", "updatedAt"]}
+      linkPrefix="/strategies"
+      linkKey="id"
+    />
+  </div>
 </section>

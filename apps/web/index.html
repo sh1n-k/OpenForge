@@ -9,18 +9,13 @@
       (function () {
         try {
           var stored = localStorage.getItem("of-theme");
-          var preferDark =
-            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-          var resolved =
-            stored === "dark" || stored === "light"
-              ? stored
-              : preferDark
-                ? "dark"
-                : "light";
+          var resolved = stored === "light" ? "light" : "dark";
           if (resolved === "dark") {
             document.documentElement.setAttribute("data-theme", "dark");
           }
-        } catch (_) {}
+        } catch (_) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
       })();
     </script>
   </head>

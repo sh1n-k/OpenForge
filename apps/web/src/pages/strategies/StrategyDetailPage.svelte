@@ -91,53 +91,59 @@
 
   {#if active === "overview"}
     <div class="grid-section" role="tabpanel" id="overview" aria-labelledby="tab-overview">
-      <div id="strategy-universes" class="doc-panel grid-section">
-        <h2 class="section-title">종목 그룹</h2>
-        <p class="section-copy">자동 실행은 연결된 국내 종목 그룹의 종목을 대상으로 전략 신호를 계산합니다.</p>
-        {#if availableUniverses.length === 0}
-          <p class="section-copy">사용 가능한 종목 그룹이 없습니다.</p>
-        {:else}
-          <div class="checkbox-list">
-            {#each availableUniverses as item}
-              <label class="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={selectedUniverseIds.includes(item.id)}
-                  on:change={(event) => toggleUniverseSelection(item.id, event.currentTarget.checked)}
-                />
-                <span>{item.name}</span>
-                <span class="section-copy">{item.marketScope} / {item.symbolCount}개</span>
-              </label>
-            {/each}
+      <div class="split-grid">
+        <div id="strategy-universes" class="doc-panel grid-section">
+          <h2 class="section-title">종목 그룹</h2>
+          <p class="section-copy">자동 실행은 연결된 국내 종목 그룹의 종목을 대상으로 전략 신호를 계산합니다.</p>
+          {#if availableUniverses.length === 0}
+            <p class="section-copy">사용 가능한 종목 그룹이 없습니다.</p>
+          {:else}
+            <div class="checkbox-list">
+              {#each availableUniverses as item}
+                <label class="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={selectedUniverseIds.includes(item.id)}
+                    on:change={(event) => toggleUniverseSelection(item.id, event.currentTarget.checked)}
+                  />
+                  <span>{item.name}</span>
+                  <span class="section-copy">{item.marketScope} / {item.symbolCount}개</span>
+                </label>
+              {/each}
+            </div>
+            <div class="form-actions">
+              <button
+                class="button-primary"
+                type="button"
+                on:click={() => runAction(() => replaceStrategyUniverses(strategy.id, selectedUniverseIds))}
+              >
+                종목 그룹 저장
+              </button>
+            </div>
+          {/if}
+        </div>
+        <div id="strategy-execution" class="doc-panel grid-section">
+          <h2 class="section-title">자동 실행</h2>
+          <p class="section-copy">다음 실행: {formatDateTime(execution.nextRunAt) ?? "대기 중"}</p>
+          <p class="section-copy">실행 전 유효한 전략 버전, 국내 종목 그룹 연결, 종목 구성, 리스크 설정을 확인합니다.</p>
+          <div class="form-actions">
+            <button
+              class={execution.enabled ? "button-danger" : "button-primary"}
+              type="button"
+              on:click={() =>
+                runAction(() =>
+                  updateStrategyExecution(strategy.id, {
+                    enabled: !execution.enabled,
+                    scheduleTime: execution.scheduleTime,
+                    timezone: execution.timezone,
+                    mode: "paper",
+                  }),
+                )}
+            >
+              {execution.enabled ? "실행 중지" : "실행 활성화"}
+            </button>
           </div>
-          <button
-            class="button-primary"
-            type="button"
-            on:click={() => runAction(() => replaceStrategyUniverses(strategy.id, selectedUniverseIds))}
-          >
-            종목 그룹 저장
-          </button>
-        {/if}
-      </div>
-      <div id="strategy-execution" class="doc-panel grid-section">
-        <h2 class="section-title">자동 실행</h2>
-        <p class="section-copy">다음 실행: {formatDateTime(execution.nextRunAt) ?? "대기 중"}</p>
-        <p class="section-copy">실행 전 유효한 전략 버전, 국내 종목 그룹 연결, 종목 구성, 리스크 설정을 확인합니다.</p>
-        <button
-          class={execution.enabled ? "button-danger" : "button-primary"}
-          type="button"
-          on:click={() =>
-            runAction(() =>
-              updateStrategyExecution(strategy.id, {
-                enabled: !execution.enabled,
-                scheduleTime: execution.scheduleTime,
-                timezone: execution.timezone,
-                mode: "paper",
-              }),
-            )}
-        >
-          {execution.enabled ? "실행 중지" : "실행 활성화"}
-        </button>
+        </div>
       </div>
       <div id="strategy-risk" class="doc-panel grid-section">
         <h2 class="section-title">리스크</h2>
@@ -169,32 +175,34 @@
 
   {#if active === "orders"}
     <div class="grid-section" role="tabpanel" id="orders" aria-labelledby="tab-orders">
-      <ListSection
-        id="strategy-orders"
-        title="주문 후보"
-        rows={orderCandidates}
-        columns={["symbol", "side", "quantity", "price", "mode", "alreadyRequested"]}
-        actionLabel="주문 요청"
-        action={(row) =>
-          runAction(() =>
-            createOrderRequest(strategy.id, { signalEventId: (row as OrderCandidate).signalEventId, mode: "paper" }),
-          )}
-      />
-      <ListSection
-        title="주문 요청"
-        rows={orderRequests}
-        columns={["symbol", "side", "quantity", "price", "currentStatus", "requestedAt"]}
-      />
-      <ListSection
-        title="시그널"
-        rows={signals}
-        columns={["symbol", "signalType", "tradingDate", "createdAt"]}
-      />
-      <ListSection
-        title="상태 이벤트"
-        rows={requestsWithEvents.flatMap((item) => item.statusEvents)}
-        columns={["status", "reason", "occurredAt"]}
-      />
+      <div class="split-grid">
+        <ListSection
+          id="strategy-orders"
+          title="주문 후보"
+          rows={orderCandidates}
+          columns={["symbol", "side", "quantity", "price", "mode", "alreadyRequested"]}
+          actionLabel="주문 요청"
+          action={(row) =>
+            runAction(() =>
+              createOrderRequest(strategy.id, { signalEventId: (row as OrderCandidate).signalEventId, mode: "paper" }),
+            )}
+        />
+        <ListSection
+          title="주문 요청"
+          rows={orderRequests}
+          columns={["symbol", "side", "quantity", "price", "currentStatus", "requestedAt"]}
+        />
+        <ListSection
+          title="시그널"
+          rows={signals}
+          columns={["symbol", "signalType", "tradingDate", "createdAt"]}
+        />
+        <ListSection
+          title="상태 이벤트"
+          rows={requestsWithEvents.flatMap((item) => item.statusEvents)}
+          columns={["status", "reason", "occurredAt"]}
+        />
+      </div>
     </div>
   {/if}
 
@@ -210,17 +218,19 @@
 
   {#if active === "activity"}
     <div class="grid-section" role="tabpanel" id="activity" aria-labelledby="tab-activity">
-      <ListSection
-        id="strategy-activity"
-        title="실행 로그"
-        rows={runs}
-        columns={["runId", "status", "scheduledDate", "signalCount", "errorMessage"]}
-      />
-      <ListSection
-        title="리스크 이벤트"
-        rows={riskEvents}
-        columns={["scope", "eventType", "reasonCode", "message", "occurredAt"]}
-      />
+      <div class="split-grid">
+        <ListSection
+          id="strategy-activity"
+          title="실행 로그"
+          rows={runs}
+          columns={["runId", "status", "scheduledDate", "signalCount", "errorMessage"]}
+        />
+        <ListSection
+          title="리스크 이벤트"
+          rows={riskEvents}
+          columns={["scope", "eventType", "reasonCode", "message", "occurredAt"]}
+        />
+      </div>
     </div>
   {/if}
 </section>

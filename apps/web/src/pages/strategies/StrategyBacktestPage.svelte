@@ -65,41 +65,45 @@
     title={`${strategy.name} 과거 데이터 점검`}
     description="보조 점검 기능입니다. 여러 종목은 균등 자본으로 독립 시뮬레이션하며 자동 실행 수량 정책과 다를 수 있습니다."
   />
-  <form id="backtest-config" class="doc-panel grid-section" on:submit|preventDefault={submitBacktest}>
-    <div class="form-row">
-      <label class="form-field"><span class="form-label">시작일</span><input type="date" bind:value={form.startDate} /></label>
-      <label class="form-field"><span class="form-label">종료일</span><input type="date" bind:value={form.endDate} /></label>
-      <label class="form-field"><span class="form-label">초기 자본</span><input type="number" bind:value={form.initialCapital} /></label>
+  <div class="split-grid-narrow">
+    <form id="backtest-config" class="doc-panel grid-section" on:submit|preventDefault={submitBacktest}>
+      <div class="form-row">
+        <label class="form-field"><span class="form-label">시작일</span><input type="date" bind:value={form.startDate} /></label>
+        <label class="form-field"><span class="form-label">종료일</span><input type="date" bind:value={form.endDate} /></label>
+        <label class="form-field"><span class="form-label">초기 자본</span><input type="number" bind:value={form.initialCapital} /></label>
+      </div>
+      <label class="form-field"><span class="form-label">종목 코드</span><input bind:value={form.symbols} placeholder="005930, 000660" /></label>
+      <div class="page-actions">
+        <button class="button-secondary" type="button" on:click={checkCoverage}>커버리지 확인</button>
+        <button class="button-primary" type="submit">과거 데이터 점검 실행</button>
+      </div>
+    </form>
+    <div class="grid-section">
+      <div id="backtest-datasets" class="doc-panel">
+        <input
+          type="file"
+          on:change={(event) => {
+            const file = (event.currentTarget as HTMLInputElement).files?.[0];
+            if (file) void runAction(() => importDailyBars(file));
+          }}
+        />
+      </div>
+      {#if coverage}
+        <ListSection
+          id="backtest-coverage"
+          title="커버리지"
+          rows={coverage.symbols}
+          columns={["symbol", "covered", "firstDate", "lastDate"]}
+        />
+      {/if}
+      <ListSection
+        id="backtest-runs"
+        title="점검 이력"
+        rows={runs}
+        columns={["runId", "status", "requestedAt", "completedAt"]}
+        linkPrefix="/backtests"
+        linkKey="runId"
+      />
     </div>
-    <label class="form-field"><span class="form-label">종목 코드</span><input bind:value={form.symbols} placeholder="005930, 000660" /></label>
-    <div class="page-actions">
-      <button class="button-secondary" type="button" on:click={checkCoverage}>커버리지 확인</button>
-      <button class="button-primary" type="submit">과거 데이터 점검 실행</button>
-    </div>
-  </form>
-  <div id="backtest-datasets" class="doc-panel">
-    <input
-      type="file"
-      on:change={(event) => {
-        const file = (event.currentTarget as HTMLInputElement).files?.[0];
-        if (file) void runAction(() => importDailyBars(file));
-      }}
-    />
   </div>
-  {#if coverage}
-    <ListSection
-      id="backtest-coverage"
-      title="커버리지"
-      rows={coverage.symbols}
-      columns={["symbol", "covered", "firstDate", "lastDate"]}
-    />
-  {/if}
-  <ListSection
-    id="backtest-runs"
-    title="점검 이력"
-    rows={runs}
-    columns={["runId", "status", "requestedAt", "completedAt"]}
-    linkPrefix="/backtests"
-    linkKey="runId"
-  />
 </section>

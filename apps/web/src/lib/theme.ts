@@ -12,15 +12,15 @@ function isBrowser(): boolean {
 }
 
 function readStored(): Theme {
-  if (!isBrowser()) return "system";
+  if (!isBrowser()) return "dark";
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (raw === "light" || raw === "dark" || raw === "system") return raw;
-  return "system";
+  return "dark";
 }
 
 function systemPrefers(): ResolvedTheme {
-  if (!isBrowser()) return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  if (!isBrowser()) return "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 export function getTheme(): Theme {

@@ -63,6 +63,7 @@
   } from "@/lib/api";
   import { loadHealthStatus, type HealthSnapshot } from "@/lib/health";
   import type { AppRoute } from "@/router";
+  import { demoDashboard, demoSystemRisk } from "@/pages/dashboard/demo-data";
 
   import DashboardPage from "@/pages/dashboard/DashboardPage.svelte";
   import StrategiesPage from "@/pages/strategies/StrategiesPage.svelte";
@@ -112,6 +113,13 @@
   async function fetchRouteData(nextRoute: AppRoute): Promise<Record<string, unknown>> {
     switch (nextRoute.name) {
       case "dashboard": {
+        if (
+          import.meta.env.DEV &&
+          typeof window !== "undefined" &&
+          new URLSearchParams(window.location.search).get("demo") === "1"
+        ) {
+          return { dashboard: demoDashboard(), systemRisk: demoSystemRisk() };
+        }
         const [dashboard, systemRisk] = await Promise.all([loadDashboard(), loadSystemRisk()]);
         return { dashboard, systemRisk };
       }

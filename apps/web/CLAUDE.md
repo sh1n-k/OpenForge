@@ -8,9 +8,15 @@
 - API 호출은 페이지에서 직접 하지 말고 `@/lib/api` 배럴을 사용한다.
 
 ## 스타일 규칙
-- `data-theme="dark"` 속성으로 테마 전환. CSS 변수는 모두 `styles.css` :root 블록에서 정의/미러링.
+- `data-theme="dark"` 속성으로 테마 전환. CSS 변수는 모두 `styles.css` :root 블록에서 정의/미러링. 기본 테마는 dark.
 - semantic 유틸 클래스를 우선 사용한다. 새 스타일은 먼저 `styles.css`에 의미 단위 클래스를 추가한 뒤 참조한다.
 - 색상은 변수로만 사용한다. 하드코딩된 hex/rgba는 금지.
+
+## 페이지 레이아웃
+- 동급 카드(ListSection·doc-panel) 2개 이상이 적층되면 `<div class="split-grid">`로 묶어 2열 배치 (≤960px에서 1열 reflow).
+- 좁은 폼 카드 + wide 결과 카드 패턴은 `<div class="split-grid-narrow">` (좌 280–380px / 우 1fr).
+- `<form class="doc-panel grid-section">` 안의 submit/액션 `<button>`은 `<div class="form-actions">` 로 감싸야 grid 컨테이너에서 stretch되지 않음.
+- 사이드바 라우트 아이콘은 `lib/components/NavIcon.svelte`. 아이콘 추가 시 `route-meta.ts`의 `NavIconKey`도 함께 갱신.
 
 ## 확인·에러·알림 UI
 - 파괴적 작업은 `ConfirmDialog`로 감싼다 (`archive*`, killSwitch 활성화 등).

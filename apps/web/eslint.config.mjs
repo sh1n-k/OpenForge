@@ -37,6 +37,7 @@ const eslintConfig = defineConfig([
         setTimeout: "readonly",
         clearTimeout: "readonly",
         URL: "readonly",
+        URLSearchParams: "readonly",
         window: "readonly",
       },
       parserOptions: {
