@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import {
     createBacktest,
@@ -89,14 +89,14 @@
         />
       </div>
       {#if coverage}
-        <ListSection
+        <DataTable
           id="backtest-coverage"
           title="커버리지"
           rows={coverage.symbols}
           columns={["symbol", "covered", "firstDate", "lastDate"]}
         />
       {/if}
-      <ListSection
+      <DataTable
         id="backtest-runs"
         title="점검 이력"
         rows={runs}

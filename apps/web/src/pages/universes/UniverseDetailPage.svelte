@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import ConfirmDialog from "@/lib/components/ConfirmDialog.svelte";
   import {
@@ -106,7 +106,7 @@
           검색
         </button>
       </div>
-      <ListSection title="검색 결과" rows={symbolResults} columns={["code", "name", "exchange", "marketScope"]} />
+      <DataTable title="검색 결과" rows={symbolResults} columns={["code", "name", "exchange", "marketScope"]} />
     </div>
   </div>
 </section>
