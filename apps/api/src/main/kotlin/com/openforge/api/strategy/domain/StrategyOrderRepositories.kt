@@ -36,6 +36,11 @@ interface StrategyOrderRequestRepository : JpaRepository<StrategyOrderRequestEnt
         strategyId: UUID,
         after: OffsetDateTime,
     ): List<StrategyOrderRequestEntity>
+
+    fun findAllByStrategyIdInAndRequestedAtAfter(
+        strategyIds: Collection<UUID>,
+        after: OffsetDateTime,
+    ): List<StrategyOrderRequestEntity>
 }
 
 interface StrategyOrderStatusEventRepository : JpaRepository<StrategyOrderStatusEventEntity, UUID> {
@@ -57,7 +62,14 @@ interface StrategyOrderFillRepository : JpaRepository<StrategyOrderFillEntity, U
         pageable: Pageable,
     ): List<StrategyOrderFillEntity>
 
+    fun findAllByStrategyIdInOrderByFilledAtDesc(
+        strategyIds: Collection<UUID>,
+        pageable: Pageable,
+    ): List<StrategyOrderFillEntity>
+
     fun findAllByStrategyIdOrderByFilledAtAsc(strategyId: UUID): List<StrategyOrderFillEntity>
+
+    fun findAllByStrategyIdInOrderByStrategyIdAscFilledAtAsc(strategyIds: Collection<UUID>): List<StrategyOrderFillEntity>
 
     fun findAllByOrderRequestIdOrderByFilledAtAsc(orderRequestId: UUID): List<StrategyOrderFillEntity>
 

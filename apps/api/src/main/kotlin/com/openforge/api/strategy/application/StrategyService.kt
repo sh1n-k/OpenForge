@@ -65,9 +65,37 @@ class StrategyService(
         strategyRepository
             .findAllByIsArchivedFalseOrderByUpdatedAtDesc()
             .let { strategies ->
+                val strategyIds = strategies.map { it.id }
+                val latestVersionIds = strategies.mapNotNull { it.latestVersionId }
+                val latestVersionById =
+                    if (latestVersionIds.isEmpty()) {
+                        emptyMap()
+                    } else {
+                        strategyVersionRepository.findAllById(latestVersionIds).associateBy { it.id }
+                    }
+                val versionCounts =
+                    if (strategyIds.isEmpty()) {
+                        emptyMap()
+                    } else {
+                        strategyVersionRepository.countByStrategyIdIn(strategyIds).associate { it.id to it.total }
+                    }
+                val universeCounts =
+                    if (strategyIds.isEmpty()) {
+                        emptyMap()
+                    } else {
+                        strategyUniverseRepository.countByStrategyIdIn(strategyIds).associate { it.id to it.total }
+                    }
                 val executionEnabledByStrategyId =
                     strategyExecutionConfigRepository.findAll().associate { it.strategyId to it.enabled }
-                strategies.map { toSummary(it, executionEnabledByStrategyId[it.id] == true) }
+                strategies.map {
+                    toSummary(
+                        strategy = it,
+                        executionEnabled = executionEnabledByStrategyId[it.id] == true,
+                        latestVersion = it.latestVersionId?.let(latestVersionById::get),
+                        versionCount = versionCounts[it.id] ?: 0,
+                        universeCount = universeCounts[it.id] ?: 0,
+                    )
+                }
             }
 
     fun createStrategy(request: CreateStrategyRequest): StrategyDetailResponse {
@@ -360,11 +388,13 @@ class StrategyService(
     private fun toSummary(
         strategy: StrategyEntity,
         executionEnabled: Boolean,
-    ): StrategySummaryResponse {
-        val latestVersion =
+        latestVersion: StrategyVersionEntity? =
             strategy.latestVersionId
-                ?.let { strategyVersionRepository.findById(it).orElse(null) }
-                ?.let { ensureValidation(it, strategy.strategyType) }
+                ?.let { strategyVersionRepository.findById(it).orElse(null) },
+        versionCount: Long = strategyVersionRepository.countByStrategyId(strategy.id),
+        universeCount: Long = strategyUniverseRepository.countByStrategyId(strategy.id),
+    ): StrategySummaryResponse {
+        val validatedLatestVersion = latestVersion?.let { ensureValidation(it, strategy.strategyType) }
         return StrategySummaryResponse(
             id = strategy.id,
             name = strategy.name,
@@ -372,9 +402,9 @@ class StrategyService(
             strategyType = strategy.strategyType,
             status = StrategyRuntimeState.resolveDisplayStatus(strategy.status, executionEnabled),
             latestVersionId = strategy.latestVersionId,
-            latestVersionNumber = latestVersion?.versionNumber,
-            versionCount = strategyVersionRepository.countByStrategyId(strategy.id),
-            universeCount = strategyUniverseRepository.countByStrategyId(strategy.id),
+            latestVersionNumber = validatedLatestVersion?.versionNumber,
+            versionCount = versionCount,
+            universeCount = universeCount,
             updatedAt = strategy.updatedAt,
         )
     }

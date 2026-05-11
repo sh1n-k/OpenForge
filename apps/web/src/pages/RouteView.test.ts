@@ -15,6 +15,7 @@ import {
   loadStrategy,
   loadStrategyBacktests,
   loadStrategyFills,
+  loadStrategyOrderRequests,
   loadStrategyVersions,
   loadSystemRisk,
   loadUniverse,
@@ -51,6 +52,8 @@ vi.mock("@/lib/api", () => {
       runningStrategyCount: 0,
       todayOrderCount: 0,
       todayPnl: 0,
+      positionCount: 0,
+      globalKillSwitchEnabled: false,
       strategySummaries: [],
       recentFills: [],
       currentPositions: [],
@@ -128,7 +131,7 @@ describe("RouteView", () => {
     });
 
     expect(loadDashboard).toHaveBeenCalledTimes(1);
-    expect(loadSystemRisk).toHaveBeenCalledTimes(1);
+    expect(loadSystemRisk).not.toHaveBeenCalled();
   });
 
   it("loads only rendered data on the strategy backtest route", async () => {
@@ -200,6 +203,7 @@ describe("RouteView", () => {
     });
 
     expect(loadStrategyFills).not.toHaveBeenCalled();
+    expect(loadStrategyOrderRequests).not.toHaveBeenCalled();
     expect(loadUniverses).toHaveBeenCalledTimes(1);
   });
 });

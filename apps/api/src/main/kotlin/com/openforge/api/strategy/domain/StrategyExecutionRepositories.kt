@@ -17,6 +17,13 @@ interface StrategyExecutionRunRepository : JpaRepository<StrategyExecutionRunEnt
         pageable: Pageable,
     ): List<StrategyExecutionRunEntity>
 
+    fun findAllByStrategyIdInOrderByStartedAtDesc(strategyIds: Collection<UUID>): List<StrategyExecutionRunEntity>
+
+    fun findAllByStrategyIdInAndErrorMessageIsNotNullOrderByStartedAtDesc(
+        strategyIds: Collection<UUID>,
+        pageable: Pageable,
+    ): List<StrategyExecutionRunEntity>
+
     fun findAllByStrategyIdAndScheduledDateAndStatusIn(
         strategyId: UUID,
         scheduledDate: LocalDate,
