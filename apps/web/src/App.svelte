@@ -9,6 +9,9 @@
     getRouteMeta,
     isRouteActive,
   } from "@/lib/route-meta";
+  import Toast from "@/lib/components/Toast.svelte";
+  import ThemeToggle from "@/lib/components/ThemeToggle.svelte";
+  import Drawer from "@/lib/components/Drawer.svelte";
 
   const navGroups = getGroupedRoutes();
   let pathname = window.location.pathname;
@@ -29,13 +32,21 @@
     return () => window.removeEventListener("popstate", onPopState);
   });
 
-
   function navigate(href: string) {
-    if (href === pathname) return;
+    const current = `${pathname}${window.location.search}${window.location.hash}`;
+    if (href === current) return;
+    const prevPath = pathname;
+    const prevHash = window.location.hash;
     window.history.pushState({}, "", href);
     pathname = window.location.pathname;
     mobileNavOpen = false;
-    window.scrollTo({ top: 0 });
+    const pathChanged = prevPath !== pathname;
+    const hashChanged = prevHash !== window.location.hash;
+    if (pathChanged) {
+      window.scrollTo({ top: 0 });
+    } else if (hashChanged) {
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }
   }
 
   function handleShellClick(event: MouseEvent) {
@@ -47,7 +58,6 @@
     event.preventDefault();
     navigate(`${url.pathname}${url.search}${url.hash}`);
   }
-
 </script>
 
 <svelte:head>
@@ -75,7 +85,12 @@
             <p class="doc-nav-overline">{group.group}</p>
             <div class="doc-nav-list">
               {#each group.routes as item}
-                <a class:doc-nav-link-active={isRouteActive(pathname, item.href)} class="doc-nav-link" href={item.href}>
+                <a
+                  class:doc-nav-link-active={isRouteActive(pathname, item.href)}
+                  class="doc-nav-link"
+                  href={item.href}
+                  aria-current={isRouteActive(pathname, item.href) ? "page" : undefined}
+                >
                   <span class="doc-nav-title">{item.label}</span>
                   <span class="doc-nav-description">{item.description}</span>
                 </a>
@@ -84,36 +99,38 @@
           </nav>
         {/each}
         <div class="doc-sidebar-footer">
-          <a class="doc-footer-link" class:doc-footer-link-active={pathname === "/settings"} href="/settings">설정</a>
+          <ThemeToggle />
         </div>
       </div>
     </aside>
 
     <div class="doc-mobile-bar">
       <a class="doc-brand-link" href="/">OpenForge</a>
-      <button class="button-ghost" type="button" on:click={() => (mobileNavOpen = true)}>메뉴</button>
+      <div class="doc-mobile-bar-actions">
+        <ThemeToggle />
+        <button class="button-ghost" type="button" on:click={() => (mobileNavOpen = true)}>메뉴</button>
+      </div>
     </div>
 
-    {#if mobileNavOpen}
-      <div class="doc-mobile-overlay">
-        <div class="doc-mobile-drawer">
-          <div class="doc-mobile-drawer-head">
-            <a class="doc-brand-link" href="/">OpenForge</a>
-            <button class="button-ghost" type="button" on:click={() => (mobileNavOpen = false)}>닫기</button>
-          </div>
-          <div class="doc-sidebar-scroll">
-            {#each navGroups as group}
-              <nav class="doc-nav-group" aria-label={group.group}>
-                <p class="doc-nav-overline">{group.group}</p>
-                {#each group.routes as item}
-                  <a class:doc-nav-link-active={isRouteActive(pathname, item.href)} class="doc-nav-link" href={item.href}>{item.label}</a>
-                {/each}
-              </nav>
+    <Drawer open={mobileNavOpen} title="OpenForge" on:close={() => (mobileNavOpen = false)}>
+      <div class="doc-mobile-drawer-content">
+        {#each navGroups as group}
+          <nav class="doc-nav-group" aria-label={group.group}>
+            <p class="doc-nav-overline">{group.group}</p>
+            {#each group.routes as item}
+              <a
+                class:doc-nav-link-active={isRouteActive(pathname, item.href)}
+                class="doc-nav-link"
+                href={item.href}
+                aria-current={isRouteActive(pathname, item.href) ? "page" : undefined}
+              >
+                {item.label}
+              </a>
             {/each}
-          </div>
-        </div>
+          </nav>
+        {/each}
       </div>
-    {/if}
+    </Drawer>
 
     <main class="app-main" class:app-main-workbench={routeMeta?.mode === "workbench"}>
       <div class:app-main-with-toc={sections.length > 0}>
@@ -131,4 +148,5 @@
       </div>
     </main>
   </div>
+  <Toast />
 {/if}

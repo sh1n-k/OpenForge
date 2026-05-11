@@ -1,6 +1,6 @@
 export type ScreenMode = "docs" | "workbench";
 
-export type NavGroup = "개요" | "전략 관리" | "운영";
+export type NavGroup = "Trading" | "Strategy Lab" | "System Ops";
 
 export type NavIconKey =
   | "LayoutDashboard"
@@ -44,7 +44,7 @@ const routeMetaList: RouteMeta[] = [
     description: "운영 대시보드와 현황 요약",
     mode: "docs",
     match: /^\/$/,
-    navGroup: "개요",
+    navGroup: "Trading",
     icon: "LayoutDashboard",
     sections: [
       { id: "dashboard-summary", label: "운영 요약" },
@@ -61,7 +61,7 @@ const routeMetaList: RouteMeta[] = [
     description: "전략 레지스트리와 실행 관리",
     mode: "docs",
     match: /^\/strategies$/,
-    navGroup: "전략 관리",
+    navGroup: "Strategy Lab",
     icon: "Cpu",
     sections: [
       { id: "strategies-summary", label: "요약" },
@@ -76,13 +76,11 @@ const routeMetaList: RouteMeta[] = [
     mode: "workbench",
     match: /^\/strategies\/[^/]+$/,
     sections: [
-      { id: "strategy-overview", label: "개요" },
-      { id: "strategy-universes", label: "종목 그룹" },
-      { id: "strategy-execution", label: "자동 실행" },
-      { id: "strategy-risk", label: "리스크" },
-      { id: "strategy-versions", label: "버전" },
-      { id: "strategy-orders", label: "주문" },
-      { id: "strategy-activity", label: "실행 로그" },
+      { id: "overview", label: "개요" },
+      { id: "versions", label: "버전" },
+      { id: "orders", label: "시그널·주문" },
+      { id: "positions", label: "포지션" },
+      { id: "activity", label: "활동" },
     ],
   },
   {
@@ -118,7 +116,7 @@ const routeMetaList: RouteMeta[] = [
     description: "종목 그룹 레지스트리와 종목 구성",
     mode: "docs",
     match: /^\/universes$/,
-    navGroup: "전략 관리",
+    navGroup: "Strategy Lab",
     icon: "Globe",
     sections: [
       { id: "universes-summary", label: "요약" },
@@ -157,7 +155,7 @@ const routeMetaList: RouteMeta[] = [
     description: "한투 계좌 원장과 동기화 상태",
     mode: "docs",
     match: /^\/broker$/,
-    navGroup: "운영",
+    navGroup: "System Ops",
     icon: "Landmark",
     sections: [
       { id: "broker-summary", label: "원장 요약" },
@@ -184,7 +182,7 @@ const routeMetaList: RouteMeta[] = [
     description: "전체 주문 및 체결 조회",
     mode: "docs",
     match: /^\/orders$/,
-    navGroup: "운영",
+    navGroup: "Trading",
     icon: "ShoppingCart",
     sections: [
       { id: "orders-summary", label: "요약" },
@@ -198,7 +196,7 @@ const routeMetaList: RouteMeta[] = [
     description: "전체 포지션 현황",
     mode: "docs",
     match: /^\/positions$/,
-    navGroup: "운영",
+    navGroup: "Trading",
     icon: "PieChart",
     sections: [
       { id: "positions-summary", label: "포지션 요약" },
@@ -211,7 +209,7 @@ const routeMetaList: RouteMeta[] = [
     description: "실행 로그와 오류 추적",
     mode: "docs",
     match: /^\/logs$/,
-    navGroup: "운영",
+    navGroup: "System Ops",
     icon: "ScrollText",
     sections: [
       { id: "logs-summary", label: "요약" },
@@ -224,6 +222,7 @@ const routeMetaList: RouteMeta[] = [
     description: "시스템 설정과 브로커 연결",
     mode: "docs",
     match: /^\/settings$/,
+    navGroup: "System Ops",
     icon: "Settings",
     sections: [
       { id: "settings-summary", label: "요약" },
@@ -234,7 +233,7 @@ const routeMetaList: RouteMeta[] = [
   },
 ];
 
-const NAV_GROUP_ORDER: NavGroup[] = ["개요", "전략 관리", "운영"];
+const NAV_GROUP_ORDER: NavGroup[] = ["Trading", "Strategy Lab", "System Ops"];
 
 export function getPrimaryRoutes() {
   return routeMetaList

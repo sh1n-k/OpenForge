@@ -2,35 +2,38 @@
 
 ## 배치 규칙
 - 진입점은 `src/main.ts`, 앱 셸은 `src/App.svelte`, 라우트 파서는 `src/router.ts`다.
-- 화면은 `src/pages/`에 둔다. 여러 화면이 공유하는 작은 UI는 `src/pages/shared/`에 둔다.
-- API 호출은 페이지에서 직접 하지 말고 `src/lib/api`의 도메인별 클라이언트를 사용한다.
+- 페이지는 `src/pages/<route>/<Page>.svelte`에 둔다. RouteView는 디스패처 역할만 한다.
+- 페이지 한정 컴포넌트는 `src/pages/<route>/_components/`에 둔다.
+- 도메인 무관 표현 컴포넌트는 `src/lib/components/`에 둔다 (`PageHeader`, `Metric`, `DataTable`, `StatusChip`, `Toolbar`, `IconButton`, `Drawer`, `Toast`, `ConfirmDialog`, `KillSwitchToggle`, `Tabs`, `EquityChart`, `ThemeToggle`, `EmptyState`).
+- API 호출은 페이지에서 직접 하지 말고 `@/lib/api` 배럴을 사용한다.
 
 ## 스타일 규칙
-- semantic 유틸 클래스를 우선 사용한다. 사용 가능한 클래스는 `src/styles.css`를 참고.
-- 새 스타일이 필요하면 먼저 `styles.css`에 의미 단위 클래스를 추가한 뒤 참조한다. 인라인 Tailwind만 쌓지 않는다.
-- 기존 인라인 Tailwind는 같은 파일을 수정할 때 점진 치환.
+- `data-theme="dark"` 속성으로 테마 전환. CSS 변수는 모두 `styles.css` :root 블록에서 정의/미러링.
+- semantic 유틸 클래스를 우선 사용한다. 새 스타일은 먼저 `styles.css`에 의미 단위 클래스를 추가한 뒤 참조한다.
+- 색상은 변수로만 사용한다. 하드코딩된 hex/rgba는 금지.
 
-## 확인·에러 UI
-- 파괴적 작업은 페이지 내부의 명시적 확인 흐름을 사용한다. 새 공용 확인 헬퍼는 재사용 지점이 생길 때만 추가한다.
-- 단일 메시지 에러는 `doc-panel doc-panel-error` 또는 화면의 기존 에러 영역을 사용한다.
+## 확인·에러·알림 UI
+- 파괴적 작업은 `ConfirmDialog`로 감싼다 (`archive*`, killSwitch 활성화 등).
+- 액션 결과 알림은 `lib/toast.ts`의 `toast.success/error/info`를 사용한다.
+- 액션 래퍼는 `lib/util.ts:runAction`이지만, RouteView가 이미 페이지에 props로 내려주는 `runAction`을 우선 사용한다.
+
+## 차트
+- `EquityChart`는 uPlot 래퍼. 다크 토글 시 자동 재초기화 (`subscribeTheme`).
+- 새 차트는 `lib/charts/uplot-theme.ts`의 토큰을 통해 색을 받는다.
+
+## API 접근
+- 외부 진입점은 `@/lib/api` 배럴 하나. 도메인별:
+  - `lib/api/client.ts` — `apiFetch` 전송 레이어
+  - `lib/api/{auth,strategy,backtest,universe,broker,system,dashboard}.ts` — 도메인 엔드포인트
+  - `lib/api/types/{...}.ts` — 도메인 타입
+- 응답 타입 변경 시 Kotlin API도 동시 수정. 루트 `CLAUDE.md` 참고.
 
 ## 조건부/미완 기능
 - 플래그는 `src/lib/features.ts`. 조건부 UI는 플래그를 직접 참조.
-- 새 조건부 기능은 플래그를 먼저 추가하고 참조.
-
-## API 접근
-- 외부 진입점은 `@/lib/api` 배럴 하나. 내부는 도메인별:
-  - `lib/api/client.ts` — `apiFetch` 전송 레이어
-  - `lib/api/{auth,strategy,backtest,universe,broker,system,dashboard}.ts` — 도메인 엔드포인트
-  - `lib/api/types/{common,strategy,backtest,universe,broker,system,dashboard}.ts` — 도메인 타입
-- 새 엔드포인트/타입은 해당 도메인 파일에만 추가. 배럴이 자동 노출하므로 호출부는 수정 불필요.
-- 응답 타입 변경 시 Kotlin API도 동시 수정. 루트 `CLAUDE.md` 참고.
 
 ## 라우트·사이드바
 - 라우트 추가 시 `src/router.ts`와 `src/lib/route-meta.ts`를 함께 갱신한다.
-
-## 전역 상태
-- 전역 상태는 아직 도입하지 않는다. 소비자가 늘 때만 Svelte store 승격을 검토한다.
+- 사이드바 그룹은 `Trading | Strategy Lab | System Ops`. `route-meta.ts`의 `NAV_GROUP_ORDER` 기준.
 
 ## 검증
 - `pnpm --filter web lint`, `pnpm --filter web test --run`, `pnpm --filter web build`.
