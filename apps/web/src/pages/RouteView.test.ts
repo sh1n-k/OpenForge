@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import RouteView from "./RouteView.svelte";
 import {
   approveRebalancePlan,
+  createRebalancePlanFromLedger,
   loadAllFills,
   loadAllOrders,
   loadAllPositions,
@@ -35,7 +36,7 @@ vi.mock("@/lib/api", () => {
     collectSymbols: ok,
     createBacktest: ok,
     createOrderRequest: ok,
-    createRebalancePlanFromLedger: ok,
+    createRebalancePlanFromLedger: vi.fn().mockResolvedValue({}),
     createStrategy: ok,
     createUniverse: ok,
     importDailyBars: ok,
@@ -308,5 +309,38 @@ describe("RouteView", () => {
       liveChecklistAccepted: true,
       liveConfirmationPhrase: "LIVE 리밸런싱 위험 확인",
     });
+  });
+
+  it("shows rebalance plan creation failure reason from the API", async () => {
+    vi.mocked(createRebalancePlanFromLedger).mockRejectedValueOnce(new Error("Broker ledger snapshot is stale"));
+
+    render(RouteView, { props: { route: { name: "strategy-detail", strategyId: "strategy-1" } } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Strategy 1" })).toBeTruthy();
+    });
+    await fireEvent.click(screen.getByRole("tab", { name: "리밸런싱" }));
+    await fireEvent.input(screen.getAllByLabelText("목표 비중")[1], {
+      target: { value: "50" },
+    });
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "원장으로 계획 생성" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "원장으로 계획 생성" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Broker ledger snapshot is stale")).toBeTruthy();
+    });
+    expect(createRebalancePlanFromLedger).toHaveBeenCalledWith(
+      "strategy-1",
+      expect.objectContaining({
+        mode: "paper",
+        targetWeights: [
+          { symbol: "005930", targetWeight: 0.5, price: null },
+          { symbol: "000660", targetWeight: 0.5, price: null },
+        ],
+      }),
+    );
   });
 });
