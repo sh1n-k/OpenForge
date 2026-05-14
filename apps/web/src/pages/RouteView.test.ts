@@ -276,6 +276,25 @@ describe("RouteView", () => {
             remainingQuantity: 1,
             precheckSummary: { reasonCodes: ["live_default_order_notional"] },
           },
+          {
+            id: "order-2",
+            symbol: "000660",
+            side: "buy",
+            quantity: 1,
+            price: 100000,
+            notional: 100000,
+            estimatedFee: 0,
+            estimatedTax: 0,
+            status: "rejected",
+            idempotencyKey: "key-2",
+            brokerOrderNumber: null,
+            brokerResponseCode: "ERROR",
+            brokerResponseMessage: "mock broker API error",
+            requestedAt: null,
+            filledQuantity: 0,
+            remainingQuantity: 1,
+            precheckSummary: { reasonCodes: [] },
+          },
         ],
       },
     ]);
@@ -291,6 +310,7 @@ describe("RouteView", () => {
     expect((screen.getByRole("button", { name: "원장으로 계획 생성" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText((content) => content.includes("최신 원장:") && content.includes("2026"))).toBeTruthy();
     expect(screen.getByText((content) => content.includes("live_default_order_notional"))).toBeTruthy();
+    expect(screen.getByText((content) => content.includes("mock broker API error"))).toBeTruthy();
 
     expect((screen.getByRole("button", { name: "승인" }) as HTMLButtonElement).disabled).toBe(true);
 
