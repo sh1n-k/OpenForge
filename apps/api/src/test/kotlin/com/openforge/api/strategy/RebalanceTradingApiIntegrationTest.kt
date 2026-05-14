@@ -24,7 +24,10 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.json.JsonMapper
 import java.net.InetSocketAddress
+import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
     @Autowired
@@ -771,7 +774,7 @@ class KisPaperRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSuppor
             .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.orders[0].status").value("sent"))
-            .andExpect(jsonPath("$.orders[0].brokerOrderNumber").value("PAPER-ORDER-1"))
+            .andExpect(jsonPath("$.orders[0].brokerOrderNumber").value(containsString("PAPER-ORDER-")))
             .andExpect(jsonPath("$.orders[0].brokerResponseCode").value("0"))
 
         mockMvc
@@ -782,6 +785,40 @@ class KisPaperRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSuppor
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.orders[0].status").value("accepted"))
             .andExpect(jsonPath("$.orders[0].remainingQuantity").value(19))
+    }
+
+    @Test
+    fun `syncs KIS paper status rows into safe internal statuses through adapter`() {
+        savePaperBrokerConfig()
+        val cases =
+            listOf(
+                "KISPART" to "partially_filled",
+                "KISFILL" to "filled",
+                "KISCANCEL" to "cancelled",
+                "KISREJECT" to "rejected",
+                "KISUNKNOWN" to "unknown",
+            )
+
+        cases.forEach { (symbol, expectedStatus) ->
+            val strategyId = createStrategy("KIS Paper $expectedStatus")
+            updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "minOrderNotional" to 100.0))
+            val planId = createPlan(strategyId, symbol = symbol)
+            approvePlan(strategyId, planId)
+
+            mockMvc
+                .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.orders[0].brokerOrderNumber").value(containsString("PAPER-ORDER-")))
+                .andExpect(jsonPath("$.orders[0].brokerResponseCode").value("0"))
+
+            mockMvc
+                .perform(
+                    post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/sync")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(emptyMap<String, Any?>())),
+                ).andExpect(status().isOk)
+                .andExpect(jsonPath("$.orders[0].status").value(expectedStatus))
+        }
     }
 
     private fun savePaperBrokerConfig() {
@@ -804,7 +841,10 @@ class KisPaperRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSuppor
             ).andExpect(status().isOk)
     }
 
-    private fun createPlan(strategyId: String): String =
+    private fun createPlan(
+        strategyId: String,
+        symbol: String = "AAA",
+    ): String =
         mockMvc
             .perform(
                 post("/api/v1/strategies/$strategyId/rebalance/plans")
@@ -821,7 +861,7 @@ class KisPaperRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSuppor
                                         "holiday" to false,
                                         "positions" to emptyList<Map<String, Any?>>(),
                                     ),
-                                "targetWeights" to listOf(mapOf("symbol" to "AAA", "targetWeight" to 0.2, "price" to 1000.0)),
+                                "targetWeights" to listOf(mapOf("symbol" to symbol, "targetWeight" to 0.2, "price" to 1000.0)),
                             ),
                         ),
                     ),
@@ -1260,37 +1300,58 @@ private class KisPaperOrderStubServer(
     private val server: HttpServer,
 ) {
     val baseUrl: String = "http://127.0.0.1:${server.address.port}"
+    private val counter = AtomicInteger(0)
+    private val statusRows = ConcurrentHashMap<String, String>()
+
+    private fun handleOrder(exchange: HttpExchange) {
+        val requestBody = exchange.requestBody.use { String(it.readAllBytes(), StandardCharsets.UTF_8) }
+        val symbol = requestBody.jsonString("PDNO") ?: "UNKNOWN"
+        val quantity = requestBody.jsonString("ORD_QTY")?.toLongOrNull()?.coerceAtLeast(1) ?: 1
+        val orderNumber = "PAPER-ORDER-${counter.incrementAndGet()}"
+        statusRows[orderNumber] = statusRow(orderNumber, symbol, quantity)
+        exchange.respondJson("""{"rt_cd":"0","msg1":"paper order accepted","output":{"ODNO":"$orderNumber"}}""")
+    }
+
+    private fun handleStatus(exchange: HttpExchange) {
+        val orderNumber = exchange.requestURI.rawQuery.queryParam("ODNO")
+        val row = statusRows[orderNumber]
+        val body =
+            if (row == null) {
+                """{"rt_cd":"0","msg1":"paper order status","output1":[]}"""
+            } else {
+                """{"rt_cd":"0","msg1":"paper order status","output1":[$row]}"""
+            }
+        exchange.respondJson(body)
+    }
+
+    private fun statusRow(
+        orderNumber: String,
+        symbol: String,
+        quantity: Long,
+    ): String {
+        val remainingAfterPartial = (quantity - 1).coerceAtLeast(1)
+        val (filled, remaining, statusName) =
+            when (symbol) {
+                "KISPART" -> Triple(1L, remainingAfterPartial, "접수")
+                "KISFILL" -> Triple(quantity, 0L, "체결")
+                "KISCANCEL" -> Triple(0L, quantity, "취소")
+                "KISREJECT" -> Triple(0L, quantity, "거부")
+                "KISUNKNOWN" -> Triple(0L, quantity, "unexpected")
+                else -> Triple(0L, quantity, "접수")
+            }
+        return """{"odno":"$orderNumber","tot_ccld_qty":"$filled","rmn_qty":"$remaining","ord_stat_name":"$statusName"}"""
+    }
 
     companion object {
         fun start(): KisPaperOrderStubServer {
             val server = HttpServer.create(InetSocketAddress(0), 0)
+            val stub = KisPaperOrderStubServer(server)
             server.createContext("/oauth2/tokenP", JsonHandler("""{"access_token":"paper-token"}"""))
             server.createContext("/uapi/hashkey", JsonHandler("""{"HASH":"paper-hash"}"""))
-            server.createContext(
-                "/uapi/domestic-stock/v1/trading/order-cash",
-                JsonHandler("""{"rt_cd":"0","msg1":"paper order accepted","output":{"ODNO":"PAPER-ORDER-1"}}"""),
-            )
-            server.createContext(
-                "/uapi/domestic-stock/v1/trading/inquire-ccnl",
-                JsonHandler(
-                    """
-                    {
-                      "rt_cd": "0",
-                      "msg1": "paper order status",
-                      "output1": [
-                        {
-                          "odno": "PAPER-ORDER-1",
-                          "tot_ccld_qty": "0",
-                          "rmn_qty": "20",
-                          "ord_stat_name": "접수"
-                        }
-                      ]
-                    }
-                    """.trimIndent(),
-                ),
-            )
+            server.createContext("/uapi/domestic-stock/v1/trading/order-cash") { exchange -> stub.handleOrder(exchange) }
+            server.createContext("/uapi/domestic-stock/v1/trading/inquire-ccnl") { exchange -> stub.handleStatus(exchange) }
             server.start()
-            return KisPaperOrderStubServer(server)
+            return stub
         }
     }
 }
@@ -1304,4 +1365,23 @@ private class JsonHandler(
         exchange.sendResponseHeaders(200, response.size.toLong())
         exchange.responseBody.use { it.write(response) }
     }
+}
+
+private fun String.jsonString(fieldName: String): String? = Regex(""""$fieldName"\s*:\s*"([^"]+)"""").find(this)?.groupValues?.get(1)
+
+private fun String?.queryParam(fieldName: String): String? =
+    this
+        ?.split("&")
+        ?.mapNotNull { part ->
+            val pieces = part.split("=", limit = 2)
+            if (pieces.size != 2) return@mapNotNull null
+            URLDecoder.decode(pieces[0], StandardCharsets.UTF_8) to URLDecoder.decode(pieces[1], StandardCharsets.UTF_8)
+        }?.firstOrNull { (key, _) -> key == fieldName }
+        ?.second
+
+private fun HttpExchange.respondJson(body: String) {
+    val response = body.toByteArray(StandardCharsets.UTF_8)
+    responseHeaders.add("Content-Type", "application/json")
+    sendResponseHeaders(200, response.size.toLong())
+    responseBody.use { it.write(response) }
 }
