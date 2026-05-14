@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/svelte";
+import { fireEvent, render, screen, waitFor } from "@testing-library/svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RouteView from "./RouteView.svelte";
 import {
+  approveRebalancePlan,
   loadAllFills,
   loadAllOrders,
   loadAllPositions,
@@ -27,12 +28,14 @@ vi.mock("@/lib/api", () => {
   const ok = vi.fn().mockResolvedValue({});
   return {
     addStrategyVersion: ok,
+    approveRebalancePlan: ok,
     archiveStrategy: ok,
     archiveUniverse: ok,
     cloneStrategy: ok,
     collectSymbols: ok,
     createBacktest: ok,
     createOrderRequest: ok,
+    createRebalancePlanFromLedger: ok,
     createStrategy: ok,
     createUniverse: ok,
     importDailyBars: ok,
@@ -98,7 +101,9 @@ vi.mock("@/lib/api", () => {
     replaceStrategyUniverses: ok,
     replaceUniverseSymbols: ok,
     searchSymbols: vi.fn().mockResolvedValue({ items: [] }),
+    sendRebalancePlan: ok,
     startBrokerLedgerSync: ok,
+    syncRebalancePlan: ok,
     testBrokerConnection: ok,
     updateBrokerConnectionConfig: ok,
     updateStrategyExecution: ok,
@@ -120,6 +125,8 @@ vi.mock("@/lib/health", () => ({
 describe("RouteView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState(null, "", "/");
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("loads dashboard data once on initial render", async () => {
@@ -204,5 +211,102 @@ describe("RouteView", () => {
     expect(loadStrategyFills).not.toHaveBeenCalled();
     expect(loadUniverses).toHaveBeenCalledTimes(1);
     expect(loadRebalancePlans).toHaveBeenCalledWith("strategy-1");
+  });
+
+  it("shows rebalance operating evidence and requires the live approval phrase", async () => {
+    vi.mocked(loadBrokerLedgerStatus).mockResolvedValueOnce({
+      brokerType: "kis",
+      liveConfigured: false,
+      latestSuccessfulSyncRun: {
+        id: "sync-1",
+        brokerType: "kis",
+        status: "succeeded",
+        overseasExchanges: [],
+        requestedAt: "2026-05-14T05:59:00Z",
+        startedAt: "2026-05-14T05:59:30Z",
+        completedAt: "2026-05-14T06:00:00Z",
+        startDate: "2026-05-14",
+        endDate: "2026-05-14",
+        markets: ["domestic"],
+        tradeCount: 0,
+        balanceCount: 1,
+        profitCount: 0,
+        errorMessage: null,
+      },
+      latestSyncRun: null,
+    });
+    vi.mocked(loadRebalancePlans).mockResolvedValueOnce([
+      {
+        id: "plan-1",
+        strategyId: "strategy-1",
+        strategyVersionId: "version-1",
+        mode: "live",
+        status: "planned",
+        accountSnapshot: {},
+        targetWeights: [],
+        settingsSnapshot: {},
+        riskSummary: { reasonCodes: [] },
+        approvalRequired: true,
+        adminApproved: false,
+        approvedAt: null,
+        approvedBy: null,
+        liveChecklistAccepted: false,
+        failureReason: null,
+        plannedAt: "2026-05-14T05:00:00Z",
+        sentAt: null,
+        syncedAt: null,
+        orders: [
+          {
+            id: "order-1",
+            symbol: "005930",
+            side: "buy",
+            quantity: 1,
+            price: 100000,
+            notional: 100000,
+            estimatedFee: 0,
+            estimatedTax: 0,
+            status: "rejected_precheck",
+            idempotencyKey: "key-1",
+            brokerOrderNumber: null,
+            brokerResponseCode: null,
+            brokerResponseMessage: null,
+            requestedAt: null,
+            filledQuantity: 0,
+            remainingQuantity: 1,
+            precheckSummary: { reasonCodes: ["live_default_order_notional"] },
+          },
+        ],
+      },
+    ]);
+
+    render(RouteView, { props: { route: { name: "strategy-detail", strategyId: "strategy-1" } } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Strategy 1" })).toBeTruthy();
+    });
+    await fireEvent.click(screen.getByRole("tab", { name: "리밸런싱" }));
+
+    expect(screen.getByText("목표 비중 합계 80.00%")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "원장으로 계획 생성" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText((content) => content.includes("최신 원장:") && content.includes("2026"))).toBeTruthy();
+    expect(screen.getByText((content) => content.includes("live_default_order_notional"))).toBeTruthy();
+
+    expect((screen.getByRole("button", { name: "승인" }) as HTMLButtonElement).disabled).toBe(true);
+
+    await fireEvent.click(screen.getByLabelText("live 운영 체크리스트 완료"));
+    await fireEvent.input(screen.getByPlaceholderText("LIVE 리밸런싱 위험 확인"), {
+      target: { value: "LIVE 리밸런싱 위험 확인" },
+    });
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "승인" }) as HTMLButtonElement).disabled).toBe(false);
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "승인" }));
+    expect(approveRebalancePlan).toHaveBeenCalledWith("strategy-1", "plan-1", {
+      approvedBy: "owner",
+      confirmLiveRisk: true,
+      liveChecklistAccepted: true,
+      liveConfirmationPhrase: "LIVE 리밸런싱 위험 확인",
+    });
   });
 });

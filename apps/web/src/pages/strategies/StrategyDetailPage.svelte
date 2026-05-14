@@ -156,10 +156,6 @@
     return order.brokerResponseMessage ?? "-";
   }
 
-  function canApproveRebalancePlan(plan: RebalancePlan) {
-    if (plan.status !== "planned") return false;
-    return plan.mode !== "live" || liveApprovalConfirmed;
-  }
 </script>
 
 <section class="page-shell docs-page-shell">
@@ -415,7 +411,7 @@
                         <button
                           class="button-secondary"
                           type="button"
-                          disabled={!canApproveRebalancePlan(plan)}
+                          disabled={plan.status !== "planned" || (plan.mode === "live" && !liveApprovalConfirmed)}
                           on:click={() =>
                             runAction(() =>
                               approveRebalancePlan(strategy.id, plan.id, {
