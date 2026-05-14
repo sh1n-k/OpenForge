@@ -508,7 +508,21 @@ class RebalanceTradingService(
             resetFailureCount()
             appendAudit(strategyId, planId, "rebalance_order_status_synced", mapOf("orderId" to order.id.toString(), "brokerStatus" to result.toPayload()))
         } catch (exception: Exception) {
-            recordFailureAndMaybeStop(strategyId, "broker_status_lookup_failed", exception.message ?: "broker status lookup failed")
+            val message = exception.message ?: "broker status lookup failed"
+            jdbcTemplate.update(
+                """
+                update strategy_rebalance_plan_order
+                set status = ?, broker_response_code = ?, broker_response_message = ?, last_synced_at = ?, updated_at = now()
+                where id = ?
+                """.trimIndent(),
+                ORDER_UNKNOWN,
+                "STATUS_ERROR",
+                message,
+                OffsetDateTime.now(DEFAULT_ZONE).toTimestamp(),
+                order.id,
+            )
+            appendAudit(strategyId, planId, "rebalance_order_status_unknown", mapOf("orderId" to order.id.toString(), "message" to message))
+            recordFailureAndMaybeStop(strategyId, "broker_status_lookup_failed", message)
         }
     }
 
@@ -1279,6 +1293,8 @@ class MockBrokerOrderGateway(
                 responseCode = "0",
                 message = "mock bad status",
             )
+        } else if (order.symbol.contains("STATUSERR")) {
+            throw IllegalStateException("mock broker status error")
         } else {
             BrokerStatusResult(
                 status = "accepted",

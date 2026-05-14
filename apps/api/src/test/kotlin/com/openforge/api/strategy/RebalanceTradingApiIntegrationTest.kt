@@ -405,6 +405,26 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
     }
 
     @Test
+    fun `broker status lookup failure is stored on the order as unknown for operator visibility`() {
+        val strategyId = createStrategy("MVP Status Failure")
+        updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "minOrderNotional" to 100.0))
+        val planId = createPlan(strategyId, singleTargetPayload(symbol = "STATUSERR1", price = 100.0))
+        approvePlan(strategyId, planId)
+        mockMvc.perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send")).andExpect(status().isOk)
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/sync")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(emptyMap<String, Any?>())),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("unknown"))
+            .andExpect(jsonPath("$.orders[0].status").value("unknown"))
+            .andExpect(jsonPath("$.orders[0].brokerResponseCode").value("STATUS_ERROR"))
+            .andExpect(jsonPath("$.orders[0].brokerResponseMessage").value("mock broker status error"))
+    }
+
+    @Test
     fun `consecutive broker API errors stop automation and enable kill switch`() {
         val strategyId = createStrategy("MVP Failure Stop")
         updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "minOrderNotional" to 100.0))
