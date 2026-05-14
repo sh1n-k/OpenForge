@@ -256,12 +256,17 @@ private data class ExternalKisPaperEnv(
             val missing = required.filter { env(it).isNullOrBlank() }
             assumeTrue(missing.isEmpty(), "Missing KIS paper e2e env vars: ${missing.joinToString(",")}")
 
-            val price = env("KIS_PAPER_PRICE")!!.toDouble()
-            val equity = env("KIS_PAPER_EQUITY")!!.toDouble()
-            val targetWeight = env("KIS_PAPER_TARGET_WEIGHT")?.toDouble() ?: 1.0
-            val maxNotional = env("KIS_PAPER_MAX_NOTIONAL")?.toDouble() ?: 100_000.0
-            assumeTrue(price > 0.0 && equity > 0.0 && targetWeight > 0.0, "KIS paper e2e numeric values must be positive")
-            assumeTrue(equity * targetWeight <= maxNotional, "KIS paper e2e notional exceeds KIS_PAPER_MAX_NOTIONAL")
+            val price = doubleEnvOrSkip("KIS_PAPER_PRICE")
+            val equity = doubleEnvOrSkip("KIS_PAPER_EQUITY")
+            val cash = doubleEnvOrSkip("KIS_PAPER_CASH")
+            val targetWeight = doubleEnvOrSkip("KIS_PAPER_TARGET_WEIGHT", defaultValue = 1.0)
+            val maxNotional = doubleEnvOrSkip("KIS_PAPER_MAX_NOTIONAL", defaultValue = 100_000.0)
+            val plannedNotional = equity * targetWeight
+            assumeTrue(price > 0.0 && equity > 0.0 && cash > 0.0 && targetWeight > 0.0, "KIS paper e2e numeric values must be positive")
+            assumeTrue(targetWeight <= 1.0, "KIS paper e2e target weight must be 1.0 or less")
+            assumeTrue(plannedNotional <= maxNotional, "KIS paper e2e notional exceeds KIS_PAPER_MAX_NOTIONAL")
+            assumeTrue(plannedNotional >= price, "KIS paper e2e notional must buy at least one share")
+            assumeTrue(cash >= plannedNotional, "KIS paper e2e cash must cover planned notional")
 
             return ExternalKisPaperEnv(
                 appKey = env("KIS_APP_KEY")!!,
@@ -271,9 +276,23 @@ private data class ExternalKisPaperEnv(
                 symbol = env("KIS_PAPER_SYMBOL")!!,
                 price = price,
                 equity = equity,
-                cash = env("KIS_PAPER_CASH")!!.toDouble(),
+                cash = cash,
                 targetWeight = targetWeight,
             )
+        }
+
+        private fun doubleEnvOrSkip(
+            name: String,
+            defaultValue: Double? = null,
+        ): Double {
+            val rawValue =
+                env(name) ?: return defaultValue ?: run {
+                    assumeTrue(false, "$name is required")
+                    0.0
+                }
+            val parsed = rawValue.toDoubleOrNull()
+            assumeTrue(parsed != null, "$name must be numeric")
+            return parsed!!
         }
     }
 }

@@ -72,6 +72,8 @@ KIS_PAPER_CASH=... \
 ./gradlew test --tests com.openforge.api.strategy.KisPaperExternalE2eIntegrationTest
 ```
 
+선택 값으로 `KIS_PAPER_TARGET_WEIGHT`와 `KIS_PAPER_MAX_NOTIONAL`을 지정할 수 있다. 테스트는 목표 주문 금액이 기본 `100000` 이하이고, 최소 1주를 살 수 있으며, 현금이 목표 주문 금액 이상일 때만 실행된다.
+
 ## 검증 명령
 
 ```bash
