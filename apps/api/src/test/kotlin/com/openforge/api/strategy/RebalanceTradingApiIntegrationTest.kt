@@ -283,6 +283,23 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
                     ),
             ).andExpect(status().isConflict)
             .andExpect(jsonPath("$.detail").value(containsString("live_checklist_required")))
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/approve")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "approvedBy" to "owner",
+                                "confirmLiveRisk" to true,
+                                "liveChecklistAccepted" to true,
+                                "liveConfirmationPhrase" to "wrong",
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("live_confirmation_phrase_required")))
     }
 
     @Test
@@ -955,6 +972,32 @@ class LiveRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() 
             .andExpect(jsonPath("$.mode").value("live"))
             .andExpect(jsonPath("$.orders[0].status").value("sent"))
             .andExpect(jsonPath("$.orders[0].brokerOrderNumber").value(containsString("MOCK-")))
+    }
+
+    @Test
+    fun `blocks live send and stores reason when strategy live gate is disabled`() {
+        val strategyId = createStrategy("MVP Live Strategy Gate")
+        updateRisk(
+            strategyId,
+            mapOf(
+                "strategyKillSwitchEnabled" to false,
+                "liveTradingEnabled" to false,
+                "minOrderNotional" to 1000.0,
+            ),
+        )
+        val planId = createPlan(strategyId, singleTargetPayload(symbol = "AAA", mode = "live"))
+        approvePlan(strategyId, planId, confirmLiveRisk = true)
+
+        mockMvc
+            .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("strategy_live_not_enabled")))
+
+        mockMvc
+            .perform(get("/api/v1/strategies/$strategyId/rebalance/plans/$planId"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("blocked"))
+            .andExpect(jsonPath("$.failureReason").value(containsString("strategy_live_not_enabled")))
     }
 
     @Test

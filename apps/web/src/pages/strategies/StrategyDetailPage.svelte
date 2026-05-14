@@ -70,10 +70,12 @@
   let rebalanceMarketClosed = false;
   let liveConfirmationPhrase = "";
   let liveChecklistAccepted = false;
+  const liveConfirmationRequiredPhrase = "LIVE 리밸런싱 위험 확인";
   $: selectedUniverseIds = strategy.universes.map((u) => u.id);
   $: targetWeightTotal = rebalanceTargetRows.reduce((sum, row) => sum + Number(row.targetWeightPercent || 0), 0);
   $: targetWeightValid = Math.abs(targetWeightTotal - 100) < 0.0001;
   $: ledgerSnapshotTime = brokerLedgerStatus?.latestSuccessfulSyncRun?.completedAt ?? brokerLedgerStatus?.latestSuccessfulSyncRun?.requestedAt ?? null;
+  $: liveApprovalConfirmed = liveChecklistAccepted && liveConfirmationPhrase.trim() === liveConfirmationRequiredPhrase;
 
   function toggleUniverseSelection(universeId: string, checked: boolean) {
     selectedUniverseIds = checked
@@ -152,6 +154,11 @@
     const reasonCodes = order.precheckSummary.reasonCodes;
     if (Array.isArray(reasonCodes) && reasonCodes.length > 0) return reasonCodes.join(", ");
     return order.brokerResponseMessage ?? "-";
+  }
+
+  function canApproveRebalancePlan(plan: RebalancePlan) {
+    if (plan.status !== "planned") return false;
+    return plan.mode !== "live" || liveApprovalConfirmed;
   }
 </script>
 
@@ -373,7 +380,7 @@
           </label>
           <label class="form-field" for="live-confirmation-phrase">
             <span class="form-label">live 확인 문구</span>
-            <input id="live-confirmation-phrase" type="text" bind:value={liveConfirmationPhrase} />
+            <input id="live-confirmation-phrase" type="text" placeholder={liveConfirmationRequiredPhrase} bind:value={liveConfirmationPhrase} />
           </label>
         </div>
       </div>
@@ -408,7 +415,7 @@
                         <button
                           class="button-secondary"
                           type="button"
-                          disabled={plan.status !== "planned"}
+                          disabled={!canApproveRebalancePlan(plan)}
                           on:click={() =>
                             runAction(() =>
                               approveRebalancePlan(strategy.id, plan.id, {
