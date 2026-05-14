@@ -1,6 +1,8 @@
 package com.openforge.api.strategy
 
+import com.openforge.api.strategy.application.KisOrderStatusMapper
 import com.openforge.api.support.PostgresIntegrationTestSupport
+import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.Test
@@ -365,6 +367,144 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(get("/api/v1/strategies/$strategyId/risk"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.strategyKillSwitchEnabled").value(true))
+    }
+
+    @Test
+    fun `creates rebalance plan from latest broker ledger balance snapshot`() {
+        val strategyId = createStrategy("MVP Ledger Plan")
+        updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "minOrderNotional" to 100.0))
+        val syncRunId = insertDomesticLedgerSnapshot()
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/from-ledger")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "mode" to "paper",
+                                "maxSnapshotAgeMinutes" to 60,
+                                "targetWeights" to
+                                    listOf(
+                                        mapOf("symbol" to "AAA", "targetWeight" to 0.0),
+                                        mapOf("symbol" to "BBB", "targetWeight" to 0.5, "price" to 1000.0),
+                                    ),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("planned"))
+            .andExpect(jsonPath("$.accountSnapshot.source").value("broker_ledger"))
+            .andExpect(jsonPath("$.accountSnapshot.sourceSyncRunId").value(syncRunId))
+            .andExpect(jsonPath("$.accountSnapshot.cash").value(90000.0))
+            .andExpect(jsonPath("$.orders", hasSize<Any>(2)))
+            .andExpect(jsonPath("$.orders[0].symbol").value("AAA"))
+            .andExpect(jsonPath("$.orders[0].side").value("sell"))
+            .andExpect(jsonPath("$.orders[1].symbol").value("BBB"))
+            .andExpect(jsonPath("$.orders[1].side").value("buy"))
+    }
+
+    @Test
+    fun `ledger rebalance requires an actual domestic balance snapshot even with cash override`() {
+        val strategyId = createStrategy("MVP Ledger Empty")
+        val syncRunId =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+        jdbcTemplate.update(
+            """
+            insert into broker_ledger_sync_run (
+                id, broker_type, status, markets, overseas_exchanges, start_date, end_date,
+                trade_count, balance_count, profit_count, requested_at, started_at, completed_at,
+                error_message, created_at, updated_at
+            ) values (?::uuid, 'kis', 'succeeded', 'domestic', '', current_date, current_date, 0, 0, 0, now(), now(), now(), null, now(), now())
+            """.trimIndent(),
+            syncRunId,
+        )
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/from-ledger")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "mode" to "paper",
+                                "syncRunId" to syncRunId,
+                                "cashOverride" to 100000.0,
+                                "targetWeights" to listOf(mapOf("symbol" to "BBB", "targetWeight" to 0.5, "price" to 1000.0)),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("No domestic broker ledger balance snapshot exists")))
+    }
+
+    @Test
+    fun `maps KIS paper order status rows into safe internal statuses`() {
+        assertThat(
+            KisOrderStatusMapper
+                .map(
+                    mapOf("tot_ccld_qty" to "3", "rmn_qty" to "2", "ord_stat_name" to "접수"),
+                    5,
+                ).status,
+        ).isEqualTo("partially_filled")
+        assertThat(
+            KisOrderStatusMapper
+                .map(
+                    mapOf("tot_ccld_qty" to "5", "rmn_qty" to "0", "ord_stat_name" to "체결"),
+                    5,
+                ).status,
+        ).isEqualTo("filled")
+        assertThat(
+            KisOrderStatusMapper
+                .map(
+                    mapOf("tot_ccld_qty" to "0", "rmn_qty" to "5", "ord_stat_name" to "취소"),
+                    5,
+                ).status,
+        ).isEqualTo("cancelled")
+    }
+
+    private fun insertDomesticLedgerSnapshot(): String {
+        val syncRunId =
+            java.util.UUID
+                .randomUUID()
+                .toString()
+        jdbcTemplate.update(
+            """
+            insert into broker_ledger_sync_run (
+                id, broker_type, status, markets, overseas_exchanges, start_date, end_date,
+                trade_count, balance_count, profit_count, requested_at, started_at, completed_at,
+                error_message, created_at, updated_at
+            ) values (?::uuid, 'kis', 'succeeded', 'domestic', '', current_date, current_date, 0, 1, 0, now(), now(), now(), null, now(), now())
+            """.trimIndent(),
+            syncRunId,
+        )
+        jdbcTemplate.update(
+            """
+            insert into broker_ledger_balance_snapshot (
+                id, sync_run_id, market, row_kind, source_api, symbol, symbol_name,
+                quantity, average_price, current_price, valuation_amount, raw_payload, captured_at
+            ) values (gen_random_uuid(), ?::uuid, 'domestic', 'item', 'test', 'AAA', 'AAA Corp',
+                10, 900, 1000, 10000, '{}'::jsonb, now())
+            """.trimIndent(),
+            syncRunId,
+        )
+        jdbcTemplate.update(
+            """
+            insert into broker_ledger_balance_snapshot (
+                id, sync_run_id, market, row_kind, source_api, valuation_amount, raw_payload, captured_at
+            ) values (gen_random_uuid(), ?::uuid, 'domestic', 'summary', 'test', 100000, cast(? as jsonb), now())
+            """.trimIndent(),
+            syncRunId,
+            objectMapper.writeValueAsString(
+                mapOf(
+                    "dnca_tot_amt" to "90000",
+                    "tot_evlu_amt" to "100000",
+                ),
+            ),
+        )
+        return syncRunId
     }
 
     private fun createPlan(

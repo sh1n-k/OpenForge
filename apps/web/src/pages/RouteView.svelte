@@ -23,6 +23,7 @@
     loadStrategyRiskEvents,
     loadStrategySignals,
     loadStrategyVersions,
+    loadRebalancePlans,
     loadSystemActivity,
     loadSystemBrokerEvents,
     loadSystemBrokerStatus,
@@ -46,6 +47,7 @@
     type OrderCandidate,
     type OrderRequest,
     type OrderRequestWithEvents,
+    type RebalancePlan,
     type StrategyDetail,
     type StrategyExecutionResponse,
     type StrategyExecutionRun,
@@ -140,6 +142,7 @@
           positions,
           requestsWithEvents,
           universes,
+          rebalancePlans,
         ] = await Promise.all([
           loadStrategy(strategyId),
           loadStrategyVersions(strategyId),
@@ -153,6 +156,7 @@
           loadStrategyPositions(strategyId),
           loadStrategyOrderRequestsWithEvents(strategyId),
           loadUniverses(),
+          loadRebalancePlans(strategyId),
         ]);
         return {
           strategy,
@@ -167,6 +171,7 @@
           positions,
           requestsWithEvents,
           universes,
+          rebalancePlans,
         };
       }
       case "strategy-edit": {
@@ -276,6 +281,7 @@
     positions={data.positions as StrategyPosition[]}
     requestsWithEvents={data.requestsWithEvents as OrderRequestWithEvents[]}
     availableUniverses={data.universes as UniverseSummary[]}
+    rebalancePlans={data.rebalancePlans as RebalancePlan[]}
     {runAction}
   />
 {:else if route.name === "strategy-edit"}

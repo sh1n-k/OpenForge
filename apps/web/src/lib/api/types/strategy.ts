@@ -218,6 +218,55 @@ export type StrategyRiskEvent = {
   occurredAt: string;
 };
 
+export type RebalancePlanStatus =
+  | "planned"
+  | "approved"
+  | "sent"
+  | "synced"
+  | "blocked"
+  | "unknown";
+
+export type RebalancePlanOrder = {
+  id: string;
+  symbol: string;
+  side: OrderSide;
+  quantity: number;
+  price: number;
+  notional: number;
+  estimatedFee: number;
+  estimatedTax: number;
+  status: string;
+  idempotencyKey: string;
+  brokerOrderNumber: string | null;
+  brokerResponseCode: string | null;
+  brokerResponseMessage: string | null;
+  requestedAt: string | null;
+  filledQuantity: number;
+  remainingQuantity: number;
+  precheckSummary: Record<string, unknown>;
+};
+
+export type RebalancePlan = {
+  id: string;
+  strategyId: string;
+  strategyVersionId: string;
+  mode: OrderMode;
+  status: RebalancePlanStatus;
+  accountSnapshot: Record<string, unknown>;
+  targetWeights: Record<string, unknown>[];
+  settingsSnapshot: Record<string, unknown>;
+  riskSummary: Record<string, unknown>;
+  approvalRequired: boolean;
+  adminApproved: boolean;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  failureReason: string | null;
+  plannedAt: string;
+  sentAt: string | null;
+  syncedAt: string | null;
+  orders: RebalancePlanOrder[];
+};
+
 export type StrategyValidateResponse = {
   valid: boolean;
   normalizedSpec: Record<string, unknown> | null;

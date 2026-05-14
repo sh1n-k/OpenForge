@@ -5,13 +5,19 @@ import com.openforge.api.strategy.domain.OrderMode
 import com.openforge.api.strategy.domain.OrderSide
 import com.openforge.api.strategy.domain.StrategyStatus
 import com.openforge.api.strategy.web.ApproveRebalancePlanRequest
+import com.openforge.api.strategy.web.CreateLedgerRebalancePlanRequest
 import com.openforge.api.strategy.web.CreateRebalancePlanRequest
+import com.openforge.api.strategy.web.RebalanceAccountPositionRequest
+import com.openforge.api.strategy.web.RebalanceAccountSnapshotRequest
 import com.openforge.api.strategy.web.RebalancePlanOrderResponse
 import com.openforge.api.strategy.web.RebalancePlanResponse
 import com.openforge.api.strategy.web.RebalanceTargetWeightRequest
 import com.openforge.api.strategy.web.SyncBrokerPositionRequest
 import com.openforge.api.strategy.web.SyncRebalancePlanRequest
 import com.openforge.api.strategy.web.UpdateGlobalRiskKillSwitchRequest
+import com.openforge.api.system.broker.BrokerConnectionCredentials
+import com.openforge.api.system.broker.BrokerConnectionService
+import com.openforge.api.system.broker.KisApiProperties
 import com.openforge.api.system.risk.SystemRiskService
 import jakarta.transaction.Transactional
 import org.springframework.http.HttpStatus
@@ -19,15 +25,25 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.net.URI
+import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.net.http.HttpTimeoutException
+import java.nio.charset.StandardCharsets
 import java.sql.ResultSet
 import java.sql.Timestamp
+import java.time.Duration
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 @Service
@@ -153,6 +169,92 @@ class RebalanceTradingService(
         )
 
         return getPlan(strategyId, planId)
+    }
+
+    fun createPlanFromLedger(
+        strategyId: UUID,
+        request: CreateLedgerRebalancePlanRequest,
+    ): RebalancePlanResponse {
+        ensureStrategyExists(strategyId)
+        if (request.maxSnapshotAgeMinutes !in 1..1440) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "maxSnapshotAgeMinutes must be between 1 and 1440")
+        }
+
+        val snapshot = loadDomesticLedgerSnapshot(request)
+        val cash =
+            request.cashOverride
+                ?: snapshot.cash?.toDouble()
+                ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Broker ledger summary does not include cash; provide cashOverride")
+        if (cash < 0.0) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "cashOverride must be positive or zero")
+        }
+
+        val positions =
+            snapshot.positions.map { row ->
+                val price =
+                    row.currentPrice
+                        ?: row.averagePrice
+                        ?: throw ResponseStatusException(HttpStatus.CONFLICT, "Broker ledger position ${row.symbol} does not include a usable price")
+                if (price <= BigDecimal.ZERO) {
+                    throw ResponseStatusException(HttpStatus.CONFLICT, "Broker ledger position ${row.symbol} has non-positive price")
+                }
+                RebalanceAccountPositionRequest(
+                    symbol = row.symbol,
+                    quantity = row.quantity,
+                    price = price.toDouble(),
+                    availableQuantity = row.quantity,
+                )
+            }
+        val valuation =
+            positions.sumOf { position ->
+                position.quantity
+                    .toBigDecimal()
+                    .multiply(position.price.toBigDecimalScaled())
+                    .scaled()
+            }
+        val equity =
+            snapshot.equity ?: request.cashOverride
+                ?.toBigDecimalScaled()
+                ?.add(valuation)
+                ?.scaled()
+        if (equity == null || equity <= BigDecimal.ZERO) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Broker ledger summary does not include equity; provide cashOverride with usable positions")
+        }
+
+        val priceBySymbol = positions.associate { it.symbol.uppercase() to it.price }
+        val targets =
+            request.targetWeights.map { target ->
+                val symbol = target.symbol.uppercase()
+                val price =
+                    target.price
+                        ?: priceBySymbol[symbol]
+                        ?: throw ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Target $symbol requires price because it is not held in the latest broker ledger",
+                        )
+                RebalanceTargetWeightRequest(symbol = symbol, targetWeight = target.targetWeight, price = price)
+            }
+
+        return createPlan(
+            strategyId = strategyId,
+            request =
+                CreateRebalancePlanRequest(
+                    mode = request.mode,
+                    accountSnapshot =
+                        RebalanceAccountSnapshotRequest(
+                            equity = equity.toDouble(),
+                            cash = cash,
+                            positions = positions,
+                            tradingDate = LocalDate.now(DEFAULT_ZONE),
+                            marketOpen = request.marketOpen,
+                            holiday = request.holiday,
+                            source = "broker_ledger",
+                            sourceSyncRunId = snapshot.syncRunId,
+                            sourceCapturedAt = snapshot.capturedAt,
+                        ),
+                    targetWeights = targets,
+                ),
+        )
     }
 
     fun approvePlan(
@@ -521,6 +623,97 @@ class RebalanceTradingService(
         }
     }
 
+    private fun loadDomesticLedgerSnapshot(request: CreateLedgerRebalancePlanRequest): LedgerSnapshot {
+        val run =
+            if (request.syncRunId != null) {
+                jdbcTemplate
+                    .query(
+                        """
+                        select id, completed_at
+                        from broker_ledger_sync_run
+                        where id = ? and status = 'succeeded'
+                        """.trimIndent(),
+                        { rs, _ -> UUID.fromString(rs.getString("id")) to rs.getTimestamp("completed_at").toOffsetDateTime() },
+                        request.syncRunId,
+                    ).firstOrNull()
+                    ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Successful broker ledger sync run not found: ${request.syncRunId}")
+            } else {
+                jdbcTemplate
+                    .query(
+                        """
+                        select id, completed_at
+                        from broker_ledger_sync_run
+                        where status = 'succeeded' and position('domestic' in markets) > 0
+                        order by coalesce(completed_at, requested_at) desc, created_at desc
+                        limit 1
+                        """.trimIndent(),
+                        { rs, _ -> UUID.fromString(rs.getString("id")) to rs.getTimestamp("completed_at").toOffsetDateTime() },
+                    ).firstOrNull()
+                    ?: throw ResponseStatusException(HttpStatus.CONFLICT, "No successful domestic broker ledger sync run exists")
+            }
+        val (syncRunId, completedAt) = run
+        if (completedAt.isBefore(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(request.maxSnapshotAgeMinutes))) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Broker ledger snapshot is stale")
+        }
+
+        val positions =
+            jdbcTemplate.query(
+                """
+                select symbol, quantity, average_price, current_price, valuation_amount, captured_at
+                from broker_ledger_balance_snapshot
+                where sync_run_id = ? and market = 'domestic' and row_kind = 'item' and symbol is not null
+                order by captured_at desc, created_at desc
+                """.trimIndent(),
+                { rs, _ ->
+                    LedgerPositionRow(
+                        symbol = rs.getString("symbol").uppercase(),
+                        quantity = rs.getLong("quantity").coerceAtLeast(0),
+                        averagePrice = rs.getBigDecimal("average_price"),
+                        currentPrice = rs.getBigDecimal("current_price"),
+                        valuationAmount = rs.getBigDecimal("valuation_amount"),
+                        capturedAt = rs.getTimestamp("captured_at").toOffsetDateTime(),
+                    )
+                },
+                syncRunId,
+            )
+        val summary =
+            jdbcTemplate
+                .query(
+                    """
+                    select raw_payload::text as raw_payload, valuation_amount, captured_at
+                    from broker_ledger_balance_snapshot
+                    where sync_run_id = ? and market = 'domestic' and row_kind = 'summary'
+                    order by captured_at desc, created_at desc
+                    limit 1
+                    """.trimIndent(),
+                    { rs, _ ->
+                        val raw = objectMapper.readTree(rs.getString("raw_payload").ifBlank { "{}" })
+                        LedgerSummaryRow(
+                            cash = raw.decimalValue("dnca_tot_amt", "nxdy_excc_amt", "prvs_rcdl_excc_amt", "ord_psbl_cash", "cash", "cash_amount"),
+                            equity =
+                                raw.decimalValue("tot_evlu_amt", "asst_evlu_amt", "acct_evlu_amt", "total_evlu_amt", "total_evaluation_amount")
+                                    ?: rs.getBigDecimal("valuation_amount"),
+                            capturedAt = rs.getTimestamp("captured_at").toOffsetDateTime(),
+                        )
+                    },
+                    syncRunId,
+                ).firstOrNull()
+        if (positions.isEmpty() && summary == null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "No domestic broker ledger balance snapshot exists")
+        }
+        if (positions.isEmpty() && request.cashOverride == null && summary?.cash == null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Broker ledger balance snapshot is empty")
+        }
+        return LedgerSnapshot(
+            syncRunId = syncRunId,
+            completedAt = completedAt,
+            capturedAt = listOfNotNull(summary?.capturedAt, positions.maxOfOrNull { it.capturedAt }).maxOrNull() ?: completedAt,
+            cash = summary?.cash,
+            equity = summary?.equity,
+            positions = positions,
+        )
+    }
+
     private fun planLines(
         strategyId: UUID,
         request: CreateRebalancePlanRequest,
@@ -862,6 +1055,9 @@ class RebalanceTradingService(
             "tradingDate" to request.accountSnapshot.tradingDate?.toString(),
             "marketOpen" to request.accountSnapshot.marketOpen,
             "holiday" to request.accountSnapshot.holiday,
+            "source" to request.accountSnapshot.source,
+            "sourceSyncRunId" to request.accountSnapshot.sourceSyncRunId?.toString(),
+            "sourceCapturedAt" to request.accountSnapshot.sourceCapturedAt?.toString(),
             "positions" to
                 request.accountSnapshot.positions.map {
                     mapOf(
@@ -910,6 +1106,21 @@ class RebalanceTradingService(
             else -> BigDecimal.ZERO.scaled()
         }
 
+    private fun JsonNode.decimalValue(vararg keys: String): BigDecimal? =
+        keys.firstNotNullOfOrNull { key ->
+            val value = path(key)
+            if (value.isMissingNode || value.isNull) {
+                null
+            } else {
+                value
+                    .asText()
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+                    ?.toBigDecimalOrNull()
+                    ?.scaled()
+            }
+        }
+
     private fun Double.toBigDecimalScaled(): BigDecimal = BigDecimal.valueOf(this).scaled()
 
     private fun Timestamp.toOffsetDateTime(): OffsetDateTime = toInstant().atOffset(ZoneOffset.UTC)
@@ -940,6 +1151,30 @@ class RebalanceTradingService(
     }
 }
 
+data class LedgerSnapshot(
+    val syncRunId: UUID,
+    val completedAt: OffsetDateTime,
+    val capturedAt: OffsetDateTime,
+    val cash: BigDecimal?,
+    val equity: BigDecimal?,
+    val positions: List<LedgerPositionRow>,
+)
+
+data class LedgerPositionRow(
+    val symbol: String,
+    val quantity: Long,
+    val averagePrice: BigDecimal?,
+    val currentPrice: BigDecimal?,
+    val valuationAmount: BigDecimal?,
+    val capturedAt: OffsetDateTime,
+)
+
+data class LedgerSummaryRow(
+    val cash: BigDecimal?,
+    val equity: BigDecimal?,
+    val capturedAt: OffsetDateTime,
+)
+
 interface BrokerOrderGateway {
     fun send(
         plan: PlanRecord,
@@ -952,14 +1187,15 @@ interface BrokerOrderGateway {
 @Service
 class MockBrokerOrderGateway(
     private val applicationProperties: ApplicationProperties,
+    private val brokerConnectionService: BrokerConnectionService,
+    private val kisApiProperties: KisApiProperties,
+    private val objectMapper: ObjectMapper,
 ) : BrokerOrderGateway {
     override fun send(
         plan: PlanRecord,
         order: OrderRecord,
     ): BrokerSendResult {
-        if (!applicationProperties.liveTrading.mockBroker) {
-            throw IllegalStateException("Real broker order gateway is not configured")
-        }
+        if (!applicationProperties.liveTrading.mockBroker) return sendKisPaperOrder(plan, order)
         if (order.symbol.contains("TIMEOUT")) {
             throw HttpTimeoutException("mock broker timeout")
         }
@@ -975,7 +1211,9 @@ class MockBrokerOrderGateway(
     }
 
     override fun status(order: OrderRecord): BrokerStatusResult =
-        if (order.symbol.contains("BADSTATUS")) {
+        if (!applicationProperties.liveTrading.mockBroker) {
+            statusKisPaperOrder(order)
+        } else if (order.symbol.contains("BADSTATUS")) {
             BrokerStatusResult(
                 status = "mystery",
                 filledQuantity = order.quantity + 10,
@@ -992,6 +1230,298 @@ class MockBrokerOrderGateway(
                 message = "mock status accepted",
             )
         }
+
+    private fun sendKisPaperOrder(
+        plan: PlanRecord,
+        order: OrderRecord,
+    ): BrokerSendResult {
+        if (plan.mode == OrderMode.LIVE) {
+            throw IllegalStateException("KIS live order gateway is disabled by default")
+        }
+        val credentials = brokerConnectionService.loadCredentials(OrderMode.PAPER)
+        val accessToken = requestAccessToken(credentials)
+        val body =
+            linkedMapOf(
+                "CANO" to credentials.accountNumber,
+                "ACNT_PRDT_CD" to credentials.productCode,
+                "PDNO" to order.symbol,
+                "ORD_DVSN" to "00",
+                "ORD_QTY" to order.quantity.toString(),
+                "ORD_UNPR" to order.price.setScale(0, RoundingMode.DOWN).toPlainString(),
+            )
+        val payload = objectMapper.writeValueAsString(body)
+        val hashKey = requestHashKey(credentials, payload)
+        val response =
+            postJson(
+                credentials = credentials,
+                path = "/uapi/domestic-stock/v1/trading/order-cash",
+                accessToken = accessToken,
+                trId = if (order.side == OrderSide.BUY) "VTTC0802U" else "VTTC0801U",
+                hashKey = hashKey,
+                body = payload,
+            )
+        val rtCd = response.path("rt_cd").asText("")
+        val output = response.path("output")
+        val orderNumber = output.stringValue("ODNO", "odno", "ord_no", "ordno")
+        return BrokerSendResult(
+            accepted = rtCd == "0" && !orderNumber.isNullOrBlank(),
+            orderNumber = orderNumber,
+            responseCode = if (rtCd == "0" && orderNumber.isNullOrBlank()) "MISSING_ORDER_NUMBER" else rtCd.ifBlank { "HTTP" },
+            message =
+                if (rtCd == "0" && orderNumber.isNullOrBlank()) {
+                    "KIS paper order response does not include order number"
+                } else {
+                    response.path("msg1").asText("KIS paper order response")
+                },
+        )
+    }
+
+    private fun statusKisPaperOrder(order: OrderRecord): BrokerStatusResult {
+        val orderNumber =
+            order.brokerOrderNumber?.takeIf { it.isNotBlank() }
+                ?: return BrokerStatusResult("unknown", order.filledQuantity, order.remainingQuantity, "NO_ORDER_NUMBER", "broker order number is missing")
+        val credentials = brokerConnectionService.loadCredentials(OrderMode.PAPER)
+        val accessToken = requestAccessToken(credentials)
+        val requestDate =
+            (order.requestedAt ?: OffsetDateTime.now(ZoneOffset.UTC))
+                .toLocalDate()
+                .format(DateTimeFormatter.BASIC_ISO_DATE)
+        val response =
+            getJson(
+                credentials = credentials,
+                path = "/uapi/domestic-stock/v1/trading/inquire-ccnl",
+                accessToken = accessToken,
+                trId = "VTTC8001R",
+                queryParams =
+                    linkedMapOf(
+                        "CANO" to credentials.accountNumber,
+                        "ACNT_PRDT_CD" to credentials.productCode,
+                        "INQR_STRT_DT" to requestDate,
+                        "INQR_END_DT" to requestDate,
+                        "SLL_BUY_DVSN_CD" to "00",
+                        "INQR_DVSN" to "00",
+                        "PDNO" to "",
+                        "CCLD_DVSN" to "00",
+                        "ORD_GNO_BRNO" to "",
+                        "ODNO" to orderNumber,
+                        "INQR_DVSN_3" to "00",
+                        "CTX_AREA_FK100" to "",
+                        "CTX_AREA_NK100" to "",
+                    ),
+            )
+        val rows = extractOutputNodes(response, "output1") + extractOutputNodes(response, "output")
+        val row =
+            rows.firstOrNull { it.stringValue("odno", "ODNO", "ord_no", "ordno") == orderNumber }
+                ?: return BrokerStatusResult("unknown", order.filledQuantity, order.remainingQuantity, "NOT_FOUND", "KIS paper order status was not found")
+        return KisOrderStatusMapper.map(row.toTextMap(), order.quantity)
+    }
+
+    private fun requestAccessToken(credentials: BrokerConnectionCredentials): String {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("${credentials.baseUrl}/oauth2/tokenP"))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        objectMapper.writeValueAsString(
+                            mapOf(
+                                "grant_type" to "client_credentials",
+                                "appkey" to credentials.appKey,
+                                "appsecret" to credentials.appSecret,
+                            ),
+                        ),
+                    ),
+                ).build()
+        val response = httpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        val body = objectMapper.readTree(response.body().ifBlank { "{}" })
+        if (response.statusCode() !in 200..299) {
+            throw IllegalStateException(body.path("msg1").asText("KIS token request failed"))
+        }
+        val accessToken = body.path("access_token").asText()
+        if (accessToken.isBlank()) {
+            throw IllegalStateException(body.path("msg1").asText("KIS token response does not include access_token"))
+        }
+        return accessToken
+    }
+
+    private fun requestHashKey(
+        credentials: BrokerConnectionCredentials,
+        payload: String,
+    ): String {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("${credentials.baseUrl}/uapi/hashkey"))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("appkey", credentials.appKey)
+                .header("appsecret", credentials.appSecret)
+                .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .build()
+        val response = httpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        val body = objectMapper.readTree(response.body().ifBlank { "{}" })
+        if (response.statusCode() !in 200..299) {
+            throw IllegalStateException(body.path("msg1").asText("KIS hashkey request failed"))
+        }
+        return body.path("HASH").asText().ifBlank { throw IllegalStateException("KIS hashkey response does not include HASH") }
+    }
+
+    private fun postJson(
+        credentials: BrokerConnectionCredentials,
+        path: String,
+        accessToken: String,
+        trId: String,
+        hashKey: String,
+        body: String,
+    ): JsonNode {
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("${credentials.baseUrl}$path"))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("authorization", "Bearer $accessToken")
+                .header("appkey", credentials.appKey)
+                .header("appsecret", credentials.appSecret)
+                .header("tr_id", trId)
+                .header("custtype", "P")
+                .header("hashkey", hashKey)
+                .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        val response = httpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        val payload = objectMapper.readTree(response.body().ifBlank { "{}" })
+        if (response.statusCode() !in 200..299) {
+            throw IllegalStateException(payload.path("msg1").asText("KIS paper order request failed"))
+        }
+        return payload
+    }
+
+    private fun getJson(
+        credentials: BrokerConnectionCredentials,
+        path: String,
+        accessToken: String,
+        trId: String,
+        queryParams: Map<String, Any?>,
+    ): JsonNode {
+        val query =
+            queryParams.entries.joinToString("&") { (key, value) ->
+                "${encode(key)}=${encode(value?.toString() ?: "")}"
+            }
+        val request =
+            HttpRequest
+                .newBuilder()
+                .uri(URI.create("${credentials.baseUrl}$path?$query"))
+                .header("Accept", "application/json")
+                .header("authorization", "Bearer $accessToken")
+                .header("appkey", credentials.appKey)
+                .header("appsecret", credentials.appSecret)
+                .header("tr_id", trId)
+                .header("custtype", "P")
+                .timeout(Duration.ofMillis(kisApiProperties.readTimeoutMillis))
+                .GET()
+                .build()
+        val response = httpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        val payload = objectMapper.readTree(response.body().ifBlank { "{}" })
+        if (response.statusCode() !in 200..299) {
+            throw IllegalStateException(payload.path("msg1").asText("KIS paper order status request failed"))
+        }
+        val rtCd = payload.path("rt_cd").asText("")
+        if (rtCd.isNotBlank() && rtCd != "0") {
+            throw IllegalStateException(payload.path("msg1").asText("KIS paper order status request failed"))
+        }
+        return payload
+    }
+
+    private fun extractOutputNodes(
+        response: JsonNode,
+        fieldName: String,
+    ): List<JsonNode> {
+        val node = response.get(fieldName) ?: return emptyList()
+        return when {
+            node.isArray -> node.toList()
+            node.isObject -> listOf(node)
+            node.isNull -> emptyList()
+            else -> listOf(node)
+        }
+    }
+
+    private fun JsonNode.toTextMap(): Map<String, String?> =
+        KIS_STATUS_KEYS.associateWith { key ->
+            val value = path(key)
+            if (value.isMissingNode || value.isNull) null else value.asText(null)
+        }
+
+    private fun JsonNode.stringValue(vararg keys: String): String? =
+        keys.firstNotNullOfOrNull { key ->
+            val value = path(key)
+            if (value.isMissingNode || value.isNull) {
+                null
+            } else {
+                value.asText().trim().takeIf { it.isNotBlank() }
+            }
+        }
+
+    private fun httpClient(): HttpClient =
+        HttpClient
+            .newBuilder()
+            .connectTimeout(Duration.ofMillis(kisApiProperties.connectTimeoutMillis))
+            .build()
+
+    private fun encode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8)
+
+    private companion object {
+        private val KIS_STATUS_KEYS =
+            listOf(
+                "tot_ccld_qty",
+                "ccld_qty",
+                "filled_qty",
+                "rmn_qty",
+                "nccs_qty",
+                "remain_qty",
+                "ord_stat_name",
+                "ord_sttus_name",
+                "ccld_nccs_dvsn_name",
+                "ccld_dvsn",
+                "ord_dvsn",
+            )
+    }
+}
+
+object KisOrderStatusMapper {
+    fun map(
+        row: Map<String, String?>,
+        orderQuantity: Long,
+    ): BrokerStatusResult {
+        val filled = row.longValue("tot_ccld_qty", "ccld_qty", "filled_qty") ?: 0L
+        val remaining = row.longValue("rmn_qty", "nccs_qty", "remain_qty") ?: (orderQuantity - filled).coerceAtLeast(0)
+        val statusText = row.stringValue("ord_stat_name", "ord_sttus_name", "ccld_nccs_dvsn_name", "ccld_dvsn", "ord_dvsn")?.lowercase().orEmpty()
+        val status =
+            when {
+                statusText.contains("reject") || statusText.contains("거부") -> "rejected"
+                statusText.contains("cancel") || statusText.contains("취소") -> "cancelled"
+                filled >= orderQuantity || (filled > 0 && remaining == 0L) -> "filled"
+                filled > 0 && remaining > 0 -> "partially_filled"
+                else -> "accepted"
+            }
+        return BrokerStatusResult(
+            status = status,
+            filledQuantity = filled,
+            remainingQuantity = remaining,
+            responseCode = "0",
+            message = statusText.ifBlank { "KIS paper status mapped" },
+        )
+    }
+
+    private fun Map<String, String?>.stringValue(vararg keys: String): String? =
+        keys.firstNotNullOfOrNull { key -> this[key]?.trim()?.takeIf { it.isNotBlank() } }
+
+    private fun Map<String, String?>.longValue(vararg keys: String): Long? =
+        keys.firstNotNullOfOrNull { key -> this[key]?.trim()?.takeIf { it.isNotBlank() }?.toLongOrNull() }
 }
 
 data class PlanRecord(

@@ -2499,6 +2499,27 @@ textarea {
   margin-top: 4px;
 }
 
+.inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.order-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.order-strip span {
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
 /* Grid 패널 내부의 직접 자식 버튼이 stretch되지 않도록 보정 */
 .doc-panel.grid-section > .button-primary,
 .doc-panel.grid-section > .button-secondary,
@@ -2510,5 +2531,4 @@ textarea {
 .doc-panel.grid-section > .form-actions {
   justify-self: stretch;
 }
-
 

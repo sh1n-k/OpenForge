@@ -11,6 +11,7 @@ import {
   loadBrokerLedgerSyncRuns,
   loadBrokerLedgerTrades,
   loadDashboard,
+  loadRebalancePlans,
   loadStrategies,
   loadStrategy,
   loadStrategyBacktests,
@@ -58,6 +59,7 @@ vi.mock("@/lib/api", () => {
       health: { apiStatus: "UP", dbStatus: "UP" },
     }),
     loadMarketCoverage: ok,
+    loadRebalancePlans: vi.fn().mockResolvedValue([]),
     loadStrategies: vi.fn().mockResolvedValue([]),
     loadStrategy: vi.fn().mockResolvedValue({
       id: "strategy-1",
@@ -201,5 +203,6 @@ describe("RouteView", () => {
 
     expect(loadStrategyFills).not.toHaveBeenCalled();
     expect(loadUniverses).toHaveBeenCalledTimes(1);
+    expect(loadRebalancePlans).toHaveBeenCalledWith("strategy-1");
   });
 });

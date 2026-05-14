@@ -108,6 +108,12 @@ class StrategyController(
         @Valid @RequestBody request: CreateRebalancePlanRequest,
     ): RebalancePlanResponse = rebalanceTradingService.createPlan(strategyId, request)
 
+    @PostMapping("/{strategyId}/rebalance/plans/from-ledger")
+    fun createRebalancePlanFromLedger(
+        @PathVariable strategyId: UUID,
+        @Valid @RequestBody request: CreateLedgerRebalancePlanRequest,
+    ): RebalancePlanResponse = rebalanceTradingService.createPlanFromLedger(strategyId, request)
+
     @GetMapping("/{strategyId}/rebalance/plans/{planId}")
     fun rebalancePlan(
         @PathVariable strategyId: UUID,

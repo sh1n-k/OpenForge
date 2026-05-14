@@ -337,6 +337,9 @@ data class RebalanceAccountSnapshotRequest(
     val tradingDate: java.time.LocalDate? = null,
     val marketOpen: Boolean = true,
     val holiday: Boolean = false,
+    val source: String? = null,
+    val sourceSyncRunId: UUID? = null,
+    val sourceCapturedAt: OffsetDateTime? = null,
 )
 
 data class RebalanceTargetWeightRequest(
@@ -355,6 +358,25 @@ data class CreateRebalancePlanRequest(
     @field:Valid
     @field:NotNull
     val targetWeights: List<RebalanceTargetWeightRequest>,
+)
+
+data class RebalanceLedgerTargetWeightRequest(
+    @field:NotBlank
+    val symbol: String,
+    val targetWeight: Double,
+    val price: Double? = null,
+)
+
+data class CreateLedgerRebalancePlanRequest(
+    val mode: OrderMode = OrderMode.PAPER,
+    val syncRunId: UUID? = null,
+    val maxSnapshotAgeMinutes: Long = 60,
+    val cashOverride: Double? = null,
+    val marketOpen: Boolean = true,
+    val holiday: Boolean = false,
+    @field:Valid
+    @field:NotNull
+    val targetWeights: List<RebalanceLedgerTargetWeightRequest>,
 )
 
 data class ApproveRebalancePlanRequest(

@@ -6,6 +6,7 @@ import type {
   OrderRequest,
   OrderRequestWithEvents,
   OrderStatusEvent,
+  RebalancePlan,
   StrategyDetail,
   StrategyExecutionResponse,
   StrategyExecutionRun,
@@ -244,6 +245,76 @@ export async function loadStrategyFills(strategyId: string, limit = 50) {
 export async function loadStrategyPositions(strategyId: string) {
   return apiFetch<StrategyPosition[]>(
     `/api/v1/strategies/${strategyId}/positions`,
+  );
+}
+
+export async function loadRebalancePlans(strategyId: string, limit = 20) {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  return apiFetch<RebalancePlan[]>(
+    `/api/v1/strategies/${strategyId}/rebalance/plans?${params.toString()}`,
+  );
+}
+
+export async function createRebalancePlanFromLedger(
+  strategyId: string,
+  input: {
+    mode: OrderMode;
+    syncRunId?: string | null;
+    maxSnapshotAgeMinutes: number;
+    cashOverride?: number | null;
+    marketOpen: boolean;
+    holiday: boolean;
+    targetWeights: Array<{ symbol: string; targetWeight: number; price?: number | null }>;
+  },
+) {
+  return apiFetch<RebalancePlan>(
+    `/api/v1/strategies/${strategyId}/rebalance/plans/from-ledger`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function approveRebalancePlan(
+  strategyId: string,
+  planId: string,
+  input: { approvedBy: string; confirmLiveRisk?: boolean },
+) {
+  return apiFetch<RebalancePlan>(
+    `/api/v1/strategies/${strategyId}/rebalance/plans/${planId}/approve`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function sendRebalancePlan(strategyId: string, planId: string) {
+  return apiFetch<RebalancePlan>(
+    `/api/v1/strategies/${strategyId}/rebalance/plans/${planId}/send`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+export async function syncRebalancePlan(
+  strategyId: string,
+  planId: string,
+  input: {
+    marketClosed: boolean;
+    brokerPositions?: Array<{ symbol: string; quantity: number }>;
+  },
+) {
+  return apiFetch<RebalancePlan>(
+    `/api/v1/strategies/${strategyId}/rebalance/plans/${planId}/sync`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
   );
 }
 

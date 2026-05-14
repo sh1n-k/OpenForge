@@ -5,14 +5,19 @@
   import Tabs from "@/lib/components/Tabs.svelte";
   import {
     archiveStrategy,
+    approveRebalancePlan,
     cloneStrategy,
     createOrderRequest,
+    createRebalancePlanFromLedger,
     replaceStrategyUniverses,
+    sendRebalancePlan,
+    syncRebalancePlan,
     updateStrategyExecution,
     updateStrategyRisk,
     type OrderCandidate,
     type OrderRequest,
     type OrderRequestWithEvents,
+    type RebalancePlan,
     type StrategyDetail,
     type StrategyExecutionResponse,
     type StrategyExecutionRun,
@@ -37,10 +42,18 @@
   export let positions: StrategyPosition[] = [];
   export let requestsWithEvents: OrderRequestWithEvents[] = [];
   export let availableUniverses: UniverseSummary[] = [];
+  export let rebalancePlans: RebalancePlan[] = [];
   export let runAction: (work: () => Promise<unknown>, success?: () => boolean | void) => Promise<void>;
 
   let selectedUniverseIds: string[] = strategy.universes.map((u) => u.id);
   let archiveConfirm = false;
+  let rebalanceTargetsText = "005930,0.5\n000660,0.3";
+  let rebalanceCashOverride = "";
+  let rebalanceMaxAgeMinutes = 60;
+  let rebalanceMarketOpen = true;
+  let rebalanceHoliday = false;
+  let rebalanceApprovedBy = "owner";
+  let rebalanceMarketClosed = false;
   $: selectedUniverseIds = strategy.universes.map((u) => u.id);
 
   function toggleUniverseSelection(universeId: string, checked: boolean) {
@@ -64,10 +77,49 @@
     { id: "overview", label: "개요" },
     { id: "versions", label: "버전" },
     { id: "orders", label: "시그널·주문" },
+    { id: "rebalance", label: "리밸런싱" },
     { id: "positions", label: "포지션" },
     { id: "activity", label: "활동" },
   ];
   let active = "overview";
+
+  function parseRebalanceTargets() {
+    return rebalanceTargetsText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [symbol, weight, price] = line.split(/[,\s]+/).map((part) => part.trim());
+        return {
+          symbol,
+          targetWeight: Number(weight),
+          price: price ? Number(price) : null,
+        };
+      });
+  }
+
+  function createLedgerPlan() {
+    const cashOverride = rebalanceCashOverride.trim() === "" ? null : Number(rebalanceCashOverride);
+    void runAction(() =>
+      createRebalancePlanFromLedger(strategy.id, {
+        mode: "paper",
+        maxSnapshotAgeMinutes: Number(rebalanceMaxAgeMinutes),
+        cashOverride,
+        marketOpen: rebalanceMarketOpen,
+        holiday: rebalanceHoliday,
+        targetWeights: parseRebalanceTargets(),
+      }),
+    );
+  }
+
+  function riskReasonText(plan: RebalancePlan) {
+    const reasonCodes = plan.riskSummary.reasonCodes;
+    return Array.isArray(reasonCodes) && reasonCodes.length > 0 ? reasonCodes.join(", ") : "통과";
+  }
+
+  function formatNumber(value: unknown) {
+    return typeof value === "number" ? value.toLocaleString("ko-KR") : "-";
+  }
 </script>
 
 <section class="page-shell docs-page-shell">
@@ -202,6 +254,127 @@
           rows={requestsWithEvents.flatMap((item) => item.statusEvents)}
           columns={["status", "reason", "occurredAt"]}
         />
+      </div>
+    </div>
+  {/if}
+
+  {#if active === "rebalance"}
+    <div class="grid-section" role="tabpanel" id="rebalance" aria-labelledby="tab-rebalance">
+      <div class="split-grid">
+        <form id="strategy-rebalance-create" class="doc-panel grid-section" on:submit|preventDefault={createLedgerPlan}>
+          <h2 class="section-title">계획 생성</h2>
+          <label class="form-field" for="rebalance-targets">
+            <span class="form-label">목표 비중</span>
+            <textarea id="rebalance-targets" rows="5" bind:value={rebalanceTargetsText}></textarea>
+          </label>
+          <div class="form-row">
+            <label class="form-field" for="rebalance-cash">
+              <span class="form-label">현금 보정</span>
+              <input id="rebalance-cash" type="number" min="0" step="1" bind:value={rebalanceCashOverride} />
+            </label>
+            <label class="form-field" for="rebalance-age">
+              <span class="form-label">스냅샷 최대 분</span>
+              <input id="rebalance-age" type="number" min="1" max="1440" bind:value={rebalanceMaxAgeMinutes} />
+            </label>
+          </div>
+          <div class="checkbox-list">
+            <label class="checkbox-row">
+              <input type="checkbox" bind:checked={rebalanceMarketOpen} />
+              <span>장 열림</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" bind:checked={rebalanceHoliday} />
+              <span>휴장</span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="button-primary" type="submit">원장으로 계획 생성</button>
+          </div>
+        </form>
+
+        <div class="doc-panel grid-section">
+          <h2 class="section-title">운영 설정</h2>
+          <label class="form-field" for="rebalance-approved-by">
+            <span class="form-label">승인자</span>
+            <input id="rebalance-approved-by" type="text" bind:value={rebalanceApprovedBy} />
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" bind:checked={rebalanceMarketClosed} />
+            <span>동기화 시 장마감 처리</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="doc-panel grid-section">
+        <h2 class="section-title">리밸런싱 계획</h2>
+        {#if rebalancePlans.length === 0}
+          <p class="section-copy">생성된 계획이 없습니다.</p>
+        {:else}
+          <div class="table-shell">
+            <table class="doc-table doc-table-compact">
+              <thead>
+                <tr>
+                  <th>상태</th>
+                  <th>모드</th>
+                  <th>위험</th>
+                  <th>주문</th>
+                  <th>계획 시각</th>
+                  <th>작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each rebalancePlans as plan}
+                  <tr>
+                    <td>{plan.status}</td>
+                    <td>{plan.mode}</td>
+                    <td>{riskReasonText(plan)}</td>
+                    <td>{plan.orders.length}</td>
+                    <td>{formatDateTime(plan.plannedAt)}</td>
+                    <td>
+                      <div class="inline-actions">
+                        <button
+                          class="button-secondary"
+                          type="button"
+                          disabled={plan.status !== "planned"}
+                          on:click={() => runAction(() => approveRebalancePlan(strategy.id, plan.id, { approvedBy: rebalanceApprovedBy }))}
+                        >
+                          승인
+                        </button>
+                        <button
+                          class="button-secondary"
+                          type="button"
+                          disabled={plan.status !== "approved"}
+                          on:click={() => runAction(() => sendRebalancePlan(strategy.id, plan.id))}
+                        >
+                          전송
+                        </button>
+                        <button
+                          class="button-secondary"
+                          type="button"
+                          disabled={!["sent", "unknown"].includes(plan.status)}
+                          on:click={() => runAction(() => syncRebalancePlan(strategy.id, plan.id, { marketClosed: rebalanceMarketClosed }))}
+                        >
+                          동기화
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {#if plan.orders.length > 0}
+                    <tr class="rebalance-order-row">
+                      <td colspan="6">
+                        <div class="order-strip">
+                          {#each plan.orders as order}
+                            <span>{order.symbol} {order.side} {order.quantity}주 · {formatNumber(order.notional)} · {order.status}</span>
+                          {/each}
+                        </div>
+                      </td>
+                    </tr>
+                  {/if}
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
