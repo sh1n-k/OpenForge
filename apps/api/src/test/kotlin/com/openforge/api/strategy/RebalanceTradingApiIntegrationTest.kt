@@ -256,6 +256,7 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.detail").value(containsString("environment_live_not_enabled")))
+            .andExpect(jsonPath("$.detail").value(containsString("live_broker_not_allowed")))
 
         mockMvc
             .perform(get("/api/v1/strategies/$strategyId/rebalance/plans/$planId"))
