@@ -31,6 +31,9 @@ class DatabaseMigrationIntegrationTest : PostgresIntegrationTestSupport() {
                     "backtest_run",
                     "backtest_trade",
                     "backtest_equity_point",
+                    "strategy_rebalance_plan",
+                    "strategy_rebalance_plan_order",
+                    "strategy_trade_audit_log",
                 ),
             ),
         )

@@ -47,11 +47,19 @@ class RiskControlService(
         getActiveStrategy(strategyId)
         val config = configFor(strategyId)
         val previousKillSwitch = config.strategyKillSwitchEnabled
-        config.perSymbolMaxNotional = request.perSymbolMaxNotional?.toBigDecimal()?.scaled()
-        config.strategyMaxExposure = request.strategyMaxExposure?.toBigDecimal()?.scaled()
+        config.perSymbolMaxNotional = request.perSymbolMaxNotional?.positiveDecimal("perSymbolMaxNotional")
+        config.strategyMaxExposure = request.strategyMaxExposure?.positiveDecimal("strategyMaxExposure")
         config.maxOpenPositions = request.maxOpenPositions
-        config.dailyLossLimit = request.dailyLossLimit?.toBigDecimal()?.scaled()
+        config.dailyLossLimit = request.dailyLossLimit?.positiveDecimal("dailyLossLimit")
         config.strategyKillSwitchEnabled = request.strategyKillSwitchEnabled
+        config.liveTradingEnabled = request.liveTradingEnabled ?: config.liveTradingEnabled
+        config.accountMaxOrderNotional = request.accountMaxOrderNotional?.positiveDecimal("accountMaxOrderNotional")
+        config.accountDailyMaxOrderNotional = request.accountDailyMaxOrderNotional?.positiveDecimal("accountDailyMaxOrderNotional")
+        config.symbolMaxOrderNotional = request.symbolMaxOrderNotional?.positiveDecimal("symbolMaxOrderNotional")
+        config.minOrderNotional = request.minOrderNotional?.positiveDecimal("minOrderNotional") ?: config.minOrderNotional
+        config.feeRate = request.feeRate?.nonNegativeRate("feeRate") ?: config.feeRate
+        config.taxRate = request.taxRate?.nonNegativeRate("taxRate") ?: config.taxRate
+        config.closeUnfilledPolicy = request.closeUnfilledPolicy?.let(::normalizeClosePolicy) ?: config.closeUnfilledPolicy
         config.mode = OrderMode.PAPER
         strategyRiskConfigRepository.save(config)
 
@@ -258,6 +266,14 @@ class RiskControlService(
             maxOpenPositions = config.maxOpenPositions,
             dailyLossLimit = config.dailyLossLimit?.toDouble(),
             strategyKillSwitchEnabled = config.strategyKillSwitchEnabled,
+            liveTradingEnabled = config.liveTradingEnabled,
+            accountMaxOrderNotional = config.accountMaxOrderNotional?.toDouble(),
+            accountDailyMaxOrderNotional = config.accountDailyMaxOrderNotional?.toDouble(),
+            symbolMaxOrderNotional = config.symbolMaxOrderNotional?.toDouble(),
+            minOrderNotional = config.minOrderNotional.toDouble(),
+            feeRate = config.feeRate.toDouble(),
+            taxRate = config.taxRate.toDouble(),
+            closeUnfilledPolicy = config.closeUnfilledPolicy,
             updatedAt = config.updatedAt,
         )
 
@@ -286,6 +302,26 @@ class RiskControlService(
         }
 
     private fun BigDecimal.scaled(): BigDecimal = setScale(6, RoundingMode.HALF_UP)
+
+    private fun Double.positiveDecimal(field: String): BigDecimal {
+        val decimal = toBigDecimal().scaled()
+        if (decimal <= BigDecimal.ZERO) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "$field must be greater than 0")
+        }
+        return decimal
+    }
+
+    private fun Double.nonNegativeRate(field: String): BigDecimal {
+        val decimal = toBigDecimal().setScale(8, RoundingMode.HALF_UP)
+        if (decimal < BigDecimal.ZERO) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "$field must be greater than or equal to 0")
+        }
+        return decimal
+    }
+
+    private fun normalizeClosePolicy(value: String): String =
+        value.lowercase().takeIf { it in setOf("cancel", "keep", "replan_next_day") }
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported closeUnfilledPolicy: $value")
 
     private fun normalizeLimit(
         value: Int,

@@ -78,6 +78,7 @@ enum class OrderLifecycleStatus(
     FILLED("filled"),
     CANCELLED("cancelled"),
     REJECTED("rejected"),
+    UNKNOWN("unknown"),
     ;
 
     companion object {

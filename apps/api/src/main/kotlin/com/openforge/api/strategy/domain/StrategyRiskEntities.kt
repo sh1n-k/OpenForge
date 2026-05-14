@@ -32,6 +32,22 @@ class StrategyRiskConfigEntity(
     var dailyLossLimit: BigDecimal? = null,
     @Column(name = "strategy_kill_switch_enabled", nullable = false)
     var strategyKillSwitchEnabled: Boolean = false,
+    @Column(name = "live_trading_enabled", nullable = false)
+    var liveTradingEnabled: Boolean = false,
+    @Column(name = "account_max_order_notional", precision = 19, scale = 6)
+    var accountMaxOrderNotional: BigDecimal? = null,
+    @Column(name = "account_daily_max_order_notional", precision = 19, scale = 6)
+    var accountDailyMaxOrderNotional: BigDecimal? = null,
+    @Column(name = "symbol_max_order_notional", precision = 19, scale = 6)
+    var symbolMaxOrderNotional: BigDecimal? = null,
+    @Column(name = "min_order_notional", nullable = false, precision = 19, scale = 6)
+    var minOrderNotional: BigDecimal = BigDecimal("5000.000000"),
+    @Column(name = "fee_rate", nullable = false, precision = 12, scale = 8)
+    var feeRate: BigDecimal = BigDecimal("0.00015000"),
+    @Column(name = "tax_rate", nullable = false, precision = 12, scale = 8)
+    var taxRate: BigDecimal = BigDecimal("0.00180000"),
+    @Column(name = "close_unfilled_policy", nullable = false, length = 32)
+    var closeUnfilledPolicy: String = "cancel",
 ) : BaseAuditableEntity()
 
 @Entity

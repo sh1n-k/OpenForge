@@ -8,6 +8,7 @@ data class ApplicationProperties(
     val mode: String = "paper",
     val webOrigin: String = "http://127.0.0.1:3000",
     val auth: AuthProperties = AuthProperties(),
+    val liveTrading: LiveTradingProperties = LiveTradingProperties(),
 ) {
     init {
         if (environment != "local" && environment != "test") {
@@ -23,4 +24,10 @@ data class AuthProperties(
     val jwtSecret: String = "",
     val tokenExpiryHours: Long = 24,
     val refreshExpiryDays: Long = 7,
+)
+
+data class LiveTradingProperties(
+    val enabled: Boolean = false,
+    val mockBroker: Boolean = true,
+    val maxConsecutiveFailures: Int = 3,
 )

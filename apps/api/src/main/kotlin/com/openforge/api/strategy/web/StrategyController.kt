@@ -3,6 +3,7 @@ package com.openforge.api.strategy.web
 import com.openforge.api.strategy.application.OrderService
 import com.openforge.api.strategy.application.OrderTrackingService
 import com.openforge.api.strategy.application.PaperExecutionService
+import com.openforge.api.strategy.application.RebalanceTradingService
 import com.openforge.api.strategy.application.RiskControlService
 import com.openforge.api.strategy.application.StrategyService
 import jakarta.validation.Valid
@@ -27,6 +28,7 @@ class StrategyController(
     private val orderService: OrderService,
     private val orderTrackingService: OrderTrackingService,
     private val riskControlService: RiskControlService,
+    private val rebalanceTradingService: RebalanceTradingService,
 ) {
     @PostMapping("/validate")
     fun validate(
@@ -93,6 +95,44 @@ class StrategyController(
         @PathVariable strategyId: UUID,
         @Valid @RequestBody request: CreateOrderRequest,
     ): OrderRequestResponse = orderService.createOrderRequest(strategyId, request)
+
+    @GetMapping("/{strategyId}/rebalance/plans")
+    fun rebalancePlans(
+        @PathVariable strategyId: UUID,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") limit: Int,
+    ): List<RebalancePlanResponse> = rebalanceTradingService.listPlans(strategyId, limit)
+
+    @PostMapping("/{strategyId}/rebalance/plans")
+    fun createRebalancePlan(
+        @PathVariable strategyId: UUID,
+        @Valid @RequestBody request: CreateRebalancePlanRequest,
+    ): RebalancePlanResponse = rebalanceTradingService.createPlan(strategyId, request)
+
+    @GetMapping("/{strategyId}/rebalance/plans/{planId}")
+    fun rebalancePlan(
+        @PathVariable strategyId: UUID,
+        @PathVariable planId: UUID,
+    ): RebalancePlanResponse = rebalanceTradingService.getPlan(strategyId, planId)
+
+    @PostMapping("/{strategyId}/rebalance/plans/{planId}/approve")
+    fun approveRebalancePlan(
+        @PathVariable strategyId: UUID,
+        @PathVariable planId: UUID,
+        @Valid @RequestBody request: ApproveRebalancePlanRequest,
+    ): RebalancePlanResponse = rebalanceTradingService.approvePlan(strategyId, planId, request)
+
+    @PostMapping("/{strategyId}/rebalance/plans/{planId}/send")
+    fun sendRebalancePlan(
+        @PathVariable strategyId: UUID,
+        @PathVariable planId: UUID,
+    ): RebalancePlanResponse = rebalanceTradingService.sendApprovedPlan(strategyId, planId)
+
+    @PostMapping("/{strategyId}/rebalance/plans/{planId}/sync")
+    fun syncRebalancePlan(
+        @PathVariable strategyId: UUID,
+        @PathVariable planId: UUID,
+        @Valid @RequestBody request: SyncRebalancePlanRequest,
+    ): RebalancePlanResponse = rebalanceTradingService.syncPlan(strategyId, planId, request)
 
     @GetMapping("/{strategyId}/orders/requests/{orderRequestId}/status-events")
     fun orderStatusEvents(

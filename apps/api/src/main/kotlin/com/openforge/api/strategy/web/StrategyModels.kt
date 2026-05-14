@@ -20,6 +20,7 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.PositiveOrZero
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -287,6 +288,14 @@ data class UpdateStrategyRiskRequest(
     val dailyLossLimit: Double? = null,
     @field:NotNull
     val strategyKillSwitchEnabled: Boolean,
+    val liveTradingEnabled: Boolean? = null,
+    val accountMaxOrderNotional: Double? = null,
+    val accountDailyMaxOrderNotional: Double? = null,
+    val symbolMaxOrderNotional: Double? = null,
+    val minOrderNotional: Double? = null,
+    val feeRate: Double? = null,
+    val taxRate: Double? = null,
+    val closeUnfilledPolicy: String? = null,
 )
 
 data class StrategyRiskResponse(
@@ -296,7 +305,115 @@ data class StrategyRiskResponse(
     val maxOpenPositions: Int?,
     val dailyLossLimit: Double?,
     val strategyKillSwitchEnabled: Boolean,
+    val liveTradingEnabled: Boolean,
+    val accountMaxOrderNotional: Double?,
+    val accountDailyMaxOrderNotional: Double?,
+    val symbolMaxOrderNotional: Double?,
+    val minOrderNotional: Double,
+    val feeRate: Double,
+    val taxRate: Double,
+    val closeUnfilledPolicy: String,
     val updatedAt: OffsetDateTime,
+)
+
+data class RebalanceAccountPositionRequest(
+    @field:NotBlank
+    val symbol: String,
+    @field:PositiveOrZero
+    val quantity: Long,
+    @field:Positive
+    val price: Double,
+    @field:PositiveOrZero
+    val availableQuantity: Long = quantity,
+)
+
+data class RebalanceAccountSnapshotRequest(
+    @field:Positive
+    val equity: Double,
+    @field:PositiveOrZero
+    val cash: Double,
+    @field:NotNull
+    val positions: List<@Valid RebalanceAccountPositionRequest> = emptyList(),
+    val tradingDate: java.time.LocalDate? = null,
+    val marketOpen: Boolean = true,
+    val holiday: Boolean = false,
+)
+
+data class RebalanceTargetWeightRequest(
+    @field:NotBlank
+    val symbol: String,
+    val targetWeight: Double,
+    @field:Positive
+    val price: Double,
+)
+
+data class CreateRebalancePlanRequest(
+    val mode: OrderMode = OrderMode.PAPER,
+    @field:Valid
+    @field:NotNull
+    val accountSnapshot: RebalanceAccountSnapshotRequest,
+    @field:Valid
+    @field:NotNull
+    val targetWeights: List<RebalanceTargetWeightRequest>,
+)
+
+data class ApproveRebalancePlanRequest(
+    @field:NotBlank
+    val approvedBy: String,
+    val confirmLiveRisk: Boolean = false,
+)
+
+data class SyncBrokerPositionRequest(
+    @field:NotBlank
+    val symbol: String,
+    @field:PositiveOrZero
+    val quantity: Long,
+)
+
+data class SyncRebalancePlanRequest(
+    val marketClosed: Boolean = false,
+    val brokerPositions: List<@Valid SyncBrokerPositionRequest> = emptyList(),
+)
+
+data class RebalancePlanOrderResponse(
+    val id: UUID,
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Long,
+    val price: Double,
+    val notional: Double,
+    val estimatedFee: Double,
+    val estimatedTax: Double,
+    val status: String,
+    val idempotencyKey: String,
+    val brokerOrderNumber: String?,
+    val brokerResponseCode: String?,
+    val brokerResponseMessage: String?,
+    val requestedAt: OffsetDateTime?,
+    val filledQuantity: Long,
+    val remainingQuantity: Long,
+    val precheckSummary: Map<String, Any?>,
+)
+
+data class RebalancePlanResponse(
+    val id: UUID,
+    val strategyId: UUID,
+    val strategyVersionId: UUID,
+    val mode: OrderMode,
+    val status: String,
+    val accountSnapshot: Map<String, Any?>,
+    val targetWeights: List<Map<String, Any?>>,
+    val settingsSnapshot: Map<String, Any?>,
+    val riskSummary: Map<String, Any?>,
+    val approvalRequired: Boolean,
+    val adminApproved: Boolean,
+    val approvedAt: OffsetDateTime?,
+    val approvedBy: String?,
+    val failureReason: String?,
+    val plannedAt: OffsetDateTime,
+    val sentAt: OffsetDateTime?,
+    val syncedAt: OffsetDateTime?,
+    val orders: List<RebalancePlanOrderResponse>,
 )
 
 data class StrategyRiskEventResponse(
