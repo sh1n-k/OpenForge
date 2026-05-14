@@ -29,5 +29,7 @@ data class AuthProperties(
 data class LiveTradingProperties(
     val enabled: Boolean = false,
     val mockBroker: Boolean = true,
+    val allowLiveBroker: Boolean = false,
+    val maxOrderNotional: java.math.BigDecimal = java.math.BigDecimal("100000.000000"),
     val maxConsecutiveFailures: Int = 3,
 )

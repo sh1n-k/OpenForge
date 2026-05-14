@@ -2,6 +2,9 @@ package com.openforge.api.strategy
 
 import com.openforge.api.strategy.application.KisOrderStatusMapper
 import com.openforge.api.support.PostgresIntegrationTestSupport
+import com.sun.net.httpserver.HttpExchange
+import com.sun.net.httpserver.HttpHandler
+import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasSize
@@ -10,6 +13,8 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.MediaType
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -18,6 +23,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import tools.jackson.databind.json.JsonMapper
+import java.net.InetSocketAddress
+import java.nio.charset.StandardCharsets
 
 class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
     @Autowired
@@ -246,6 +253,36 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.detail").value(containsString("environment_live_not_enabled")))
+
+        mockMvc
+            .perform(get("/api/v1/strategies/$strategyId/rebalance/plans/$planId"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("blocked"))
+            .andExpect(jsonPath("$.failureReason").value(containsString("live_broker_not_allowed")))
+    }
+
+    @Test
+    fun `live approval requires checklist and exact confirmation phrase`() {
+        val strategyId = createStrategy("MVP Live Approval Phrase")
+        updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "liveTradingEnabled" to true, "minOrderNotional" to 1000.0))
+        val planId = createPlan(strategyId, singleTargetPayload(symbol = "AAA", mode = "live"))
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/approve")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "approvedBy" to "owner",
+                                "confirmLiveRisk" to true,
+                                "liveChecklistAccepted" to false,
+                                "liveConfirmationPhrase" to "wrong",
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.detail").value(containsString("live_checklist_required")))
     }
 
     @Test
@@ -463,6 +500,20 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
                     5,
                 ).status,
         ).isEqualTo("cancelled")
+        assertThat(
+            KisOrderStatusMapper
+                .map(
+                    mapOf("tot_ccld_qty" to "0", "rmn_qty" to "5", "ord_stat_name" to "거부"),
+                    5,
+                ).status,
+        ).isEqualTo("rejected")
+        assertThat(
+            KisOrderStatusMapper
+                .map(
+                    mapOf("tot_ccld_qty" to "0", "rmn_qty" to "5", "ord_stat_name" to "unexpected"),
+                    5,
+                ).status,
+        ).isEqualTo("unknown")
     }
 
     private fun insertDomesticLedgerSnapshot(): String {
@@ -531,7 +582,18 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
             .perform(
                 post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/approve")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsBytes(mapOf("approvedBy" to "owner", "confirmLiveRisk" to confirmLiveRisk))),
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            buildMap<String, Any?> {
+                                put("approvedBy", "owner")
+                                put("confirmLiveRisk", confirmLiveRisk)
+                                if (confirmLiveRisk) {
+                                    put("liveChecklistAccepted", true)
+                                    put("liveConfirmationPhrase", "LIVE 리밸런싱 위험 확인")
+                                }
+                            },
+                        ),
+                    ),
             ).andExpect(status().isOk)
     }
 
@@ -671,8 +733,199 @@ class RebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
 
 @TestPropertySource(
     properties = [
+        "app.live-trading.mock-broker=false",
+    ],
+)
+class KisPaperRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() {
+    @Autowired
+    lateinit var mockMvc: MockMvc
+
+    private val objectMapper = JsonMapper.builder().findAndAddModules().build()
+
+    @Test
+    fun `sends paper rebalance order through KIS paper adapter and syncs accepted status`() {
+        savePaperBrokerConfig()
+        val strategyId = createStrategy("KIS Paper Rebalance")
+        updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "minOrderNotional" to 100.0))
+        val planId = createPlan(strategyId)
+        approvePlan(strategyId, planId)
+
+        mockMvc
+            .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.orders[0].status").value("sent"))
+            .andExpect(jsonPath("$.orders[0].brokerOrderNumber").value("PAPER-ORDER-1"))
+            .andExpect(jsonPath("$.orders[0].brokerResponseCode").value("0"))
+
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/sync")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(emptyMap<String, Any?>())),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.orders[0].status").value("accepted"))
+            .andExpect(jsonPath("$.orders[0].remainingQuantity").value(19))
+    }
+
+    private fun savePaperBrokerConfig() {
+        mockMvc
+            .perform(
+                put("/api/v1/system/broker/config")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "targetMode" to "paper",
+                                "appKey" to "paper-app-key",
+                                "appSecret" to "paper-app-secret",
+                                "accountNumber" to "12345678",
+                                "productCode" to "01",
+                                "enabled" to true,
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+    }
+
+    private fun createPlan(strategyId: String): String =
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "mode" to "paper",
+                                "accountSnapshot" to
+                                    mapOf(
+                                        "equity" to 100000.0,
+                                        "cash" to 100000.0,
+                                        "marketOpen" to true,
+                                        "holiday" to false,
+                                        "positions" to emptyList<Map<String, Any?>>(),
+                                    ),
+                                "targetWeights" to listOf(mapOf("symbol" to "AAA", "targetWeight" to 0.2, "price" to 1000.0)),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+            .let { objectMapper.readTree(it).get("id").asText() }
+
+    private fun approvePlan(
+        strategyId: String,
+        planId: String,
+    ) {
+        mockMvc
+            .perform(
+                post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/approve")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(mapOf("approvedBy" to "owner"))),
+            ).andExpect(status().isOk)
+    }
+
+    private fun updateRisk(
+        strategyId: String,
+        payload: Map<String, Any?>,
+    ) {
+        mockMvc
+            .perform(
+                put("/api/v1/strategies/$strategyId/risk")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(payload)),
+            ).andExpect(status().isOk)
+    }
+
+    private fun createStrategy(name: String): String =
+        mockMvc
+            .perform(
+                post("/api/v1/strategies")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "name" to name,
+                                "description" to "kis paper draft",
+                                "strategyType" to "builder",
+                                "initialPayload" to
+                                    mapOf(
+                                        "payloadFormat" to "builder_json",
+                                        "payload" to validBuilderPayload(name),
+                                    ),
+                            ),
+                        ),
+                    ),
+            ).andExpect(status().isOk)
+            .andReturn()
+            .response
+            .contentAsString
+            .let { objectMapper.readTree(it).get("id").asText() }
+
+    private fun validBuilderPayload(name: String) =
+        mapOf(
+            "builderState" to
+                mapOf(
+                    "metadata" to
+                        mapOf(
+                            "id" to name.lowercase().replace(" ", "_"),
+                            "name" to name,
+                            "description" to "kis paper draft",
+                            "category" to "custom",
+                            "author" to "OpenForge",
+                            "tags" to listOf("rebalance"),
+                        ),
+                    "indicators" to listOf(mapOf("indicatorId" to "sma", "alias" to "sma_fast", "params" to mapOf("period" to 2), "output" to "value")),
+                    "entry" to
+                        mapOf(
+                            "logic" to "AND",
+                            "conditions" to
+                                listOf(
+                                    mapOf(
+                                        "left" to mapOf("type" to "price", "field" to "close"),
+                                        "operator" to "cross_above",
+                                        "right" to mapOf("type" to "indicator", "alias" to "sma_fast", "output" to "value"),
+                                    ),
+                                ),
+                        ),
+                    "exit" to
+                        mapOf(
+                            "logic" to "AND",
+                            "conditions" to
+                                listOf(
+                                    mapOf(
+                                        "left" to mapOf("type" to "price", "field" to "close"),
+                                        "operator" to "cross_below",
+                                        "right" to mapOf("type" to "indicator", "alias" to "sma_fast", "output" to "value"),
+                                    ),
+                                ),
+                        ),
+                    "risk" to
+                        mapOf(
+                            "stopLoss" to mapOf("enabled" to false, "percent" to 0),
+                            "takeProfit" to mapOf("enabled" to false, "percent" to 0),
+                            "trailingStop" to mapOf("enabled" to false, "percent" to 0),
+                        ),
+                ),
+        )
+
+    companion object {
+        private val kisStubServer = KisPaperOrderStubServer.start()
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun registerProperties(registry: DynamicPropertyRegistry) {
+            registry.add("app.kis.paper-base-url") { kisStubServer.baseUrl }
+        }
+    }
+}
+
+@TestPropertySource(
+    properties = [
         "app.mode=live",
         "app.live-trading.enabled=true",
+        "app.live-trading.allow-live-broker=true",
         "app.live-trading.mock-broker=true",
     ],
 )
@@ -784,6 +1037,35 @@ class LiveRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() 
             .andExpect(jsonPath("$.orders[0].precheckSummary.reasonCodes[0]").value("sell_available_quantity"))
     }
 
+    @Test
+    fun `live precheck blocks orders above default live notional limit`() {
+        val strategyId = createStrategy("MVP Live Default Limit")
+        updateRisk(strategyId, mapOf("strategyKillSwitchEnabled" to false, "liveTradingEnabled" to true, "minOrderNotional" to 100.0))
+        val planId =
+            createPlan(
+                strategyId,
+                mapOf(
+                    "mode" to "live",
+                    "accountSnapshot" to
+                        mapOf(
+                            "equity" to 200000.0,
+                            "cash" to 200000.0,
+                            "marketOpen" to true,
+                            "holiday" to false,
+                            "positions" to emptyList<Map<String, Any?>>(),
+                        ),
+                    "targetWeights" to listOf(mapOf("symbol" to "AAA", "targetWeight" to 1.0, "price" to 1000.0)),
+                ),
+            )
+        approvePlan(strategyId, planId, confirmLiveRisk = true)
+
+        mockMvc
+            .perform(post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/send"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.orders[0].status").value("rejected_precheck"))
+            .andExpect(jsonPath("$.orders[0].precheckSummary.reasonCodes[0]").value("live_default_order_notional"))
+    }
+
     private fun createPlan(
         strategyId: String,
         payload: Map<String, Any?>,
@@ -808,7 +1090,16 @@ class LiveRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() 
             .perform(
                 post("/api/v1/strategies/$strategyId/rebalance/plans/$planId/approve")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsBytes(mapOf("approvedBy" to "owner", "confirmLiveRisk" to confirmLiveRisk))),
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            mapOf(
+                                "approvedBy" to "owner",
+                                "confirmLiveRisk" to confirmLiveRisk,
+                                "liveChecklistAccepted" to confirmLiveRisk,
+                                "liveConfirmationPhrase" to if (confirmLiveRisk) "LIVE 리밸런싱 위험 확인" else "",
+                            ),
+                        ),
+                    ),
             ).andExpect(status().isOk)
     }
 
@@ -920,4 +1211,54 @@ class LiveRebalanceTradingApiIntegrationTest : PostgresIntegrationTestSupport() 
                         ),
                 ),
         )
+}
+
+private class KisPaperOrderStubServer(
+    private val server: HttpServer,
+) {
+    val baseUrl: String = "http://127.0.0.1:${server.address.port}"
+
+    companion object {
+        fun start(): KisPaperOrderStubServer {
+            val server = HttpServer.create(InetSocketAddress(0), 0)
+            server.createContext("/oauth2/tokenP", JsonHandler("""{"access_token":"paper-token"}"""))
+            server.createContext("/uapi/hashkey", JsonHandler("""{"HASH":"paper-hash"}"""))
+            server.createContext(
+                "/uapi/domestic-stock/v1/trading/order-cash",
+                JsonHandler("""{"rt_cd":"0","msg1":"paper order accepted","output":{"ODNO":"PAPER-ORDER-1"}}"""),
+            )
+            server.createContext(
+                "/uapi/domestic-stock/v1/trading/inquire-ccnl",
+                JsonHandler(
+                    """
+                    {
+                      "rt_cd": "0",
+                      "msg1": "paper order status",
+                      "output1": [
+                        {
+                          "odno": "PAPER-ORDER-1",
+                          "tot_ccld_qty": "0",
+                          "rmn_qty": "20",
+                          "ord_stat_name": "접수"
+                        }
+                      ]
+                    }
+                    """.trimIndent(),
+                ),
+            )
+            server.start()
+            return KisPaperOrderStubServer(server)
+        }
+    }
+}
+
+private class JsonHandler(
+    private val body: String,
+) : HttpHandler {
+    override fun handle(exchange: HttpExchange) {
+        val response = body.toByteArray(StandardCharsets.UTF_8)
+        exchange.responseHeaders.add("Content-Type", "application/json")
+        exchange.sendResponseHeaders(200, response.size.toLong())
+        exchange.responseBody.use { it.write(response) }
+    }
 }

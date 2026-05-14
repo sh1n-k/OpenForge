@@ -106,7 +106,9 @@ class RebalanceTradingService(
                 "reasonCodes" to riskCodes,
                 "totalNotional" to totalNotional.toDouble(),
             )
-        val settingsSnapshot = settings.toSnapshot()
+        val settingsSnapshot =
+            settings.toSnapshot() +
+                ("liveDefaultMaxOrderNotional" to applicationProperties.liveTrading.maxOrderNotional.toDouble())
 
         jdbcTemplate.update(
             """
@@ -269,22 +271,50 @@ class RebalanceTradingService(
         if (plan.mode == OrderMode.LIVE && !request.confirmLiveRisk) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "Live rebalance approval requires confirmLiveRisk=true")
         }
+        if (plan.mode == OrderMode.LIVE) {
+            val reasons =
+                buildList {
+                    if (!request.liveChecklistAccepted) add("live_checklist_required")
+                    if (request.liveConfirmationPhrase?.trim() != LIVE_CONFIRMATION_PHRASE) add("live_confirmation_phrase_required")
+                }
+            if (reasons.isNotEmpty()) {
+                throw ResponseStatusException(HttpStatus.CONFLICT, "Live rebalance approval is blocked: ${reasons.joinToString(",")}")
+            }
+        }
         val now = OffsetDateTime.now(DEFAULT_ZONE)
         jdbcTemplate.update(
             """
             update strategy_rebalance_plan
-            set status = ?, admin_approved = true, approved_at = ?, approved_by = ?, updated_at = now()
+            set status = ?,
+                admin_approved = true,
+                approved_at = ?,
+                approved_by = ?,
+                live_confirmation_phrase = ?,
+                live_checklist_accepted = ?,
+                updated_at = now()
             where id = ?
             """.trimIndent(),
             PLAN_APPROVED,
             now.toTimestamp(),
             request.approvedBy,
+            if (plan.mode == OrderMode.LIVE) request.liveConfirmationPhrase?.trim() else null,
+            plan.mode == OrderMode.LIVE && request.liveChecklistAccepted,
             planId,
         )
-        appendAudit(strategyId, planId, "rebalance_plan_approved", mapOf("approvedBy" to request.approvedBy, "mode" to plan.mode.value))
+        appendAudit(
+            strategyId,
+            planId,
+            "rebalance_plan_approved",
+            mapOf(
+                "approvedBy" to request.approvedBy,
+                "mode" to plan.mode.value,
+                "liveChecklistAccepted" to (plan.mode == OrderMode.LIVE && request.liveChecklistAccepted),
+            ),
+        )
         return getPlan(strategyId, planId)
     }
 
+    @Transactional(dontRollbackOn = [ResponseStatusException::class])
     fun sendApprovedPlan(
         strategyId: UUID,
         planId: UUID,
@@ -295,7 +325,7 @@ class RebalanceTradingService(
         }
         val settings = loadRiskSettings(strategyId)
         if (plan.mode == OrderMode.LIVE) {
-            enforceLiveGates(plan, settings)
+            enforceLiveGates(strategyId, plan, settings)
         }
 
         val orders = loadOrders(planId)
@@ -597,6 +627,7 @@ class RebalanceTradingService(
         if (hasOpenOrderForSymbol(plan.strategyId, plan.id, order.symbol)) reasons += "duplicate_open_symbol_order"
         if (plan.mode == OrderMode.LIVE) {
             if (account["marketOpen"] != true || account["holiday"] == true) reasons += "live_market_closed"
+            if (order.notional > applicationProperties.liveTrading.maxOrderNotional.scaled()) reasons += "live_default_order_notional"
             if (order.side == OrderSide.BUY && remainingCash < order.notional + order.estimatedFee) reasons += "cash_available"
             if (order.side == OrderSide.SELL && availableQuantity(account, order.symbol) < order.quantity) reasons += "sell_available_quantity"
         }
@@ -609,18 +640,42 @@ class RebalanceTradingService(
     }
 
     private fun enforceLiveGates(
+        strategyId: UUID,
         plan: PlanRecord,
         settings: RiskSettings,
     ) {
         val reasons =
             buildList {
                 if (!applicationProperties.liveTrading.enabled || applicationProperties.mode.lowercase() != "live") add("environment_live_not_enabled")
+                if (!applicationProperties.liveTrading.allowLiveBroker) add("live_broker_not_allowed")
                 if (!plan.adminApproved) add("admin_approval_required")
+                if (!plan.liveChecklistAccepted) add("live_checklist_required")
+                if (plan.liveConfirmationPhrase != LIVE_CONFIRMATION_PHRASE) add("live_confirmation_phrase_required")
                 if (!settings.liveTradingEnabled) add("strategy_live_not_enabled")
             }
         if (reasons.isNotEmpty()) {
+            blockPlan(strategyId, plan.id, reasons)
             throw ResponseStatusException(HttpStatus.CONFLICT, "Live trading is blocked: ${reasons.joinToString(",")}")
         }
+    }
+
+    private fun blockPlan(
+        strategyId: UUID,
+        planId: UUID,
+        reasons: List<String>,
+    ) {
+        val failureReason = reasons.joinToString(",")
+        jdbcTemplate.update(
+            """
+            update strategy_rebalance_plan
+            set status = ?, failure_reason = ?, updated_at = now()
+            where id = ?
+            """.trimIndent(),
+            PLAN_BLOCKED,
+            failureReason,
+            planId,
+        )
+        appendAudit(strategyId, planId, "rebalance_plan_blocked", mapOf("reasonCodes" to reasons))
     }
 
     private fun loadDomesticLedgerSnapshot(request: CreateLedgerRebalancePlanRequest): LedgerSnapshot {
@@ -980,6 +1035,8 @@ class RebalanceTradingService(
             adminApproved = rs.getBoolean("admin_approved"),
             approvedAt = rs.getTimestamp("approved_at")?.toOffsetDateTime(),
             approvedBy = rs.getString("approved_by"),
+            liveConfirmationPhrase = rs.getString("live_confirmation_phrase"),
+            liveChecklistAccepted = rs.getBoolean("live_checklist_accepted"),
             failureReason = rs.getString("failure_reason"),
             plannedAt = rs.getTimestamp("planned_at").toOffsetDateTime(),
             sentAt = rs.getTimestamp("sent_at")?.toOffsetDateTime(),
@@ -1147,6 +1204,7 @@ class RebalanceTradingService(
         private const val ORDER_REJECTED_PRECHECK = "rejected_precheck"
         private const val ORDER_UNKNOWN = "unknown"
         private const val FAILURE_COUNT_KEY = "live_trading.consecutive_failures"
+        private const val LIVE_CONFIRMATION_PHRASE = "LIVE 리밸런싱 위험 확인"
         private val OPEN_ORDER_STATUSES = setOf(ORDER_SENT, ORDER_ACCEPTED, ORDER_PARTIALLY_FILLED, ORDER_UNKNOWN)
     }
 }
@@ -1506,7 +1564,11 @@ object KisOrderStatusMapper {
                 statusText.contains("cancel") || statusText.contains("취소") -> "cancelled"
                 filled >= orderQuantity || (filled > 0 && remaining == 0L) -> "filled"
                 filled > 0 && remaining > 0 -> "partially_filled"
-                else -> "accepted"
+                statusText.isBlank() ||
+                    statusText.contains("accepted") ||
+                    statusText.contains("received") ||
+                    statusText.contains("접수") -> "accepted"
+                else -> "unknown"
             }
         return BrokerStatusResult(
             status = status,
@@ -1538,6 +1600,8 @@ data class PlanRecord(
     val adminApproved: Boolean,
     val approvedAt: OffsetDateTime?,
     val approvedBy: String?,
+    val liveConfirmationPhrase: String?,
+    val liveChecklistAccepted: Boolean,
     val failureReason: String?,
     val plannedAt: OffsetDateTime,
     val sentAt: OffsetDateTime?,
@@ -1558,6 +1622,7 @@ data class PlanRecord(
             adminApproved = adminApproved,
             approvedAt = approvedAt,
             approvedBy = approvedBy,
+            liveChecklistAccepted = liveChecklistAccepted,
             failureReason = failureReason,
             plannedAt = plannedAt,
             sentAt = sentAt,

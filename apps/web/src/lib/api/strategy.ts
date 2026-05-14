@@ -280,7 +280,12 @@ export async function createRebalancePlanFromLedger(
 export async function approveRebalancePlan(
   strategyId: string,
   planId: string,
-  input: { approvedBy: string; confirmLiveRisk?: boolean },
+  input: {
+    approvedBy: string;
+    confirmLiveRisk?: boolean;
+    liveConfirmationPhrase?: string | null;
+    liveChecklistAccepted?: boolean;
+  },
 ) {
   return apiFetch<RebalancePlan>(
     `/api/v1/strategies/${strategyId}/rebalance/plans/${planId}/approve`,

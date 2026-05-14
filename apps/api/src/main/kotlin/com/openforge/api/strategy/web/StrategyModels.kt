@@ -383,6 +383,8 @@ data class ApproveRebalancePlanRequest(
     @field:NotBlank
     val approvedBy: String,
     val confirmLiveRisk: Boolean = false,
+    val liveConfirmationPhrase: String? = null,
+    val liveChecklistAccepted: Boolean = false,
 )
 
 data class SyncBrokerPositionRequest(
@@ -431,6 +433,7 @@ data class RebalancePlanResponse(
     val adminApproved: Boolean,
     val approvedAt: OffsetDateTime?,
     val approvedBy: String?,
+    val liveChecklistAccepted: Boolean,
     val failureReason: String?,
     val plannedAt: OffsetDateTime,
     val sentAt: OffsetDateTime?,

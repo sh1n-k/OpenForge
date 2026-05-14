@@ -14,6 +14,7 @@
     syncRebalancePlan,
     updateStrategyExecution,
     updateStrategyRisk,
+    type BrokerLedgerStatus,
     type OrderCandidate,
     type OrderRequest,
     type OrderRequestWithEvents,
@@ -43,18 +44,36 @@
   export let requestsWithEvents: OrderRequestWithEvents[] = [];
   export let availableUniverses: UniverseSummary[] = [];
   export let rebalancePlans: RebalancePlan[] = [];
+  export let brokerLedgerStatus: BrokerLedgerStatus;
   export let runAction: (work: () => Promise<unknown>, success?: () => boolean | void) => Promise<void>;
+
+  type TargetRow = {
+    id: number;
+    symbol: string;
+    targetWeightPercent: number;
+    price: string;
+  };
 
   let selectedUniverseIds: string[] = strategy.universes.map((u) => u.id);
   let archiveConfirm = false;
-  let rebalanceTargetsText = "005930,0.5\n000660,0.3";
+  let rebalanceTargetRows: TargetRow[] = [
+    { id: 1, symbol: "005930", targetWeightPercent: 50, price: "" },
+    { id: 2, symbol: "000660", targetWeightPercent: 30, price: "" },
+  ];
+  let nextTargetRowId = 3;
+  let rebalanceMode: "paper" | "live" = "paper";
   let rebalanceCashOverride = "";
   let rebalanceMaxAgeMinutes = 60;
   let rebalanceMarketOpen = true;
   let rebalanceHoliday = false;
   let rebalanceApprovedBy = "owner";
   let rebalanceMarketClosed = false;
+  let liveConfirmationPhrase = "";
+  let liveChecklistAccepted = false;
   $: selectedUniverseIds = strategy.universes.map((u) => u.id);
+  $: targetWeightTotal = rebalanceTargetRows.reduce((sum, row) => sum + Number(row.targetWeightPercent || 0), 0);
+  $: targetWeightValid = Math.abs(targetWeightTotal - 100) < 0.0001;
+  $: ledgerSnapshotTime = brokerLedgerStatus?.latestSuccessfulSyncRun?.completedAt ?? brokerLedgerStatus?.latestSuccessfulSyncRun?.requestedAt ?? null;
 
   function toggleUniverseSelection(universeId: string, checked: boolean) {
     selectedUniverseIds = checked
@@ -84,25 +103,33 @@
   let active = "overview";
 
   function parseRebalanceTargets() {
-    return rebalanceTargetsText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [symbol, weight, price] = line.split(/[,\s]+/).map((part) => part.trim());
-        return {
-          symbol,
-          targetWeight: Number(weight),
-          price: price ? Number(price) : null,
-        };
-      });
+    return rebalanceTargetRows
+      .map((row) => ({
+        symbol: row.symbol.trim(),
+        targetWeight: Number(row.targetWeightPercent) / 100,
+        price: row.price.trim() === "" ? null : Number(row.price),
+      }))
+      .filter((row) => row.symbol);
+  }
+
+  function addTargetRow() {
+    rebalanceTargetRows = [
+      ...rebalanceTargetRows,
+      { id: nextTargetRowId, symbol: "", targetWeightPercent: 0, price: "" },
+    ];
+    nextTargetRowId += 1;
+  }
+
+  function removeTargetRow(rowId: number) {
+    rebalanceTargetRows = rebalanceTargetRows.filter((row) => row.id !== rowId);
   }
 
   function createLedgerPlan() {
     const cashOverride = rebalanceCashOverride.trim() === "" ? null : Number(rebalanceCashOverride);
+    if (!targetWeightValid) return;
     void runAction(() =>
       createRebalancePlanFromLedger(strategy.id, {
-        mode: "paper",
+        mode: rebalanceMode,
         maxSnapshotAgeMinutes: Number(rebalanceMaxAgeMinutes),
         cashOverride,
         marketOpen: rebalanceMarketOpen,
@@ -119,6 +146,12 @@
 
   function formatNumber(value: unknown) {
     return typeof value === "number" ? value.toLocaleString("ko-KR") : "-";
+  }
+
+  function orderReasonText(order: RebalancePlan["orders"][number]) {
+    const reasonCodes = order.precheckSummary.reasonCodes;
+    if (Array.isArray(reasonCodes) && reasonCodes.length > 0) return reasonCodes.join(", ");
+    return order.brokerResponseMessage ?? "-";
   }
 </script>
 
@@ -263,10 +296,42 @@
       <div class="split-grid">
         <form id="strategy-rebalance-create" class="doc-panel grid-section" on:submit|preventDefault={createLedgerPlan}>
           <h2 class="section-title">계획 생성</h2>
-          <label class="form-field" for="rebalance-targets">
-            <span class="form-label">목표 비중</span>
-            <textarea id="rebalance-targets" rows="5" bind:value={rebalanceTargetsText}></textarea>
+          <p class="section-copy">최신 원장: {formatDateTime(ledgerSnapshotTime) ?? "성공한 원장 없음"}</p>
+          <label class="form-field" for="rebalance-mode">
+            <span class="form-label">모드</span>
+            <select id="rebalance-mode" bind:value={rebalanceMode}>
+              <option value="paper">paper</option>
+              <option value="live">live</option>
+            </select>
           </label>
+          <div class="target-weight-toolbar">
+            <span class={targetWeightValid ? "text-primary" : "text-warning"}>목표 비중 합계 {targetWeightTotal.toFixed(2)}%</span>
+            <button class="button-secondary" type="button" on:click={addTargetRow}>행 추가</button>
+          </div>
+          <div class="table-shell">
+            <table class="doc-table doc-table-compact">
+              <thead>
+                <tr>
+                  <th>종목</th>
+                  <th>목표 %</th>
+                  <th>가격</th>
+                  <th>작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each rebalanceTargetRows as row (row.id)}
+                  <tr>
+                    <td><input aria-label="종목" type="text" bind:value={row.symbol} /></td>
+                    <td><input aria-label="목표 비중" type="number" min="0" max="100" step="0.01" bind:value={row.targetWeightPercent} /></td>
+                    <td><input aria-label="가격" type="number" min="0" step="1" bind:value={row.price} /></td>
+                    <td>
+                      <button class="button-secondary" type="button" disabled={rebalanceTargetRows.length <= 1} on:click={() => removeTargetRow(row.id)}>삭제</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
           <div class="form-row">
             <label class="form-field" for="rebalance-cash">
               <span class="form-label">현금 보정</span>
@@ -288,7 +353,7 @@
             </label>
           </div>
           <div class="form-actions">
-            <button class="button-primary" type="submit">원장으로 계획 생성</button>
+            <button class="button-primary" type="submit" disabled={!targetWeightValid}>원장으로 계획 생성</button>
           </div>
         </form>
 
@@ -301,6 +366,14 @@
           <label class="checkbox-row">
             <input type="checkbox" bind:checked={rebalanceMarketClosed} />
             <span>동기화 시 장마감 처리</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" bind:checked={liveChecklistAccepted} />
+            <span>live 운영 체크리스트 완료</span>
+          </label>
+          <label class="form-field" for="live-confirmation-phrase">
+            <span class="form-label">live 확인 문구</span>
+            <input id="live-confirmation-phrase" type="text" bind:value={liveConfirmationPhrase} />
           </label>
         </div>
       </div>
@@ -327,7 +400,7 @@
                   <tr>
                     <td>{plan.status}</td>
                     <td>{plan.mode}</td>
-                    <td>{riskReasonText(plan)}</td>
+                    <td>{plan.failureReason ?? riskReasonText(plan)}</td>
                     <td>{plan.orders.length}</td>
                     <td>{formatDateTime(plan.plannedAt)}</td>
                     <td>
@@ -336,7 +409,15 @@
                           class="button-secondary"
                           type="button"
                           disabled={plan.status !== "planned"}
-                          on:click={() => runAction(() => approveRebalancePlan(strategy.id, plan.id, { approvedBy: rebalanceApprovedBy }))}
+                          on:click={() =>
+                            runAction(() =>
+                              approveRebalancePlan(strategy.id, plan.id, {
+                                approvedBy: rebalanceApprovedBy,
+                                confirmLiveRisk: plan.mode === "live",
+                                liveChecklistAccepted,
+                                liveConfirmationPhrase,
+                              }),
+                            )}
                         >
                           승인
                         </button>
@@ -364,7 +445,7 @@
                       <td colspan="6">
                         <div class="order-strip">
                           {#each plan.orders as order}
-                            <span>{order.symbol} {order.side} {order.quantity}주 · {formatNumber(order.notional)} · {order.status}</span>
+                            <span>{order.symbol} {order.side} {order.quantity}주 · {formatNumber(order.notional)} · {order.status} · {orderReasonText(order)}</span>
                           {/each}
                         </div>
                       </td>

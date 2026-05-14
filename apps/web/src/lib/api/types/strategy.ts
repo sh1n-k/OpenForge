@@ -260,6 +260,7 @@ export type RebalancePlan = {
   adminApproved: boolean;
   approvedAt: string | null;
   approvedBy: string | null;
+  liveChecklistAccepted: boolean;
   failureReason: string | null;
   plannedAt: string;
   sentAt: string | null;
