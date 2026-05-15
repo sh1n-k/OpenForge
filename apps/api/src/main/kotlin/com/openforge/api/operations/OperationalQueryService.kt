@@ -1,6 +1,5 @@
 package com.openforge.api.operations
 
-import com.openforge.api.strategy.application.OrderTrackingService
 import com.openforge.api.strategy.domain.StrategyOrderFillRepository
 import com.openforge.api.strategy.domain.StrategyOrderRequestRepository
 import com.openforge.api.strategy.domain.StrategyRepository
@@ -15,7 +14,6 @@ class OperationalQueryService(
     private val orderRequestRepository: StrategyOrderRequestRepository,
     private val orderFillRepository: StrategyOrderFillRepository,
     private val signalEventRepository: StrategySignalEventRepository,
-    private val orderTrackingService: OrderTrackingService,
 ) {
     fun listOrders(
         strategyId: UUID?,
@@ -23,7 +21,7 @@ class OperationalQueryService(
     ): List<CrossStrategyOrderRequestResponse> {
         val strategies = strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
         val nameMap = strategies.associate { it.id to it.name }
-        val pageable = PageRequest.of(0, normalizeLimit(limit, 50))
+        val pageable = PageRequest.of(0, normalizeLimit(limit))
 
         val requests =
             if (strategyId != null) {
@@ -31,18 +29,14 @@ class OperationalQueryService(
             } else {
                 orderRequestRepository.findAllByOrderByRequestedAtDesc(pageable)
             }
+        val signalById = signalEventRepository.findAllById(requests.map { it.signalEventId }).associateBy { it.id }
 
         return requests.map { req ->
-            val symbol =
-                runCatching {
-                    signalEventRepository.findById(req.signalEventId).orElse(null)?.symbol
-                }.getOrNull() ?: ""
-
             CrossStrategyOrderRequestResponse(
                 id = req.id,
                 strategyId = req.strategyId,
                 strategyName = nameMap[req.strategyId] ?: "",
-                symbol = symbol,
+                symbol = signalById[req.signalEventId]?.symbol ?: "",
                 side = req.side.value,
                 quantity = req.quantity,
                 price = req.price.toDouble(),
@@ -61,7 +55,7 @@ class OperationalQueryService(
     ): List<CrossStrategyFillResponse> {
         val strategies = strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
         val nameMap = strategies.associate { it.id to it.name }
-        val pageable = PageRequest.of(0, normalizeLimit(limit, 50))
+        val pageable = PageRequest.of(0, normalizeLimit(limit))
 
         val fills =
             if (strategyId != null) {
@@ -94,9 +88,18 @@ class OperationalQueryService(
             } else {
                 strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
             }
+        val strategyIds = strategies.map { it.id }
+        val positionsByStrategyId =
+            if (strategyIds.isEmpty()) {
+                emptyMap()
+            } else {
+                currentPositionsByStrategy(
+                    orderFillRepository.findAllByStrategyIdInOrderByStrategyIdAscFilledAtAsc(strategyIds),
+                )
+            }
 
         return strategies.flatMap { strategy ->
-            orderTrackingService.currentPositionProjections(strategy.id).map { p ->
+            positionsByStrategyId[strategy.id].orEmpty().map { p ->
                 CrossStrategyPositionResponse(
                     strategyId = strategy.id,
                     strategyName = strategy.name,
@@ -109,8 +112,5 @@ class OperationalQueryService(
         }
     }
 
-    private fun normalizeLimit(
-        value: Int,
-        defaultValue: Int,
-    ): Int = value.coerceIn(1, 500).takeIf { it > 0 } ?: defaultValue
+    private fun normalizeLimit(value: Int): Int = value.coerceIn(1, 500)
 }

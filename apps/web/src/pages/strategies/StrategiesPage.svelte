@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ListSection from "@/pages/shared/ListSection.svelte";
+  import DataTable from "@/lib/components/DataTable.svelte";
   import PageHeader from "@/lib/components/PageHeader.svelte";
   import { createStrategy, type StrategySummary } from "@/lib/api";
 
@@ -61,7 +61,7 @@
         <button class="button-primary" type="submit">생성</button>
       </div>
     </form>
-    <ListSection
+    <DataTable
       id="strategies-registry"
       title="전략 레지스트리"
       rows={strategies}

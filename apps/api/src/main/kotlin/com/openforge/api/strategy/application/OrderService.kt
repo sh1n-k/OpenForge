@@ -68,6 +68,7 @@ class OrderService(
             )
         val existingKeys = existingRequests.associateBy { candidateKey(it.signalEventId, it.side, it.mode) }
         val referenceTime = marketTimeProvider.now()
+        val riskContext = riskControlService.evaluationContext(strategy.id, referenceTime)
 
         return signals.map { signal ->
             val side = sideFor(signal.signalType)
@@ -93,7 +94,7 @@ class OrderService(
                         quantity = quantity,
                         price = price ?: BigDecimal.ZERO,
                         mode = mode,
-                        referenceTime = referenceTime,
+                        context = riskContext,
                     ).response
 
             OrderCandidateResponse(

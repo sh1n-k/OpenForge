@@ -121,29 +121,50 @@ class OrderTrackingService(
             }
 
     fun openBuyOrderProjections(strategyId: UUID): List<OpenOrderProjection> =
-        orderRequestRepository
-            .findAllByStrategyId(strategyId)
-            .map { orderRequest ->
-                val filledQuantity = orderFillRepository.findAllByOrderRequestIdOrderByFilledAtAsc(orderRequest.id).sumOf { it.quantity }
-                val currentStatus = currentStatus(orderRequest)
-                OpenOrderProjection(
-                    orderRequestId = orderRequest.id,
-                    symbol = symbolFor(orderRequest),
-                    side = orderRequest.side,
-                    remainingQuantity = (orderRequest.quantity - filledQuantity).coerceAtLeast(0),
-                    price = orderRequest.price,
-                    currentStatus = currentStatus,
-                )
-            }.filter {
-                it.side == OrderSide.BUY &&
-                    it.remainingQuantity > 0 &&
-                    it.currentStatus in
-                    setOf(
-                        OrderLifecycleStatus.REQUESTED,
-                        OrderLifecycleStatus.ACCEPTED,
-                        OrderLifecycleStatus.PARTIALLY_FILLED,
-                    )
+        orderRequestRepository.findAllByStrategyId(strategyId).let { orderRequests ->
+            if (orderRequests.isEmpty()) {
+                return@let emptyList()
             }
+
+            val orderRequestIds = orderRequests.map { it.id }
+            val signalById = signalEventRepository.findAllById(orderRequests.map { it.signalEventId }).associateBy { it.id }
+            val filledQuantityByOrderRequestId =
+                orderFillRepository
+                    .sumQuantityByOrderRequestIdIn(orderRequestIds)
+                    .associate { it.id to it.total }
+            val latestStatusByOrderRequestId =
+                orderStatusEventRepository
+                    .findLatestByOrderRequestIdIn(orderRequestIds)
+                    .associateBy { it.orderRequestId }
+
+            orderRequests
+                .map { orderRequest ->
+                    val filledQuantity = filledQuantityByOrderRequestId[orderRequest.id] ?: 0L
+                    val currentStatus = currentStatus(orderRequest, latestStatusByOrderRequestId[orderRequest.id])
+                    OpenOrderProjection(
+                        orderRequestId = orderRequest.id,
+                        symbol =
+                            signalById[orderRequest.signalEventId]?.symbol
+                                ?: throw ResponseStatusException(
+                                    HttpStatus.NOT_FOUND,
+                                    "Signal event not found for order request: ${orderRequest.signalEventId}",
+                                ),
+                        side = orderRequest.side,
+                        remainingQuantity = (orderRequest.quantity - filledQuantity).coerceAtLeast(0),
+                        price = orderRequest.price,
+                        currentStatus = currentStatus,
+                    )
+                }.filter {
+                    it.side == OrderSide.BUY &&
+                        it.remainingQuantity > 0 &&
+                        it.currentStatus in
+                        setOf(
+                            OrderLifecycleStatus.REQUESTED,
+                            OrderLifecycleStatus.ACCEPTED,
+                            OrderLifecycleStatus.PARTIALLY_FILLED,
+                        )
+                }
+        }
 
     fun currentDailyRealizedLoss(
         strategyId: UUID,
@@ -371,10 +392,10 @@ class OrderTrackingService(
 
         val orderRequestIds = requests.map { it.id }
         val signalById = signalEventRepository.findAllById(requests.map { it.signalEventId }).associateBy { it.id }
-        val fillsByOrderRequestId =
+        val filledQuantityByOrderRequestId =
             orderFillRepository
-                .findAllByOrderRequestIdInOrderByFilledAtAsc(orderRequestIds)
-                .groupBy { it.orderRequestId }
+                .sumQuantityByOrderRequestIdIn(orderRequestIds)
+                .associate { it.id to it.total }
         val statusEventsByOrderRequestId =
             orderStatusEventRepository
                 .findAllByOrderRequestIdInOrderByOccurredAtDesc(orderRequestIds)
@@ -387,14 +408,13 @@ class OrderTrackingService(
                         HttpStatus.NOT_FOUND,
                         "Signal event not found for order request: ${request.signalEventId}",
                     )
-            val fills = fillsByOrderRequestId[request.id].orEmpty()
             val statusEvents = statusEventsByOrderRequestId[request.id].orEmpty()
             OrderRequestView(
                 response =
                     toOrderRequestResponse(
                         orderRequest = request,
                         symbol = symbol,
-                        filledQuantity = fills.sumOf { it.quantity },
+                        filledQuantity = filledQuantityByOrderRequestId[request.id] ?: 0L,
                         currentStatus = currentStatus(request, statusEvents.firstOrNull()),
                     ),
                 statusEvents = statusEvents.take(normalizeLimit(eventLimit, 50)).map(::toOrderStatusEventResponse),

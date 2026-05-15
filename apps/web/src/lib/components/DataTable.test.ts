@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/svelte";
 import { describe, expect, it, vi } from "vitest";
-import ListSection from "./ListSection.svelte";
+import DataTable from "./DataTable.svelte";
 
-describe("ListSection", () => {
+describe("DataTable", () => {
   it("renders row values and first-column link", () => {
-    render(ListSection, {
+    render(DataTable, {
       props: {
         title: "Strategies",
         rows: [{ id: "s1", name: "Mean Reversion", active: true }],
@@ -22,7 +22,7 @@ describe("ListSection", () => {
 
   it("invokes row actions", async () => {
     const action = vi.fn();
-    render(ListSection, {
+    render(DataTable, {
       props: {
         title: "Rows",
         rows: [{ id: "r1", name: "Row 1" }],

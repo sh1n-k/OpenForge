@@ -11,4 +11,10 @@ interface StrategyRiskEventRepository : JpaRepository<StrategyRiskEventEntity, U
         strategyId: UUID,
         pageable: Pageable,
     ): List<StrategyRiskEventEntity>
+
+    fun findAllByStrategyIdInAndEventTypeOrderByOccurredAtDesc(
+        strategyIds: Collection<UUID>,
+        eventType: StrategyRiskEventType,
+        pageable: Pageable,
+    ): List<StrategyRiskEventEntity>
 }

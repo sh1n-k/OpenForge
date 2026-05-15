@@ -106,33 +106,52 @@ class RiskControlService(
         mode: OrderMode,
         referenceTime: ZonedDateTime,
     ): RiskEvaluationResult {
-        val config = configFor(strategy.id)
-        val globalKillSwitchEnabled = systemRiskService.isGlobalKillSwitchEnabled()
-        val positions = orderTrackingService.currentPositionProjections(strategy.id)
-        val openOrders = orderTrackingService.openBuyOrderProjections(strategy.id)
-        val currentDailyRealizedLoss = orderTrackingService.currentDailyRealizedLoss(strategy.id, referenceTime.toLocalDate())
+        val context = evaluationContext(strategy.id, referenceTime)
+        return evaluateOrder(strategy, symbol, side, quantity, price, mode, context)
+    }
 
+    fun evaluationContext(
+        strategyId: UUID,
+        referenceTime: ZonedDateTime,
+    ): RiskEvaluationContext =
+        RiskEvaluationContext(
+            config = configFor(strategyId),
+            globalKillSwitchEnabled = systemRiskService.isGlobalKillSwitchEnabled(),
+            positions = orderTrackingService.currentPositionProjections(strategyId),
+            openOrders = orderTrackingService.openBuyOrderProjections(strategyId),
+            currentDailyRealizedLoss = orderTrackingService.currentDailyRealizedLoss(strategyId, referenceTime.toLocalDate()),
+        )
+
+    fun evaluateOrder(
+        strategy: StrategyEntity,
+        symbol: String,
+        side: OrderSide,
+        quantity: Long,
+        price: BigDecimal,
+        mode: OrderMode,
+        context: RiskEvaluationContext,
+    ): RiskEvaluationResult {
         val candidateNotional = price.multiply(BigDecimal.valueOf(quantity)).scaled()
         val currentSymbolExposure =
-            positions.firstOrNull { it.symbol == symbol }?.let {
+            context.positions.firstOrNull { it.symbol == symbol }?.let {
                 it.avgEntryPrice.multiply(BigDecimal.valueOf(it.netQuantity)).scaled()
             } ?: BigDecimal.ZERO.scaled()
         val pendingSymbolExposure =
-            openOrders
+            context.openOrders
                 .filter { it.symbol == symbol }
                 .sumOf { it.price.multiply(BigDecimal.valueOf(it.remainingQuantity)).scaled() }
         val currentStrategyExposure =
-            positions.sumOf {
+            context.positions.sumOf {
                 it.avgEntryPrice.multiply(BigDecimal.valueOf(it.netQuantity)).scaled()
             }
         val pendingStrategyExposure =
-            openOrders.sumOf {
+            context.openOrders.sumOf {
                 it.price.multiply(BigDecimal.valueOf(it.remainingQuantity)).scaled()
             }
 
-        val currentOpenSymbols = positions.map { it.symbol }.toSet()
+        val currentOpenSymbols = context.positions.map { it.symbol }.toSet()
         val pendingOpenSymbols =
-            openOrders
+            context.openOrders
                 .filter { it.symbol !in currentOpenSymbols }
                 .map { it.symbol }
                 .toSet()
@@ -164,19 +183,19 @@ class RiskControlService(
         val reasonCodes =
             buildList {
                 if (mode == OrderMode.LIVE) add("mode_not_implemented")
-                if (globalKillSwitchEnabled) add("global_kill_switch")
-                if (config.strategyKillSwitchEnabled) add("strategy_kill_switch")
+                if (context.globalKillSwitchEnabled) add("global_kill_switch")
+                if (context.config.strategyKillSwitchEnabled) add("strategy_kill_switch")
                 if (side == OrderSide.BUY) {
-                    if (config.perSymbolMaxNotional != null && projectedSymbolExposure > config.perSymbolMaxNotional) {
+                    if (context.config.perSymbolMaxNotional != null && projectedSymbolExposure > context.config.perSymbolMaxNotional) {
                         add("per_symbol_max_notional")
                     }
-                    if (config.strategyMaxExposure != null && projectedStrategyExposure > config.strategyMaxExposure) {
+                    if (context.config.strategyMaxExposure != null && projectedStrategyExposure > context.config.strategyMaxExposure) {
                         add("strategy_max_exposure")
                     }
-                    if (config.maxOpenPositions != null && projectedOpenPositions > config.maxOpenPositions!!) {
+                    if (context.config.maxOpenPositions != null && projectedOpenPositions > context.config.maxOpenPositions!!) {
                         add("max_open_positions")
                     }
-                    if (config.dailyLossLimit != null && currentDailyRealizedLoss >= config.dailyLossLimit) {
+                    if (context.config.dailyLossLimit != null && context.currentDailyRealizedLoss >= context.config.dailyLossLimit) {
                         add("daily_loss_limit")
                     }
                 }
@@ -190,10 +209,10 @@ class RiskControlService(
                     projectedSymbolExposure = projectedSymbolExposure.toDouble(),
                     projectedStrategyExposure = projectedStrategyExposure.toDouble(),
                     projectedOpenPositions = projectedOpenPositions,
-                    currentDailyRealizedLoss = currentDailyRealizedLoss.toDouble(),
+                    currentDailyRealizedLoss = context.currentDailyRealizedLoss.toDouble(),
                 ),
-            strategyKillSwitchEnabled = config.strategyKillSwitchEnabled,
-            globalKillSwitchEnabled = globalKillSwitchEnabled,
+            strategyKillSwitchEnabled = context.config.strategyKillSwitchEnabled,
+            globalKillSwitchEnabled = context.globalKillSwitchEnabled,
         )
     }
 
@@ -333,4 +352,12 @@ data class RiskEvaluationResult(
     val response: OrderRiskCheckResponse,
     val strategyKillSwitchEnabled: Boolean,
     val globalKillSwitchEnabled: Boolean,
+)
+
+data class RiskEvaluationContext(
+    val config: StrategyRiskConfigEntity,
+    val globalKillSwitchEnabled: Boolean,
+    val positions: List<OrderTrackingService.PositionProjection>,
+    val openOrders: List<OrderTrackingService.OpenOrderProjection>,
+    val currentDailyRealizedLoss: BigDecimal,
 )

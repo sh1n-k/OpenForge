@@ -27,11 +27,25 @@ class UniverseService(
     private val strategyUniverseRepository: StrategyUniverseRepository,
     private val symbolMasterRepository: SymbolMasterRepository,
 ) {
-    fun listUniverses(marketScope: MarketType? = null): List<UniverseSummaryResponse> =
-        (
+    fun listUniverses(marketScope: MarketType? = null): List<UniverseSummaryResponse> {
+        val universes =
             marketScope?.let { universeRepository.findAllByMarketScopeAndIsArchivedFalseOrderByUpdatedAtDesc(it) }
                 ?: universeRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
-        ).map(::toSummary)
+        val universeIds = universes.map { it.id }
+        val symbolCounts =
+            if (universeIds.isEmpty()) {
+                emptyMap()
+            } else {
+                universeSymbolRepository.countByUniverseIdIn(universeIds).associate { it.id to it.total }
+            }
+        val strategyCounts =
+            if (universeIds.isEmpty()) {
+                emptyMap()
+            } else {
+                strategyUniverseRepository.countByUniverseIdIn(universeIds).associate { it.id to it.total }
+            }
+        return universes.map { toSummary(it, symbolCounts[it.id] ?: 0, strategyCounts[it.id] ?: 0) }
+    }
 
     fun createUniverse(request: CreateUniverseRequest): UniverseDetailResponse {
         ensureUniqueUniverseName(request.name, null)
@@ -116,18 +130,6 @@ class UniverseService(
                             "Universe symbols must match the universe market scope",
                         )
                     }
-                    if (
-                        !symbolMasterRepository.existsByMarketScopeAndExchangeAndCode(
-                            universe.marketScope.value,
-                            normalizedExchange,
-                            normalizedSymbol,
-                        )
-                    ) {
-                        throw ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "Unknown symbol for ${universe.marketScope.value}: $normalizedExchange/$normalizedSymbol",
-                        )
-                    }
                     UniverseSymbolEntity(
                         universeId = universe.id,
                         symbol = normalizedSymbol,
@@ -140,6 +142,24 @@ class UniverseService(
 
         if (normalized.map { "${it.symbol}:${it.exchange}" }.distinct().size != normalized.size) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Universe symbols must be unique")
+        }
+        val knownSymbols =
+            if (normalized.isEmpty()) {
+                emptySet()
+            } else {
+                symbolMasterRepository
+                    .findAllByMarketScopeAndCodeIn(
+                        universe.marketScope.value,
+                        normalized.map { it.symbol }.distinct(),
+                    ).map { "${it.code}:${it.exchange}" }
+                    .toSet()
+            }
+        val unknown = normalized.firstOrNull { "${it.symbol}:${it.exchange}" !in knownSymbols }
+        if (unknown != null) {
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Unknown symbol for ${universe.marketScope.value}: ${unknown.exchange}/${unknown.symbol}",
+            )
         }
 
         universeSymbolRepository.deleteAllByUniverseId(universe.id)
@@ -166,14 +186,18 @@ class UniverseService(
         universeRepository.findByIdAndIsArchivedFalse(universeId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Universe not found: $universeId")
 
-    private fun toSummary(universe: UniverseEntity): UniverseSummaryResponse =
+    private fun toSummary(
+        universe: UniverseEntity,
+        symbolCount: Long,
+        strategyCount: Long,
+    ): UniverseSummaryResponse =
         UniverseSummaryResponse(
             id = universe.id,
             name = universe.name,
             description = universe.description,
             marketScope = universe.marketScope,
-            symbolCount = universeSymbolRepository.countByUniverseId(universe.id),
-            strategyCount = strategyUniverseRepository.countByUniverseId(universe.id),
+            symbolCount = symbolCount,
+            strategyCount = strategyCount,
             updatedAt = universe.updatedAt,
         )
 }

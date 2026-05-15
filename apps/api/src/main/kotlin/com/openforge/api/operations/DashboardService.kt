@@ -1,6 +1,5 @@
 package com.openforge.api.operations
 
-import com.openforge.api.strategy.application.OrderTrackingService
 import com.openforge.api.strategy.application.StrategyRuntimeState
 import com.openforge.api.strategy.domain.StrategyExecutionConfigRepository
 import com.openforge.api.strategy.domain.StrategyExecutionRunRepository
@@ -24,27 +23,46 @@ class DashboardService(
     private val orderRequestRepository: StrategyOrderRequestRepository,
     private val orderFillRepository: StrategyOrderFillRepository,
     private val riskEventRepository: StrategyRiskEventRepository,
-    private val orderTrackingService: OrderTrackingService,
     private val systemRiskService: SystemRiskService,
     private val healthStatusService: HealthStatusService,
 ) {
     fun getDashboard(): DashboardResponse {
         val strategies = strategyRepository.findAllByIsArchivedFalseOrderByUpdatedAtDesc()
+        val strategyIds = strategies.map { it.id }
         val strategyMap = strategies.associateBy { it.id }
         val executionConfigs = executionConfigRepository.findAll().associateBy { it.strategyId }
 
         val today = LocalDate.now(ZONE_ID)
         val todayStart = today.atStartOfDay(ZONE_ID).toOffsetDateTime()
+        val allTodayOrders =
+            if (strategyIds.isEmpty()) {
+                emptyList()
+            } else {
+                orderRequestRepository.findAllByStrategyIdInAndRequestedAtAfter(strategyIds, todayStart)
+            }
+        val todayOrderCountsByStrategyId = allTodayOrders.groupingBy { it.strategyId }.eachCount()
+        val allFillsAsc =
+            if (strategyIds.isEmpty()) {
+                emptyList()
+            } else {
+                orderFillRepository.findAllByStrategyIdInOrderByStrategyIdAscFilledAtAsc(strategyIds)
+            }
+        val positionsByStrategyId = currentPositionsByStrategy(allFillsAsc)
+        val latestRunByStrategyId =
+            if (strategyIds.isEmpty()) {
+                emptyMap()
+            } else {
+                executionRunRepository
+                    .findAllByStrategyIdInOrderByStartedAtDesc(strategyIds)
+                    .distinctBy { it.strategyId }
+                    .associateBy { it.strategyId }
+            }
 
         val strategySummaries =
             strategies.map { strategy ->
                 val config = executionConfigs[strategy.id]
-                val lastRun = executionRunRepository.findTopByStrategyIdOrderByStartedAtDesc(strategy.id)
-                val positions = orderTrackingService.currentPositionProjections(strategy.id)
-                val todayOrderCount =
-                    orderRequestRepository
-                        .findAllByStrategyIdAndRequestedAtAfter(strategy.id, todayStart)
-                        .size
+                val lastRun = latestRunByStrategyId[strategy.id]
+                val positions = positionsByStrategyId[strategy.id].orEmpty()
 
                 DashboardStrategySummary(
                     id = strategy.id,
@@ -55,28 +73,17 @@ class DashboardService(
                     lastRunStatus = lastRun?.status?.value,
                     lastRunAt = lastRun?.startedAt,
                     positionCount = positions.size,
-                    todayOrderCount = todayOrderCount,
+                    todayOrderCount = todayOrderCountsByStrategyId[strategy.id] ?: 0,
                 )
             }
 
         val runningStrategyCount = strategySummaries.count { it.executionEnabled }
-
-        val allTodayOrders =
-            strategies.flatMap { strategy ->
-                orderRequestRepository.findAllByStrategyIdAndRequestedAtAfter(strategy.id, todayStart)
-            }
-
-        val allTodayFills =
-            strategies.flatMap { strategy ->
-                orderFillRepository
-                    .findAllByStrategyIdOrderByFilledAtAsc(strategy.id)
-                    .filter { it.filledAt >= todayStart }
-            }
+        val allTodayFills = allFillsAsc.filter { it.filledAt >= todayStart }
         val todayPnl = allTodayFills.sumOf { it.realizedPnl.toDouble() }
 
         val allPositions =
             strategies.flatMap { strategy ->
-                orderTrackingService.currentPositionProjections(strategy.id).map { p ->
+                positionsByStrategyId[strategy.id].orEmpty().map { p ->
                     DashboardPositionItem(
                         strategyId = strategy.id,
                         strategyName = strategy.name,
@@ -89,66 +96,63 @@ class DashboardService(
             }
 
         val recentFills =
-            strategies
-                .flatMap { strategy ->
-                    orderFillRepository
-                        .findAllByStrategyIdOrderByFilledAtDesc(
-                            strategy.id,
-                            PageRequest.of(0, 10),
-                        ).map { fill ->
-                            DashboardFillItem(
-                                id = fill.id,
-                                strategyId = fill.strategyId,
-                                strategyName = strategyMap[fill.strategyId]?.name ?: "",
-                                symbol = fill.symbol,
-                                side = fill.side.value,
-                                quantity = fill.quantity,
-                                price = fill.price.toDouble(),
-                                realizedPnl = fill.realizedPnl.toDouble(),
-                                filledAt = fill.filledAt,
-                            )
-                        }
-                }.sortedByDescending { it.filledAt }
-                .take(10)
+            if (strategyIds.isEmpty()) {
+                emptyList()
+            } else {
+                orderFillRepository
+                    .findAllByStrategyIdInOrderByFilledAtDesc(strategyIds, PageRequest.of(0, 10))
+                    .map { fill ->
+                        DashboardFillItem(
+                            id = fill.id,
+                            strategyId = fill.strategyId,
+                            strategyName = strategyMap[fill.strategyId]?.name ?: "",
+                            symbol = fill.symbol,
+                            side = fill.side.value,
+                            quantity = fill.quantity,
+                            price = fill.price.toDouble(),
+                            realizedPnl = fill.realizedPnl.toDouble(),
+                            filledAt = fill.filledAt,
+                        )
+                    }
+            }
 
         val recentErrors =
             buildList {
-                strategies.forEach { strategy ->
-                    val failedRuns =
-                        executionRunRepository
-                            .findAllByStrategyIdOrderByStartedAtDesc(
-                                strategy.id,
-                                PageRequest.of(0, 5),
-                            ).filter { it.errorMessage != null }
-                    failedRuns.forEach { run ->
-                        add(
-                            DashboardErrorItem(
-                                source = "execution",
-                                strategyId = strategy.id,
-                                strategyName = strategy.name,
-                                message = run.errorMessage!!,
-                                occurredAt = run.completedAt ?: run.startedAt,
-                            ),
-                        )
-                    }
+                if (strategyIds.isNotEmpty()) {
+                    executionRunRepository
+                        .findAllByStrategyIdInAndErrorMessageIsNotNullOrderByStartedAtDesc(
+                            strategyIds,
+                            PageRequest.of(0, 10),
+                        ).forEach { run ->
+                            val strategy = strategyMap[run.strategyId]
+                            add(
+                                DashboardErrorItem(
+                                    source = "execution",
+                                    strategyId = run.strategyId,
+                                    strategyName = strategy?.name,
+                                    message = run.errorMessage!!,
+                                    occurredAt = run.completedAt ?: run.startedAt,
+                                ),
+                            )
+                        }
 
-                    val blockedEvents =
-                        riskEventRepository
-                            .findAllByStrategyIdOrderByOccurredAtDesc(
-                                strategy.id,
-                                PageRequest.of(0, 5),
-                            ).filter { it.eventType == StrategyRiskEventType.ORDER_BLOCKED }
-                    blockedEvents.forEach { event ->
-                        add(
-                            DashboardErrorItem(
-                                source = "risk",
-                                strategyId = strategy.id,
-                                strategyName = strategy.name,
-                                message = event.message,
-                                occurredAt = event.occurredAt,
-                            ),
-                        )
-                    }
+                    riskEventRepository
+                        .findAllByStrategyIdInAndEventTypeOrderByOccurredAtDesc(
+                            strategyIds,
+                            StrategyRiskEventType.ORDER_BLOCKED,
+                            PageRequest.of(0, 10),
+                        ).forEach { event ->
+                            val strategy = strategyMap[event.strategyId]
+                            add(
+                                DashboardErrorItem(
+                                    source = "risk",
+                                    strategyId = event.strategyId,
+                                    strategyName = strategy?.name,
+                                    message = event.message,
+                                    occurredAt = event.occurredAt,
+                                ),
+                            )
+                        }
                 }
             }.sortedByDescending { it.occurredAt }
                 .take(10)

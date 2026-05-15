@@ -29,7 +29,7 @@ if (!tasks.has(task)) {
 
 const env = { ...process.env, ...readEnvFile(path.join(rootDir, ".env")) };
 
-if (process.platform === "win32") {
+if (process.platform === "win32" && task !== "dev-all") {
   await run("powershell", [
     "-ExecutionPolicy",
     "Bypass",
@@ -140,12 +140,13 @@ function devApiEnv() {
   const apiPort = env.API_PORT || env.SERVER_PORT || "8080";
   const webPort = env.WEB_PORT || "3000";
   const javaHome = env.JAVA_HOME || findJavaHome();
-  const pathValue = javaHome ? `${path.join(javaHome, "bin")}${path.delimiter}${env.PATH || ""}` : env.PATH;
+  const currentPath = getPathEnv();
+  const pathValue = javaHome ? `${path.join(javaHome, "bin")}${path.delimiter}${currentPath}` : currentPath;
 
   return {
     ...env,
     ...(javaHome ? { JAVA_HOME: javaHome } : {}),
-    ...(pathValue ? { PATH: pathValue } : {}),
+    ...pathEnv(pathValue),
     API_PORT: apiPort,
     SERVER_PORT: apiPort,
     WEB_PORT: webPort,
@@ -171,6 +172,22 @@ function devWebEnv() {
 }
 
 function findJavaHome() {
+  if (process.platform === "win32") {
+    for (const candidate of [
+      process.env.JAVA_HOME,
+      "F:\\DevTools\\Apps\\Java21",
+      "C:\\Program Files\\Microsoft\\jdk-21.0.10.7-hotspot",
+      "C:\\Program Files\\Microsoft\\jdk-21",
+    ]) {
+      if (candidate && fs.existsSync(path.join(candidate, "bin", "java.exe"))) {
+        return candidate;
+      }
+    }
+
+    const javaPath = spawnSync("where.exe", ["java"], { encoding: "utf8" }).stdout?.split(/\r?\n/)[0]?.trim();
+    return javaPath ? path.dirname(path.dirname(javaPath)) : "";
+  }
+
   for (const candidate of [
     "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home",
     "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home",
@@ -199,6 +216,8 @@ async function startWeb() {
 }
 
 async function startAll() {
+  await runDockerCompose(["up", "-d", "db"]);
+
   const children = new Set();
   let shuttingDown = false;
 
@@ -220,7 +239,10 @@ async function startAll() {
     stopAll();
   });
 
-  const apiProcess = spawnPrefixed("api", "\u001b[36m", "./gradlew", ["--no-daemon", "bootRun"], {
+  const gradleCommand = process.platform === "win32" ? ".\\gradlew.bat" : "./gradlew";
+  const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+  const apiProcess = spawnPrefixed("api", "\u001b[36m", gradleCommand, ["--no-daemon", "bootRun"], {
     cwd: path.join(rootDir, "apps", "api"),
     env: devApiEnv(),
   });
@@ -228,12 +250,17 @@ async function startAll() {
 
   await sleep(2_000);
 
+  if (apiProcess.spawnError) {
+    stopAll();
+    throw apiProcess.spawnError;
+  }
+
   if (apiProcess.exitCode !== null) {
     stopAll();
     throw new Error("API process exited before Web startup.");
   }
 
-  const webProcess = spawnPrefixed("web", "\u001b[35m", "pnpm", ["dev"], {
+  const webProcess = spawnPrefixed("web", "\u001b[35m", pnpmCommand, ["dev"], {
     cwd: path.join(rootDir, "apps", "web"),
     env: devWebEnv(),
   });
@@ -242,7 +269,7 @@ async function startAll() {
   await new Promise((resolve, reject) => {
     const onExit = (name, code, signal) => {
       stopAll();
-      if (shuttingDown && (signal === "SIGTERM" || signal === "SIGINT")) {
+      if (shuttingDown) {
         resolve();
         return;
       }
@@ -251,21 +278,28 @@ async function startAll() {
       reject(new Error(`${name} process exited with ${detail}`));
     };
 
+    apiProcess.once("error", reject);
+    webProcess.once("error", reject);
     apiProcess.once("exit", (code, signal) => onExit("API", code, signal));
     webProcess.once("exit", (code, signal) => onExit("Web", code, signal));
   });
 }
 
 function spawnPrefixed(name, color, command, args, options) {
-  const child = spawn(command, args, {
+  const commandLine = process.platform === "win32" ? windowsCommandLine(command, args) : { command, args };
+  const child = spawn(commandLine.command, commandLine.args, {
     cwd: options.cwd,
-    detached: true,
+    detached: process.platform !== "win32",
     env: options.env,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
   child.stdout.pipe(createPrefixStream(name, color, process.stdout));
   child.stderr.pipe(createPrefixStream(name, color, process.stdout));
+  child.once("error", (error) => {
+    child.spawnError = error;
+    process.stdout.write(`[${name}] Failed to start ${command}: ${error.message}\n`);
+  });
   child.once("exit", () => {
     child.stdout.destroy();
     child.stderr.destroy();
@@ -306,7 +340,59 @@ function colorEnabled() {
   return !env.NO_COLOR && env.TERM !== "dumb";
 }
 
+function getPathEnv() {
+  if (process.platform === "win32") {
+    return env.Path || env.PATH || process.env.Path || process.env.PATH || "";
+  }
+
+  return env.PATH || process.env.PATH || "";
+}
+
+function pathEnv(value) {
+  if (!value) {
+    return {};
+  }
+
+  return process.platform === "win32" ? { Path: value, PATH: value } : { PATH: value };
+}
+
+function windowsCommandShell() {
+  return env.ComSpec || process.env.ComSpec || path.join(process.env.SystemRoot || "C:\\Windows", "System32", "cmd.exe");
+}
+
+function windowsCommandLine(command, args) {
+  if (command.toLowerCase() === "pnpm.cmd") {
+    const pnpm = findPnpmJs();
+    if (pnpm) {
+      return { command: pnpm.node, args: [pnpm.script, ...args] };
+    }
+  }
+
+  return { command: windowsCommandShell(), args: ["/d", "/c", command, ...args] };
+}
+
+function findPnpmJs() {
+  const pnpmCommand = spawnSync("where.exe", ["pnpm.CMD"], {
+    encoding: "utf8",
+    env: { ...env, ...pathEnv(getPathEnv()) },
+  }).stdout?.split(/\r?\n/)[0]?.trim();
+
+  if (!pnpmCommand) {
+    return null;
+  }
+
+  const baseDir = path.dirname(pnpmCommand);
+  const node = path.join(baseDir, "node.exe");
+  const script = path.join(baseDir, "node_modules", "corepack", "dist", "pnpm.js");
+  return fs.existsSync(node) && fs.existsSync(script) ? { node, script } : null;
+}
+
 function terminateChild(child) {
+  if (process.platform === "win32") {
+    spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    return;
+  }
+
   try {
     process.kill(-child.pid, "SIGTERM");
   } catch {

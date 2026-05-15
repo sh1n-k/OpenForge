@@ -30,6 +30,16 @@ interface StrategyVersionRepository : JpaRepository<StrategyVersionEntity, UUID>
     fun findTopByStrategyIdOrderByVersionNumberDesc(strategyId: UUID): StrategyVersionEntity?
 
     fun countByStrategyId(strategyId: UUID): Long
+
+    @Query(
+        """
+        select v.strategyId as id, count(v) as total
+        from StrategyVersionEntity v
+        where v.strategyId in :strategyIds
+        group by v.strategyId
+        """,
+    )
+    fun countByStrategyIdIn(strategyIds: Collection<UUID>): List<UuidCount>
 }
 
 interface UniverseRepository : JpaRepository<UniverseEntity, UUID> {
@@ -59,9 +69,21 @@ interface UniverseRepository : JpaRepository<UniverseEntity, UUID> {
 interface UniverseSymbolRepository : JpaRepository<UniverseSymbolEntity, UUID> {
     fun findAllByUniverseIdOrderBySortOrderAscSymbolAscExchangeAsc(universeId: UUID): List<UniverseSymbolEntity>
 
+    fun findAllByUniverseIdInOrderByUniverseIdAscSortOrderAscSymbolAscExchangeAsc(universeIds: Collection<UUID>): List<UniverseSymbolEntity>
+
     fun deleteAllByUniverseId(universeId: UUID)
 
     fun countByUniverseId(universeId: UUID): Long
+
+    @Query(
+        """
+        select s.universeId as id, count(s) as total
+        from UniverseSymbolEntity s
+        where s.universeId in :universeIds
+        group by s.universeId
+        """,
+    )
+    fun countByUniverseIdIn(universeIds: Collection<UUID>): List<UuidCount>
 }
 
 interface StrategyUniverseRepository : JpaRepository<StrategyUniverseEntity, UUID> {
@@ -74,4 +96,29 @@ interface StrategyUniverseRepository : JpaRepository<StrategyUniverseEntity, UUI
     fun countByStrategyId(strategyId: UUID): Long
 
     fun countByUniverseId(universeId: UUID): Long
+
+    @Query(
+        """
+        select su.strategyId as id, count(su) as total
+        from StrategyUniverseEntity su
+        where su.strategyId in :strategyIds
+        group by su.strategyId
+        """,
+    )
+    fun countByStrategyIdIn(strategyIds: Collection<UUID>): List<UuidCount>
+
+    @Query(
+        """
+        select su.universeId as id, count(su) as total
+        from StrategyUniverseEntity su
+        where su.universeId in :universeIds
+        group by su.universeId
+        """,
+    )
+    fun countByUniverseIdIn(universeIds: Collection<UUID>): List<UuidCount>
+}
+
+interface UuidCount {
+    val id: UUID
+    val total: Long
 }

@@ -16,7 +16,6 @@
     loadStrategyExecution,
     loadStrategyExecutionRuns,
     loadStrategyOrderCandidates,
-    loadStrategyOrderRequests,
     loadStrategyOrderRequestsWithEvents,
     loadStrategyPositions,
     loadStrategyRisk,
@@ -122,8 +121,14 @@
         ) {
           return { dashboard: demoDashboard(), systemRisk: demoSystemRisk() };
         }
-        const [dashboard, systemRisk] = await Promise.all([loadDashboard(), loadSystemRisk()]);
-        return { dashboard, systemRisk };
+        const dashboard = await loadDashboard();
+        return {
+          dashboard,
+          systemRisk: {
+            killSwitchEnabled: dashboard.globalKillSwitchEnabled,
+            updatedAt: null,
+          },
+        };
       }
       case "strategies":
         return { strategies: await loadStrategies() };
@@ -136,7 +141,6 @@
           runs,
           signals,
           orderCandidates,
-          orderRequests,
           riskConfig,
           riskEvents,
           positions,
@@ -151,7 +155,6 @@
           loadStrategyExecutionRuns(strategyId),
           loadStrategySignals(strategyId),
           loadStrategyOrderCandidates(strategyId),
-          loadStrategyOrderRequests(strategyId),
           loadStrategyRisk(strategyId),
           loadStrategyRiskEvents(strategyId),
           loadStrategyPositions(strategyId),
@@ -167,7 +170,7 @@
           runs,
           signals,
           orderCandidates,
-          orderRequests,
+          orderRequests: requestsWithEvents.map((item) => item.orderRequest),
           riskConfig,
           riskEvents,
           positions,
